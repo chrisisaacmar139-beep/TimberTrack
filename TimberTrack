@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimberTrack - Industrial Lumber Inventory Tracker</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --app-base-font-size: 14px;
+      --table-font-scale: 1.0;
+      --tag-pack-font-size: 48px;
+      --tag-dim-font-size: 38px;
+    }
+    html, body {
+      font-size: var(--app-base-font-size);
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .scale-table { font-size: calc(var(--app-base-font-size) * var(--table-font-scale)); }
+    .tag-pack-heading { font-size: var(--tag-pack-font-size) !important; }
+    .tag-dim-heading { font-size: var(--tag-dim-font-size) !important; }
+
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] { -moz-appearance: textfield; }
+
+    #drawerOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.6);
+      z-index: 9999;
+      justify-content: flex-end;
+    }
+    #settingsModal, #deleteConfirmModal, #tagPreviewModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.6);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    @page { size: 8.5in 11in; margin: 0.3in 0.25in; }
+    @media print {
+      body * { visibility: hidden; }
+      #printableTagContainer, #printableTagContainer * { visibility: visible; }
+      #printableTagContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 8in;
+        background: #ffffff !important;
+        color: #000000 !important;
+        display: block !important;
+      }
+      .bunk-tag-card {
+        width: 8in;
+        height: 5in;
+        page-break-inside: avoid;
+        margin-bottom: 0.5in;
+        border: 4px solid #000000 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-800">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-3 py-2.5 sm:px-6 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      
+      <div class="flex items-center space-x-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-black text-lg">
+          🌲
+        </div>
+        <div class="truncate">
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base sm:text-lg font-black tracking-tight text-slate-900 leading-tight">TimberTrack</h1>
+            <span class="hidden sm:inline px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-100 text-amber-800 border border-amber-300">YARD</span>
+          </div>
+          <p class="text-[11px] text-slate-500 hidden md:block">White Pine Staging & Inventory</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 shrink-0">
+        <div id="googleAccountArea" class="flex items-center bg-slate-100 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs text-slate-700">
+          <button type="button" onclick="handleSignInGoogle()" class="text-amber-700 font-bold text-xs">Sign In</button>
+        </div>
+
+        <button type="button" onclick="openSettingsModal()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-300 text-xs font-semibold">
+          ⚙️ Settings
+        </button>
+
+        <button type="button" onclick="openEntryDrawer()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-500/20 active:scale-95">
+          + Add Stock
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- DASHBOARD -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4">
+
+    <!-- METRICS & FILTERS -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+      
+      <!-- Stage Filter -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Milling Profile Stage</span>
+          <span id="activeStageLabel" class="text-[11px] font-mono font-bold text-amber-700">Rough Stock</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button type="button" onclick="setStageFilter('Rough')" id="filterBtnRough" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">Rough</button>
+          <button type="button" onclick="setStageFilter('MILLED')" id="filterBtnMilled" class="py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900">All Milled</button>
+          <button type="button" onclick="setStageFilter('ALL')" id="filterBtnAll" class="py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900">All Stock</button>
+        </div>
+        <div class="mt-2">
+          <select id="subStageSelector" onchange="setSpecificStageFilter(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-amber-500">
+            <option value="ALL_STAGES">Filter by Specific Profile (Select)...</option>
+            <option value="Rough">Rough (Default)</option>
+            <option value="D4S">D4S</option>
+            <option value="V Match">V Match</option>
+            <option value="Sq Edge T&G">Sq Edge T&G</option>
+            <option value="Shiplap">Shiplap</option>
+            <option value="Channel Lap Shiplap">Channel Lap Shiplap</option>
+            <option value="Cove">Cove</option>
+            <option value="OTHER">Other Custom Milling</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Quick Width Filter -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Width Filter</span>
+          <span id="activeWidthLabel" class="text-[11px] font-mono font-bold text-amber-700">All Widths</span>
+        </div>
+        <div class="grid grid-cols-7 gap-1" id="widthFilterContainer">
+          <button type="button" onclick="setWidthFilter('ALL')" id="wb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+          <button type="button" onclick="setWidthFilter('4')" id="wb-4" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">4"</button>
+          <button type="button" onclick="setWidthFilter('6')" id="wb-6" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">6"</button>
+          <button type="button" onclick="setWidthFilter('8')" id="wb-8" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">8"</button>
+          <button type="button" onclick="setWidthFilter('10')" id="wb-10" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">10"</button>
+          <button type="button" onclick="setWidthFilter('12')" id="wb-12" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">12"</button>
+          <button type="button" onclick="setWidthFilter('RW')" id="wb-RW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">RW</button>
+        </div>
+      </div>
+
+      <!-- Live Volume Totals -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex items-center justify-between shadow-sm">
+        <div>
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Visible Volume</span>
+          <div class="text-xl sm:text-2xl font-black text-amber-700 font-mono" id="metricTotalBF">0.0 <span class="text-xs font-sans text-slate-500">BF</span></div>
+          <span class="text-[11px] text-slate-500" id="metricPackCount">0 Packs</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Available Pieces</span>
+          <div class="text-lg sm:text-xl font-black text-emerald-700 font-mono" id="metricTotalPieces">0 <span class="text-xs font-sans text-slate-500">pcs</span></div>
+          <span class="text-[10px] text-rose-600 font-medium" id="metricPendingPieces">0 held</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+      <div class="p-3 sm:p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50">
+        <div class="flex items-center space-x-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+          <h2 class="text-xs sm:text-sm font-bold tracking-wide text-slate-900 uppercase" id="inventoryTableHeading">Rough Lumber Stock</h2>
+        </div>
+        <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search packs, grade, stage, notes..." class="w-full sm:w-64 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" />
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse scale-table">
+          <thead>
+            <tr class="border-b border-slate-200 bg-slate-100 text-[11px] font-bold text-slate-600 uppercase font-mono">
+              <th class="py-2.5 px-3">Pack & Grade</th>
+              <th class="py-2.5 px-3 whitespace-nowrap">Profile & Milling Stage</th>
+              <th class="py-2.5 px-3">Pieces Count</th>
+              <th class="py-2.5 px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
+              <th class="py-2.5 px-3">Board Feet</th>
+              <th class="py-2.5 px-3 whitespace-nowrap">Pricing (Rough & Milled)</th>
+              <th class="py-2.5 px-3 min-w-[170px]">Stage & Customer Hold</th>
+              <th class="py-2.5 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
+        </table>
+      </div>
+      <div id="emptyInventoryState" class="hidden p-8 text-center text-slate-500 text-xs">No packs found matching current filters.</div>
+    </div>
+
+  </main>
+
+  <!-- ADD / EDIT DRAWER -->
+  <div id="drawerOverlay">
+    <div class="w-full max-w-lg bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl overflow-y-auto">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider" id="drawerTitle">Add Yard Stock</h3>
+          <p class="text-[11px] text-slate-500">Sequential Entry Sequence</p>
+        </div>
+        <button type="button" onclick="closeEntryDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
+      </div>
+
+      <form id="lumberEntryForm" onsubmit="handleSaveLumberPack(event)" class="p-4 space-y-3.5 flex-1">
+        <input type="hidden" id="drawerEditId" value="" />
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Species</label>
+            <input type="text" id="drawerSpecies" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Eastern White Pine" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Grade</label>
+            <select id="drawerGrade" onchange="recalcDrawerBF()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-700">
+              <option value="1&2 Common">1&2 Common (Green)</option>
+              <option value="Clear">Clear / Select (Yellow)</option>
+              <option value="Low Grade">Low Grade (Red)</option>
+              <option value="Stain">Stain (Blue)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- MILLING STAGE SELECTOR (D4S & COVE INCLUDED) -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <label class="block text-[11px] font-bold text-amber-800 uppercase tracking-wider">Milling Profile Stage</label>
+          <select id="drawerStageSelect" onchange="handleDrawerStageChange(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
+            <option value="Rough">Rough (Default)</option>
+            <option value="D4S">D4S</option>
+            <option value="V Match">V Match</option>
+            <option value="Sq Edge T&G">Sq Edge T&G</option>
+            <option value="Shiplap">Shiplap</option>
+            <option value="Channel Lap Shiplap">Channel Lap Shiplap</option>
+            <option value="Cove">Cove</option>
+            <option value="Other">Other (Specify Custom Pattern)...</option>
+          </select>
+
+          <div id="drawerOtherStageWrapper" class="hidden pt-1.5">
+            <label class="block text-[10px] uppercase font-bold text-sky-700 tracking-wider mb-1">Specify Other Milling Pattern:</label>
+            <input type="text" id="drawerStageOtherDetail" class="w-full bg-white border border-sky-400 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" placeholder="e.g. Bullnose Siding..." />
+          </div>
+        </div>
+
+        <!-- MOISTURE CONTENT RANGE (DEFAULT 10-15%) & LOCATION -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Moisture Range (%)</label>
+            <div class="flex items-center space-x-1.5">
+              <input type="number" id="drawerMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-center text-slate-800" value="10" />
+              <span class="text-xs font-bold text-slate-400">-</span>
+              <input type="number" id="drawerMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-center text-slate-800" value="15" />
+              <span class="text-xs font-bold text-slate-500">%</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Yard Location</label>
+            <input type="text" id="drawerLocation" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Air Bunk 2" />
+          </div>
+        </div>
+
+        <!-- 1. THICKNESS -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-[11px] font-bold text-amber-800 uppercase">1. Thickness</div>
+          <input type="number" id="drawerThickness" step="0.125" oninput="setDrawerThickness(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="1" />
+          <div class="grid grid-cols-6 gap-1" id="thickBtnGroup">
+            <button type="button" onclick="setDrawerThickness(1)" data-val="1" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">1"</button>
+            <button type="button" onclick="setDrawerThickness(1.25)" data-val="1.25" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">1¼"</button>
+            <button type="button" onclick="setDrawerThickness(1.5)" data-val="1.5" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">1½"</button>
+            <button type="button" onclick="setDrawerThickness(2)" data-val="2" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">2"</button>
+            <button type="button" onclick="setDrawerThickness(2.5)" data-val="2.5" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">2½"</button>
+            <button type="button" onclick="setDrawerThickness(3)" data-val="3" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">3"</button>
+          </div>
+        </div>
+
+        <!-- 2. WIDTH -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-[11px] font-bold text-amber-800 uppercase">2. Width</div>
+          <input type="number" id="drawerWidth" step="0.125" oninput="setDrawerWidth(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="6" />
+          <div class="grid grid-cols-6 gap-1" id="widthBtnGroup">
+            <button type="button" onclick="setDrawerWidth(4)" data-val="4" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">4"</button>
+            <button type="button" onclick="setDrawerWidth(6)" data-val="6" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">6"</button>
+            <button type="button" onclick="setDrawerWidth(8)" data-val="8" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">8"</button>
+            <button type="button" onclick="setDrawerWidth(10)" data-val="10" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">10"</button>
+            <button type="button" onclick="setDrawerWidth(12)" data-val="12" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">12"</button>
+            <button type="button" onclick="setDrawerWidth(0)" data-val="0" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">RW</button>
+          </div>
+        </div>
+
+        <!-- 3. LENGTH -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-[11px] font-bold text-amber-800 uppercase">3. Length</div>
+          <input type="number" id="drawerLength" step="0.5" oninput="setDrawerLength(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="12" />
+          <div class="grid grid-cols-7 gap-1" id="lenBtnGroup">
+            <button type="button" onclick="setDrawerLength(6)" data-val="6" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">6'</button>
+            <button type="button" onclick="setDrawerLength(8)" data-val="8" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">8'</button>
+            <button type="button" onclick="setDrawerLength(10)" data-val="10" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">10'</button>
+            <button type="button" onclick="setDrawerLength(12)" data-val="12" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">12'</button>
+            <button type="button" onclick="setDrawerLength(14)" data-val="14" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">14'</button>
+            <button type="button" onclick="setDrawerLength(16)" data-val="16" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">16'</button>
+            <button type="button" onclick="setDrawerLength(0)" data-val="0" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">RL</button>
+          </div>
+        </div>
+
+        <!-- Pieces & Notes -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">4. Pieces Count</label>
+            <input type="number" id="drawerPieces" oninput="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" placeholder="Number of pieces..." />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
+            <input type="text" id="drawerNotes" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Tight knot batch" />
+          </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-1">
+          <div class="flex justify-between font-bold"><span class="text-slate-600">Volume:</span><span id="drawerLiveBF" class="text-amber-800 font-mono">0.0 BF</span></div>
+          <div class="flex justify-between"><span class="text-slate-600">Applied Rate:</span><span id="drawerLiveRate" class="text-slate-700 font-mono">$1.65 / BF</span></div>
+          <div class="flex justify-between border-t border-amber-200 pt-1"><span class="text-slate-700 font-bold">Estimated Total:</span><span id="drawerLiveTotal" class="text-emerald-700 font-mono font-bold">$0.00</span></div>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl text-sm shadow-md shadow-amber-500/20">
+          Save Pack
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- COMPLETE SETTINGS MODAL -->
+  <div id="settingsModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div class="flex items-center space-x-2">
+          <span class="text-amber-600 text-base">⚙️</span>
+          <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Yard Settings & Configuration</h4>
+        </div>
+        <button type="button" onclick="closeSettingsModal()" class="text-slate-500 hover:text-slate-800 font-bold text-lg w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">✕</button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="grid grid-cols-5 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold text-center">
+        <button type="button" onclick="switchSettingsTab('pricing')" id="tabBtnPricing" class="py-1.5 rounded-lg bg-amber-500 text-white shadow">Pricing</button>
+        <button type="button" onclick="switchSettingsTab('defaults')" id="tabBtnDefaults" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Defaults</button>
+        <button type="button" onclick="switchSettingsTab('fonts')" id="tabBtnFonts" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Fonts</button>
+        <button type="button" onclick="switchSettingsTab('cloud')" id="tabBtnCloud" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Cloud</button>
+        <button type="button" onclick="switchSettingsTab('backup')" id="tabBtnBackup" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Backup</button>
+      </div>
+
+      <!-- TAB 1: PRICING SCHEDULE -->
+      <div id="settingsTabPricing" class="space-y-3">
+        <div class="flex justify-between items-center">
+          <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Lumber Grade Pricing Schedule ($ / BF)</h5>
+          <span class="text-[10px] text-slate-500">Board foot pricing schedule</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+          
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+            <span class="font-bold text-emerald-700 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 1&2 Common
+            </span>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <input type="number" id="cfgRate12CommonRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <input type="number" id="cfgRate12CommonMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+            <span class="font-bold text-amber-700 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span> Clear / Select
+            </span>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <input type="number" id="cfgRateSelectRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <input type="number" id="cfgRateSelectMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+            <span class="font-bold text-rose-700 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span> Low Grade
+            </span>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <input type="number" id="cfgRateLowGradeRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <input type="number" id="cfgRateLowGradeMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+            <span class="font-bold text-sky-700 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-500"></span> Stain
+            </span>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <input type="number" id="cfgRateStainRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <input type="number" id="cfgRateStainMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TAB 2: YARD OPERATIONAL DEFAULTS -->
+      <div id="settingsTabDefaults" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Yard Operations Defaults</h5>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Species</label>
+            <input type="text" id="cfgDefaultSpecies" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800" />
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Starting View Filter</label>
+            <select id="cfgDefaultStageFilter" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="Rough">Rough Stock (Default)</option>
+              <option value="MILLED">All Milled Stock</option>
+              <option value="ALL">Show All Stock</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Thickness (Inches)</label>
+            <input type="number" id="cfgDefaultThickness" step="0.125" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Width (Inches)</label>
+            <input type="number" id="cfgDefaultWidth" step="0.125" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Length (Feet)</label>
+            <input type="number" id="cfgDefaultLength" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
+            <div class="flex items-center space-x-1.5">
+              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
+              <span>-</span>
+              <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: TYPOGRAPHY & SCALING -->
+      <div id="settingsTabFonts" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Typography & Display Scaling</h5>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">App UI Base Text Size</label>
+            <select id="cfgBaseFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="12px">Compact Mobile (12px)</option>
+              <option value="14px">Standard Clean (14px)</option>
+              <option value="16px">Large Yard View (16px)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Inventory Table Font Scale</label>
+            <select id="cfgTableFontScale" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="0.9">Small Condensed (0.9x)</option>
+              <option value="1.0">Standard Normal (1.0x)</option>
+              <option value="1.15">Enlarged Text (1.15x)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Tag Pack Number Size</label>
+            <select id="cfgTagPackFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="40px">Large (40px)</option>
+              <option value="48px">Extra Large (48px)</option>
+              <option value="56px">Oversized / Mega (56px)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Tag Dimension Size</label>
+            <select id="cfgTagDimFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="32px">Large (32px)</option>
+              <option value="38px">Extra Large (38px)</option>
+              <option value="46px">Oversized (46px)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: FIREBASE CLOUD SYNC -->
+      <div id="settingsTabCloud" class="space-y-3 hidden">
+        <div class="flex items-center justify-between">
+          <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Firebase / Cloud Configuration</h5>
+          <span class="text-[10px] text-slate-500">timbertrack-6c42d</span>
+        </div>
+        <p class="text-xs text-slate-500">Google Firebase project credentials:</p>
+        <textarea id="cfgFirebaseConfig" rows="6" class="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500"></textarea>
+      </div>
+
+      <!-- TAB 5: BACKUP & DATA MANAGEMENT -->
+      <div id="settingsTabBackup" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Inventory Data Management</h5>
+        <p class="text-xs text-slate-500 leading-relaxed">Export your lumber inventory to raw JSON format for safe-keeping, or import lots from an external backup.</p>
+        
+        <div class="space-y-2">
+          <textarea id="cfgBackupArea" rows="5" placeholder="JSON export/import data appears here..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-[11px] font-mono text-slate-800 focus:outline-none"></textarea>
+          <div class="flex space-x-2">
+            <button type="button" onclick="exportInventoryJSON()" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg border border-slate-300">Export All Data</button>
+            <button type="button" onclick="importInventoryJSON()" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-amber-700 text-xs font-bold rounded-lg border border-slate-300">Import Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+        <button type="button" onclick="resetSettingsToFactory()" class="text-xs text-slate-500 hover:text-rose-600 underline">
+          Reset to Factory Defaults
+        </button>
+        <div class="space-x-2">
+          <button type="button" onclick="closeSettingsModal()" class="px-3 py-1.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+          <button type="button" onclick="saveAppSettings()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-500/20">Save Settings</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DELETE MODAL -->
+  <div id="deleteConfirmModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+      <h4 class="text-sm font-bold text-slate-900 uppercase">Confirm Pack Deletion</h4>
+      <p class="text-xs text-slate-600" id="deleteModalMessage">Delete this pack?</p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button type="button" onclick="closeDeleteModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+        <button type="button" onclick="confirmExecuteDelete()" class="flex-1 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUNK TAG MODAL -->
+  <div id="tagPreviewModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-4 space-y-4 max-h-[90vh] overflow-y-auto shadow-xl">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+        <span class="text-xs font-bold text-slate-900 uppercase">Bunk Tag Preview (8" × 5")</span>
+        <div class="space-x-2">
+          <button type="button" onclick="window.print()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded text-xs shadow-sm">Print</button>
+          <button type="button" onclick="closeTagModal()" class="text-slate-500 hover:text-slate-800 font-bold text-sm">✕</button>
+        </div>
+      </div>
+      <div id="modalTagPreviewArea" class="bg-white text-black p-6 border-4 border-black rounded font-sans"></div>
+    </div>
+  </div>
+  <div id="printableTagContainer" class="hidden"></div>
+
+  <!-- APP LOGIC -->
+  <script>
+    var DEFAULT_CONFIG = {
+      rates: {
+        "1&2 Common": { rough: 1.65, milled: 2.00 },
+        "Clear": { rough: 2.40, milled: 2.65 },
+        "Select": { rough: 2.40, milled: 2.65 },
+        "Low Grade": { rough: 1.20, milled: 1.40 },
+        "Stain": { rough: 1.20, milled: 1.40 }
+      },
+      defaults: {
+        species: "Eastern White Pine",
+        stageFilter: "Rough",
+        thickness: 1,
+        width: 6,
+        length: 12,
+        moistureMin: 10,
+        moistureMax: 15
+      },
+      fonts: {
+        baseSize: "14px",
+        tableScale: "1.0",
+        tagPackSize: "48px",
+        tagDimSize: "38px"
+      },
+      firebase: {
+        apiKey: "AIzaSyDzLA2Ihnw80A60IMw7Bs9NbK",
+        authDomain: "timbertrack-6c42d.firebaseapp.com",
+        projectId: "timbertrack-6c42d",
+        storageBucket: "timbertrack-6c42d.firebasestorage.app",
+        messagingSenderId: "876066859760",
+        appId: "1:876066859760:web:839654a3f5e2"
+      }
+    };
+
+    var appConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    try {
+      var savedCfg = localStorage.getItem('timbertrack_settings');
+      if (savedCfg) {
+        var parsed = JSON.parse(savedCfg);
+        appConfig = Object.assign({}, DEFAULT_CONFIG, parsed);
+        if (!appConfig.rates) appConfig.rates = DEFAULT_CONFIG.rates;
+        if (!appConfig.defaults) appConfig.defaults = DEFAULT_CONFIG.defaults;
+        if (!appConfig.fonts) appConfig.fonts = DEFAULT_CONFIG.fonts;
+      }
+    } catch(e) {}
+
+    var SEED_INVENTORY = [
+      { id: "PK-4012", species: "Eastern White Pine", grade: "1&2 Common", stage: "Rough", stageDetail: "", thickness: 1, width: 6, length: 12, pieces: 48, location: "Air Bunk 1", notes: "Air dry batch 2. Tight knots.", moisture: "10-15", status: "IN_STOCK", customer: "", pendingPieces: 0 },
+      { id: "PK-4022", species: "Eastern White Pine", grade: "1&2 Common", stage: "D4S", stageDetail: "", thickness: 1, width: 6, length: 16, pieces: 34, location: "Shed Bay 3", notes: "Clean planed stock.", moisture: "10-14", status: "IN_STOCK", customer: "", pendingPieces: 0 },
+      { id: "PK-4015", species: "Eastern White Pine", grade: "Clear", stage: "Sq Edge T&G", stageDetail: "", thickness: 1, width: 8, length: 12, pieces: 45, location: "Kiln Bay A", notes: "Hold for trim/flooring order.", moisture: "8-10", status: "PENDING_SALE", customer: "Highland Millwork", pendingPieces: 30 },
+      { id: "PK-6310", species: "Eastern White Pine", grade: "Low Grade", stage: "Shiplap", stageDetail: "", thickness: 1, width: 8, length: 12, pieces: 20, location: "Yard Shed 1", notes: "Barn siding run.", moisture: "12-16", status: "IN_STOCK", customer: "", pendingPieces: 0 },
+      { id: "PK-4018", species: "Eastern White Pine", grade: "Stain", stage: "Cove", stageDetail: "", thickness: 1.5, width: 10, length: 14, pieces: 40, location: "Yard Shed 2", notes: "Cove molding profile.", moisture: "11-15", status: "IN_STOCK", customer: "", pendingPieces: 0 }
+    ];
+
+    var inventory = SEED_INVENTORY;
+    try {
+      var savedInv = localStorage.getItem('timbertrack_inventory');
+      if (savedInv) inventory = JSON.parse(savedInv);
+    } catch(e) {}
+
+    var currentStageFilter = (appConfig.defaults && appConfig.defaults.stageFilter) || "Rough";
+    var currentWidthFilter = "ALL";
+    var searchQuery = "";
+    var itemPendingDeletionId = null;
+
+    var auth = null;
+    var db = null;
+    var currentUser = null;
+
+    function initFirebaseCloud() {
+      if (appConfig.firebase && typeof firebase !== 'undefined') {
+        try {
+          if (!firebase.apps.length) firebase.initializeApp(appConfig.firebase);
+          auth = firebase.auth();
+          db = firebase.firestore();
+
+          auth.onAuthStateChanged(function(user) {
+            currentUser = user;
+            updateGoogleAccountUI();
+            if (user) listenToFirestoreSync(user.uid);
+          });
+        } catch(e) {}
+      }
+      updateGoogleAccountUI();
+    }
+
+    function updateGoogleAccountUI() {
+      var container = document.getElementById('googleAccountArea');
+      if (!container) return;
+      if (currentUser) {
+        container.innerHTML = '<span class="text-emerald-700 font-bold text-xs truncate max-w-[90px]">' + (currentUser.displayName || currentUser.email) + '</span>' +
+          '<button type="button" onclick="handleSignOutGoogle()" class="text-slate-500 hover:text-rose-600 ml-1.5 text-[10px]">Logout</button>';
+      } else {
+        container.innerHTML = '<button type="button" onclick="handleSignInGoogle()" class="text-amber-700 font-bold text-xs">Sign In</button>';
+      }
+    }
+
+    function handleSignInGoogle() {
+      if (!auth) { alert("Firebase not initialized."); return; }
+      var provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(function(err){ alert("Sign-in: " + err.message); });
+    }
+
+    function handleSignOutGoogle() {
+      if (auth) auth.signOut();
+    }
+
+    function listenToFirestoreSync(userId) {
+      if (!db) return;
+      db.collection('users').doc(userId).collection('inventory').onSnapshot(function(snap) {
+        if (!snap.empty) {
+          var cloudItems = [];
+          snap.forEach(function(doc){ cloudItems.push(doc.data()); });
+          inventory = cloudItems;
+          localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+          renderInventory();
+        }
+      });
+    }
+
+    function syncCloudItem(item) {
+      if (db && currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('inventory').doc(item.id).set(item, { merge: true });
+      }
+    }
+
+    function removeCloudItem(id) {
+      if (db && currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('inventory').doc(id).delete();
+      }
+    }
+
+    function calculateBF(t, w, l, p) {
+      t = parseFloat(t) || 0;
+      w = parseFloat(w) || 0;
+      l = parseFloat(l) || 0;
+      p = parseInt(p) || 0;
+      if (w === 0) return 0;
+      return (t * w * l * p) / 12;
+    }
+
+    function getGradeRates(grade) {
+      var g = grade === "Select" ? "Clear" : grade;
+      return (appConfig.rates && (appConfig.rates[g] || appConfig.rates[grade])) || appConfig.rates["1&2 Common"];
+    }
+
+    function getGradeBadgeHtml(grade) {
+      var g = (grade || "").toLowerCase();
+      if (g.includes("1&2") || g.includes("common")) {
+        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("clear") || g.includes("select")) {
+        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("low")) {
+        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("stain")) {
+        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
+      }
+      return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + grade + '</span>';
+    }
+
+    function getDisplayStage(item) {
+      if (item.stage === "Other" && item.stageDetail) {
+        return item.stageDetail;
+      }
+      return item.stage || "Rough";
+    }
+
+    function getGradeRank(grade) {
+      var g = (grade || "").toLowerCase();
+      if (g.includes("1&2") || g.includes("common")) return 1;
+      if (g.includes("clear") || g.includes("select")) return 2;
+      if (g.includes("low")) return 3;
+      if (g.includes("stain")) return 4;
+      return 99;
+    }
+
+    function sortInventoryPacks(items) {
+      return items.slice().sort(function(a, b) {
+        var wA = parseFloat(a.width) || 0;
+        var wB = parseFloat(b.width) || 0;
+        var effWA = wA === 0 ? 9999 : wA;
+        var effWB = wB === 0 ? 9999 : wB;
+        if (effWA !== effWB) {
+          return effWA - effWB;
+        }
+
+        var gA = getGradeRank(a.grade);
+        var gB = getGradeRank(b.grade);
+        if (gA !== gB) {
+          return gA - gB;
+        }
+
+        var tA = parseFloat(a.thickness) || 0;
+        var tB = parseFloat(b.thickness) || 0;
+        if (tA !== tB) {
+          return tA - tB;
+        }
+
+        var lA = parseFloat(a.length) || 0;
+        var lB = parseFloat(b.length) || 0;
+        return lA - lB;
+      });
+    }
+
+    function renderInventory() {
+      var tbody = document.getElementById('inventoryTableBody');
+      var empty = document.getElementById('emptyInventoryState');
+      if (!tbody) return;
+
+      var filtered = inventory.filter(function(item) {
+        var s = item.stage || "Rough";
+        if (currentStageFilter === "Rough" && s !== "Rough") return false;
+        if (currentStageFilter === "MILLED" && s === "Rough") return false;
+        if (currentStageFilter !== "ALL" && currentStageFilter !== "MILLED" && currentStageFilter !== "Rough") {
+          if (currentStageFilter === "OTHER" && s !== "Other") return false;
+          if (currentStageFilter !== "OTHER" && s !== currentStageFilter) return false;
+        }
+
+        if (currentWidthFilter !== 'ALL') {
+          if (currentWidthFilter === 'RW' && item.width !== 0) return false;
+          if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return false;
+        }
+        if (searchQuery.trim() !== '') {
+          var match = (item.id + " " + item.grade + " " + item.species + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
+          if (match.indexOf(searchQuery.toLowerCase()) === -1) return false;
+        }
+        return true;
+      });
+
+      var sorted = sortInventoryPacks(filtered);
+
+      if (sorted.length === 0) {
+        tbody.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+      } else {
+        if (empty) empty.classList.add('hidden');
+        tbody.innerHTML = sorted.map(function(item) {
+          var isPending = item.status === 'PENDING_SALE';
+          var totalPieces = parseInt(item.pieces) || 0;
+          var heldPieces = parseInt(item.pendingPieces) || 0;
+          var leftPieces = Math.max(0, totalPieces - heldPieces);
+
+          var bf = calculateBF(item.thickness, item.width, item.length, totalPieces);
+          var availableBF = calculateBF(item.thickness, item.width, item.length, leftPieces);
+
+          var rateInfo = getGradeRates(item.grade);
+          var singlePieceBF = calculateBF(item.thickness, item.width, item.length, 1);
+          var roughPcPrice = singlePieceBF * rateInfo.rough;
+          var milledPcPrice = singlePieceBF * rateInfo.milled;
+
+          var dimString = item.thickness + '" × ' + (item.width === 0 ? 'RW' : item.width + '"') + ' × ' + (item.length === 0 ? 'RL' : item.length + "'");
+          var displayStage = getDisplayStage(item);
+          var isRough = (item.stage === "Rough");
+          var moistureDisplay = item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%';
+
+          return '<tr class="border-b border-slate-200 transition-colors ' + (isPending ? 'bg-rose-50/70 border-l-4 border-l-rose-500' : 'hover:bg-slate-50') + '">' +
+            
+            /* Pack ID & Color Coded Grade Badge */
+            '<td class="py-2.5 px-3 align-top">' +
+              '<div class="font-mono font-bold text-amber-700">' + item.id + '</div>' +
+              '<div class="text-[10px] text-slate-500">' + item.species + '</div>' +
+              '<div class="mt-1">' + getGradeBadgeHtml(item.grade) + '</div>' +
+            '</td>' +
+
+            /* Lumber Profile: ENLARGED DIMENSION FONT & Milling Stage Badge */
+            '<td class="py-2.5 px-3 align-top whitespace-nowrap">' +
+              '<div class="font-mono font-extrabold text-slate-900 text-base tracking-tight">' + dimString + '</div>' +
+              '<div class="mt-1 flex items-center space-x-1.5">' +
+                '<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
+                  displayStage +
+                '</span>' +
+                '<span class="text-[10px] text-slate-500 font-mono">MC ' + moistureDisplay + ' • ' + (item.location || 'Yard') + '</span>' +
+              '</div>' +
+            '</td>' +
+
+            /* Pieces Count */
+            '<td class="py-2.5 px-3 align-top">' +
+              '<div class="flex items-center space-x-1.5">' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-16 bg-white border border-slate-300 rounded px-2 py-0.5 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
+              '</div>' +
+              (isPending ? '<div class="text-[10px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
+            '</td>' +
+
+            /* Yard Notes */
+            '<td class="py-2.5 px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
+              (item.notes ? '<div class="p-1.5 rounded bg-slate-50 border border-slate-200 leading-snug">' + item.notes + '</div>' : '<span class="text-slate-400">—</span>') +
+            '</td>' +
+
+            /* Board Feet */
+            '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800">' +
+              '<div>' + bf.toFixed(1) + ' <span class="text-[10px] text-slate-500 font-normal">BF</span></div>' +
+              (isPending ? '<div class="text-[10px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
+            '</td>' +
+
+            /* Pricing: Both Rough & Milled Rates */
+            '<td class="py-2.5 px-3 align-top font-mono whitespace-nowrap">' +
+              '<div class="text-xs font-bold ' + (isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
+                '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Rgh:</span>' +
+                '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[10px] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
+              '</div>' +
+              '<div class="text-xs font-bold mt-0.5 ' + (!isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
+                '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Mld:</span>' +
+                '$' + milledPcPrice.toFixed(2) + '/pc <span class="text-[10px] font-normal text-slate-400">(@$' + rateInfo.milled.toFixed(2) + ')</span>' +
+              '</div>' +
+            '</td>' +
+
+            /* Stage & Pending Fields: Customer, Hold, and Left */
+            '<td class="py-2.5 px-3 align-top min-w-[170px]">' +
+              '<button type="button" onclick="toggleStatus(\'' + item.id + '\')" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase transition ' + (isPending ? 'bg-rose-600 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300') + '">' +
+                (isPending ? 'Pending Order' : 'In Stock') +
+              '</button>' +
+              (isPending ? 
+                '<div class="mt-2 space-y-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-xs shadow-sm">' +
+                  '<div>' +
+                    '<label class="block text-[9px] uppercase font-bold text-rose-800 tracking-wider">Pending For (Customer):</label>' +
+                    '<input type="text" value="' + (item.customer || '') + '" oninput="updateCustomer(\'' + item.id + '\', this.value)" placeholder="Customer name..." class="w-full bg-white border border-rose-300 rounded px-1.5 py-0.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500" />' +
+                  '</div>' +
+                  '<div>' +
+                    '<label class="block text-[9px] uppercase font-bold text-rose-800 tracking-wider">Pieces Wanted / Hold:</label>' +
+                    '<div class="flex items-center space-x-1">' +
+                      '<input type="number" value="' + heldPieces + '" onchange="updatePendingPieces(\'' + item.id + '\', this.value)" class="w-16 bg-white border border-rose-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-rose-500" />' +
+                      '<span class="text-[10px] text-slate-500">pcs</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class="text-[10px] font-mono pt-0.5 border-t border-rose-200 flex justify-between">' +
+                    '<span class="text-slate-600">Left for Sale:</span>' +
+                    '<span class="font-bold text-emerald-700">' + leftPieces + ' pcs</span>' +
+                  '</div>' +
+                '</div>'
+              : '') +
+            '</td>' +
+
+            /* Actions */
+            '<td class="py-2.5 px-3 align-top text-right space-x-1 whitespace-nowrap">' +
+              '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded text-xs transition border border-slate-300">🏷️</button>' +
+              '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs transition border border-slate-300">✏️</button>' +
+              '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded text-xs transition border border-slate-300">🗑️</button>' +
+            '</td>' +
+
+          '</tr>';
+        }).join('');
+      }
+
+      renderMetrics();
+    }
+
+    function renderMetrics() {
+      var totalBF = 0;
+      var totalPieces = 0;
+      var pendingCount = 0;
+      var packCount = 0;
+
+      inventory.forEach(function(item) {
+        var s = item.stage || "Rough";
+        if (currentStageFilter === "Rough" && s !== "Rough") return;
+        if (currentStageFilter === "MILLED" && s === "Rough") return;
+        if (currentStageFilter !== "ALL" && currentStageFilter !== "MILLED" && currentStageFilter !== "Rough") {
+          if (currentStageFilter === "OTHER" && s !== "Other") return;
+          if (currentStageFilter !== "OTHER" && s !== currentStageFilter) return;
+        }
+
+        if (currentWidthFilter !== 'ALL') {
+          if (currentWidthFilter === 'RW' && item.width !== 0) return;
+          if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return;
+        }
+        var p = parseInt(item.pieces) || 0;
+        var h = parseInt(item.pendingPieces) || 0;
+        var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
+
+        totalBF += calculateBF(item.thickness, item.width, item.length, avail);
+        totalPieces += avail;
+        if (item.status === 'PENDING_SALE') pendingCount += h;
+        packCount++;
+      });
+
+      document.getElementById('metricTotalBF').innerHTML = totalBF.toFixed(1) + ' <span class="text-xs font-sans text-slate-500">BF</span>';
+      document.getElementById('metricTotalPieces').innerHTML = totalPieces + ' <span class="text-xs font-sans text-slate-500">pcs</span>';
+      document.getElementById('metricPendingPieces').innerText = pendingCount + ' held';
+      document.getElementById('metricPackCount').innerText = packCount + ' Packs';
+    }
+
+    window.setStageFilter = function(s) {
+      currentStageFilter = s;
+      document.getElementById('filterBtnRough').className = s === 'Rough' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnMilled').className = s === 'MILLED' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnAll').className = s === 'ALL' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      
+      document.getElementById('activeStageLabel').innerText = s === 'Rough' ? 'Rough Stock' : (s === 'MILLED' ? 'All Milled Stock' : 'All Yard Stock');
+      document.getElementById('inventoryTableHeading').innerText = s === 'Rough' ? 'Rough Lumber Stock' : (s === 'MILLED' ? 'Milled Lumber Stock' : 'All Yard Stock');
+      document.getElementById('subStageSelector').value = "ALL_STAGES";
+      renderInventory();
+    };
+
+    window.setSpecificStageFilter = function(profile) {
+      if (profile === "ALL_STAGES") {
+        setStageFilter('ALL');
+        return;
+      }
+      currentStageFilter = profile;
+      document.getElementById('filterBtnRough').className = profile === 'Rough' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnMilled').className = 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnAll').className = 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+
+      document.getElementById('activeStageLabel').innerText = profile === 'OTHER' ? 'Custom Profiles' : profile;
+      document.getElementById('inventoryTableHeading').innerText = profile + ' Inventory';
+      renderInventory();
+    };
+
+    window.setWidthFilter = function(w) {
+      currentWidthFilter = w;
+      document.getElementById('activeWidthLabel').innerText = w === 'ALL' ? 'All Widths' : (w === 'RW' ? 'Random Width' : w + '" Stock');
+      ["ALL", "4", "6", "8", "10", "12", "RW"].forEach(function(val) {
+        var el = document.getElementById('wb-' + val);
+        if (el) {
+          el.className = val === w ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
+        }
+      });
+      renderInventory();
+    };
+
+    window.handleSearch = function(val) {
+      searchQuery = val;
+      renderInventory();
+    };
+
+    window.handleDrawerStageChange = function(stageVal) {
+      var otherField = document.getElementById('drawerOtherStageWrapper');
+      if (stageVal === "Other") {
+        otherField.classList.remove('hidden');
+      } else {
+        otherField.classList.add('hidden');
+      }
+      recalcDrawerBF();
+    };
+
+    /* ACTIVE BUTTON HIGHLIGHT CONTROLLERS */
+    function updateDimensionButtonHighlights(thicknessVal, widthVal, lengthVal) {
+      document.querySelectorAll('#thickBtnGroup .thick-btn').forEach(function(btn) {
+        var btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (btnVal === parseFloat(thicknessVal)) {
+          btn.className = "thick-btn py-1 text-[11px] font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+        } else {
+          btn.className = "thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+        }
+      });
+
+      document.querySelectorAll('#widthBtnGroup .width-btn').forEach(function(btn) {
+        var btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (btnVal === parseFloat(widthVal)) {
+          btn.className = "width-btn py-1 text-[11px] font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+        } else {
+          btn.className = "width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+        }
+      });
+
+      document.querySelectorAll('#lenBtnGroup .len-btn').forEach(function(btn) {
+        var btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (btnVal === parseFloat(lengthVal)) {
+          btn.className = "len-btn py-1 text-[11px] font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+        } else {
+          btn.className = "len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+        }
+      });
+    }
+
+    window.setDrawerThickness = function(v) { 
+      document.getElementById('drawerThickness').value = v; 
+      updateDimensionButtonHighlights(v, document.getElementById('drawerWidth').value, document.getElementById('drawerLength').value);
+      recalcDrawerBF(); 
+    };
+
+    window.setDrawerWidth = function(v) { 
+      document.getElementById('drawerWidth').value = v; 
+      updateDimensionButtonHighlights(document.getElementById('drawerThickness').value, v, document.getElementById('drawerLength').value);
+      recalcDrawerBF(); 
+    };
+
+    window.setDrawerLength = function(v) { 
+      document.getElementById('drawerLength').value = v; 
+      updateDimensionButtonHighlights(document.getElementById('drawerThickness').value, document.getElementById('drawerWidth').value, v);
+      recalcDrawerBF(); 
+    };
+
+    window.openEntryDrawer = function() {
+      var d = document.getElementById('drawerOverlay');
+      if (d) d.style.display = 'flex';
+      document.getElementById('drawerEditId').value = "";
+      document.getElementById('drawerTitle').innerText = "Add Yard Stock";
+      
+      document.getElementById('drawerSpecies').value = (appConfig.defaults && appConfig.defaults.species) || "Eastern White Pine";
+      document.getElementById('drawerGrade').value = "1&2 Common";
+      
+      document.getElementById('drawerStageSelect').value = "Rough";
+      document.getElementById('drawerStageOtherDetail').value = "";
+      document.getElementById('drawerOtherStageWrapper').classList.add('hidden');
+
+      document.getElementById('drawerMoistureMin').value = (appConfig.defaults && appConfig.defaults.moistureMin) || 10;
+      document.getElementById('drawerMoistureMax').value = (appConfig.defaults && appConfig.defaults.moistureMax) || 15;
+      
+      var defThick = (appConfig.defaults && appConfig.defaults.thickness) || 1;
+      var defWidth = (appConfig.defaults && appConfig.defaults.width) || 6;
+      var defLen = (appConfig.defaults && appConfig.defaults.length) || 12;
+
+      document.getElementById('drawerThickness').value = defThick;
+      document.getElementById('drawerWidth').value = defWidth;
+      document.getElementById('drawerLength').value = defLen;
+
+      updateDimensionButtonHighlights(defThick, defWidth, defLen);
+
+      document.getElementById('drawerPieces').value = "";
+      document.getElementById('drawerLocation').value = "";
+      document.getElementById('drawerNotes').value = "";
+      recalcDrawerBF();
+    };
+
+    window.closeEntryDrawer = function() {
+      var d = document.getElementById('drawerOverlay');
+      if (d) d.style.display = 'none';
+    };
+
+    window.recalcDrawerBF = function() {
+      var t = document.getElementById('drawerThickness').value;
+      var w = document.getElementById('drawerWidth').value;
+      var l = document.getElementById('drawerLength').value;
+      var p = document.getElementById('drawerPieces').value || 1;
+      var g = document.getElementById('drawerGrade').value;
+      var s = document.getElementById('drawerStageSelect').value;
+
+      var bf = calculateBF(t, w, l, p);
+      var rateInfo = getGradeRates(g);
+      var rate = s === 'Rough' ? rateInfo.rough : rateInfo.milled;
+
+      document.getElementById('drawerLiveBF').innerText = bf.toFixed(1) + " BF";
+      document.getElementById('drawerLiveRate').innerText = "$" + rate.toFixed(2) + " / BF";
+      document.getElementById('drawerLiveTotal').innerText = "$" + (bf * rate).toFixed(2);
+    };
+
+    window.handleSaveLumberPack = function(e) {
+      e.preventDefault();
+      var p = parseInt(document.getElementById('drawerPieces').value);
+      if (isNaN(p) || p <= 0) { alert("Enter a valid piece count"); return; }
+
+      var selectedStage = document.getElementById('drawerStageSelect').value;
+      var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
+
+      var mMin = parseFloat(document.getElementById('drawerMoistureMin').value) || 10;
+      var mMax = parseFloat(document.getElementById('drawerMoistureMax').value) || 15;
+      var moistureRangeStr = mMin + "-" + mMax;
+
+      var editId = document.getElementById('drawerEditId').value;
+      var pack = {
+        id: editId || ("PK-" + Math.floor(1000 + Math.random() * 9000)),
+        species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
+        grade: document.getElementById('drawerGrade').value,
+        stage: selectedStage,
+        stageDetail: selectedStage === "Other" ? otherDetail : "",
+        thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
+        width: parseFloat(document.getElementById('drawerWidth').value) || 6,
+        length: parseFloat(document.getElementById('drawerLength').value) || 12,
+        pieces: p,
+        location: document.getElementById('drawerLocation').value.trim(),
+        notes: document.getElementById('drawerNotes').value.trim(),
+        moisture: moistureRangeStr,
+        status: editId ? (inventory.find(function(i){ return i.id === editId; })?.status || "IN_STOCK") : "IN_STOCK",
+        customer: editId ? (inventory.find(function(i){ return i.id === editId; })?.customer || "") : "",
+        pendingPieces: editId ? (inventory.find(function(i){ return i.id === editId; })?.pendingPieces || 0) : 0
+      };
+
+      if (editId) {
+        var idx = inventory.findIndex(function(i){ return i.id === editId; });
+        if (idx !== -1) inventory[idx] = pack;
+      } else {
+        inventory.unshift(pack);
+      }
+
+      localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      syncCloudItem(pack);
+      closeEntryDrawer();
+      renderInventory();
+    };
+
+    window.updatePieces = function(id, val) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        item.pieces = Math.max(0, parseInt(val) || 0);
+        if (item.pendingPieces > item.pieces) item.pendingPieces = item.pieces;
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.toggleStatus = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        if (item.status === 'IN_STOCK') {
+          item.status = 'PENDING_SALE';
+          item.pendingPieces = item.pieces;
+        } else {
+          item.status = 'IN_STOCK';
+          item.customer = "";
+          item.pendingPieces = 0;
+        }
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.updateCustomer = function(id, name) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        item.customer = name;
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+      }
+    };
+
+    window.updatePendingPieces = function(id, val) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        var hold = Math.max(0, parseInt(val) || 0);
+        item.pendingPieces = Math.min(hold, item.pieces);
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.openEditDrawer = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (!item) return;
+      var d = document.getElementById('drawerOverlay');
+      if (d) d.style.display = 'flex';
+      document.getElementById('drawerEditId').value = item.id;
+      document.getElementById('drawerTitle').innerText = "Edit Pack " + item.id;
+      document.getElementById('drawerSpecies').value = item.species;
+      document.getElementById('drawerGrade').value = item.grade === "Select" ? "Clear" : item.grade;
+      
+      var stageSelector = document.getElementById('drawerStageSelect');
+      stageSelector.value = item.stage || "Rough";
+      if (item.stage === "Other") {
+        document.getElementById('drawerOtherStageWrapper').classList.remove('hidden');
+        document.getElementById('drawerStageOtherDetail').value = item.stageDetail || "";
+      } else {
+        document.getElementById('drawerOtherStageWrapper').classList.add('hidden');
+        document.getElementById('drawerStageOtherDetail').value = "";
+      }
+
+      var mParts = String(item.moisture || "10-15").replace('%','').split('-');
+      document.getElementById('drawerMoistureMin').value = parseFloat(mParts[0]) || 10;
+      document.getElementById('drawerMoistureMax').value = parseFloat(mParts[1]) || (parseFloat(mParts[0]) || 15);
+
+      document.getElementById('drawerThickness').value = item.thickness;
+      document.getElementById('drawerWidth').value = item.width;
+      document.getElementById('drawerLength').value = item.length;
+      updateDimensionButtonHighlights(item.thickness, item.width, item.length);
+
+      document.getElementById('drawerPieces').value = item.pieces;
+      document.getElementById('drawerLocation').value = item.location || "";
+      document.getElementById('drawerNotes').value = item.notes || "";
+      recalcDrawerBF();
+    };
+
+    window.promptDelete = function(id) {
+      itemPendingDeletionId = id;
+      document.getElementById('deleteModalMessage').innerText = "Delete pack " + id + "?";
+      document.getElementById('deleteConfirmModal').style.display = 'flex';
+    };
+    window.closeDeleteModal = function() {
+      itemPendingDeletionId = null;
+      document.getElementById('deleteConfirmModal').style.display = 'none';
+    };
+    window.confirmExecuteDelete = function() {
+      if (!itemPendingDeletionId) return;
+      inventory = inventory.filter(function(i){ return i.id !== itemPendingDeletionId; });
+      removeCloudItem(itemPendingDeletionId);
+      localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      closeDeleteModal();
+      renderInventory();
+    };
+
+    window.previewTag = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (!item) return;
+      var bf = calculateBF(item.thickness, item.width, item.length, item.pieces);
+      var displayStage = getDisplayStage(item);
+      var moistureDisplay = item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%';
+
+      var tagHtml = '<div class="space-y-4">' +
+        '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
+          '<div><div class="tag-pack-heading font-black font-mono">' + item.id + '</div><div class="text-xl font-bold">' + item.species + '</div></div>' +
+          '<div class="text-right font-black border-2 border-black px-2 py-1 uppercase">' + displayStage + ' • ' + item.grade + '<div class="text-xs font-mono font-bold mt-1">MC: ' + moistureDisplay + '</div></div>' +
+        '</div>' +
+        '<div class="tag-dim-heading font-black font-mono my-2">' + item.thickness + '" × ' + (item.width===0?'RW':item.width+'"') + ' × ' + (item.length===0?'RL':item.length+"'") + '</div>' +
+        '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+        '</div>' +
+        '<div class="text-xs font-bold pt-1">Location: ' + (item.location || 'Yard Bunk') + '</div>' +
+      '</div>';
+
+      document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
+      document.getElementById('printableTagContainer').innerHTML = '<div class="bunk-tag-card p-6">' + tagHtml + '</div>';
+      document.getElementById('tagPreviewModal').style.display = 'flex';
+    };
+    window.closeTagModal = function() {
+      document.getElementById('tagPreviewModal').style.display = 'none';
+    };
+
+    /* SETTINGS MODAL FUNCTIONS */
+    window.openSettingsModal = function() {
+      document.getElementById('cfgRate12CommonRough').value = appConfig.rates["1&2 Common"].rough;
+      document.getElementById('cfgRate12CommonMilled').value = appConfig.rates["1&2 Common"].milled;
+      document.getElementById('cfgRateSelectRough').value = (appConfig.rates["Clear"] || appConfig.rates["Select"]).rough;
+      document.getElementById('cfgRateSelectMilled').value = (appConfig.rates["Clear"] || appConfig.rates["Select"]).milled;
+      document.getElementById('cfgRateLowGradeRough').value = appConfig.rates["Low Grade"].rough;
+      document.getElementById('cfgRateLowGradeMilled').value = appConfig.rates["Low Grade"].milled;
+      document.getElementById('cfgRateStainRough').value = appConfig.rates["Stain"].rough;
+      document.getElementById('cfgRateStainMilled').value = appConfig.rates["Stain"].milled;
+
+      document.getElementById('cfgDefaultSpecies').value = appConfig.defaults.species;
+      document.getElementById('cfgDefaultStageFilter').value = appConfig.defaults.stageFilter || "Rough";
+      document.getElementById('cfgDefaultThickness').value = appConfig.defaults.thickness;
+      document.getElementById('cfgDefaultWidth').value = appConfig.defaults.width;
+      document.getElementById('cfgDefaultLength').value = appConfig.defaults.length;
+      document.getElementById('cfgDefaultMoistureMin').value = appConfig.defaults.moistureMin || 10;
+      document.getElementById('cfgDefaultMoistureMax').value = appConfig.defaults.moistureMax || 15;
+
+      document.getElementById('cfgBaseFontSize').value = appConfig.fonts.baseSize;
+      document.getElementById('cfgTableFontScale').value = appConfig.fonts.tableScale;
+      document.getElementById('cfgTagPackFontSize').value = appConfig.fonts.tagPackSize;
+      document.getElementById('cfgTagDimFontSize').value = appConfig.fonts.tagDimSize;
+
+      document.getElementById('cfgFirebaseConfig').value = JSON.stringify(appConfig.firebase, null, 2);
+
+      switchSettingsTab('pricing');
+      document.getElementById('settingsModal').style.display = 'flex';
+    };
+
+    window.closeSettingsModal = function() {
+      document.getElementById('settingsModal').style.display = 'none';
+    };
+
+    window.switchSettingsTab = function(tab) {
+      ['pricing', 'defaults', 'fonts', 'cloud', 'backup'].forEach(function(t) {
+        var content = document.getElementById('settingsTab' + t.charAt(0).toUpperCase() + t.slice(1));
+        var btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (content && btn) {
+          if (t === tab) {
+            content.classList.remove('hidden');
+            btn.className = "py-1.5 rounded-lg bg-amber-500 text-white font-bold shadow";
+          } else {
+            content.classList.add('hidden');
+            btn.className = "py-1.5 rounded-lg text-slate-600 hover:text-slate-900";
+          }
+        }
+      });
+    };
+
+    window.saveAppSettings = function() {
+      appConfig.rates["1&2 Common"].rough = parseFloat(document.getElementById('cfgRate12CommonRough').value) || 1.65;
+      appConfig.rates["1&2 Common"].milled = parseFloat(document.getElementById('cfgRate12CommonMilled').value) || 2.00;
+      
+      var clearRgh = parseFloat(document.getElementById('cfgRateSelectRough').value) || 2.40;
+      var clearMld = parseFloat(document.getElementById('cfgRateSelectMilled').value) || 2.65;
+      appConfig.rates["Clear"] = { rough: clearRgh, milled: clearMld };
+      appConfig.rates["Select"] = { rough: clearRgh, milled: clearMld };
+
+      appConfig.rates["Low Grade"].rough = parseFloat(document.getElementById('cfgRateLowGradeRough').value) || 1.20;
+      appConfig.rates["Low Grade"].milled = parseFloat(document.getElementById('cfgRateLowGradeMilled').value) || 1.40;
+      appConfig.rates["Stain"].rough = parseFloat(document.getElementById('cfgRateStainRough').value) || 1.20;
+      appConfig.rates["Stain"].milled = parseFloat(document.getElementById('cfgRateStainMilled').value) || 1.40;
+
+      appConfig.defaults.species = document.getElementById('cfgDefaultSpecies').value.trim() || "Eastern White Pine";
+      appConfig.defaults.stageFilter = document.getElementById('cfgDefaultStageFilter').value;
+      appConfig.defaults.thickness = parseFloat(document.getElementById('cfgDefaultThickness').value) || 1;
+      appConfig.defaults.width = parseFloat(document.getElementById('cfgDefaultWidth').value) || 6;
+      appConfig.defaults.length = parseFloat(document.getElementById('cfgDefaultLength').value) || 12;
+      appConfig.defaults.moistureMin = parseFloat(document.getElementById('cfgDefaultMoistureMin').value) || 10;
+      appConfig.defaults.moistureMax = parseFloat(document.getElementById('cfgDefaultMoistureMax').value) || 15;
+
+      appConfig.fonts.baseSize = document.getElementById('cfgBaseFontSize').value;
+      appConfig.fonts.tableScale = document.getElementById('cfgTableFontScale').value;
+      appConfig.fonts.tagPackSize = document.getElementById('cfgTagPackFontSize').value;
+      appConfig.fonts.tagDimSize = document.getElementById('cfgTagDimFontSize').value;
+
+      var fbStr = document.getElementById('cfgFirebaseConfig').value.trim();
+      if (fbStr) {
+        try { appConfig.firebase = JSON.parse(fbStr); } catch(e) {}
+      }
+
+      localStorage.setItem('timbertrack_settings', JSON.stringify(appConfig));
+      applyFontVariables();
+      closeSettingsModal();
+      renderInventory();
+    };
+
+    window.resetSettingsToFactory = function() {
+      if (confirm("Reset all settings and rate tiers to factory defaults?")) {
+        appConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        localStorage.setItem('timbertrack_settings', JSON.stringify(appConfig));
+        applyFontVariables();
+        openSettingsModal();
+      }
+    };
+
+    window.exportInventoryJSON = function() {
+      document.getElementById('cfgBackupArea').value = JSON.stringify(inventory, null, 2);
+    };
+
+    window.importInventoryJSON = function() {
+      var str = document.getElementById('cfgBackupArea').value.trim();
+      if (!str) { alert("Paste JSON data into the box first."); return; }
+      try {
+        var parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) {
+          inventory = parsed;
+          localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+          alert("Imported " + inventory.length + " lumber packs successfully.");
+          renderInventory();
+        } else {
+          alert("Data must be an array of lumber pack objects.");
+        }
+      } catch(e) {
+        alert("Invalid JSON format: " + e.message);
+      }
+    };
+
+    function applyFontVariables() {
+      if (!appConfig.fonts) return;
+      document.documentElement.style.setProperty('--app-base-font-size', appConfig.fonts.baseSize || '14px');
+      document.documentElement.style.setProperty('--table-font-scale', appConfig.fonts.tableScale || '1.0');
+      document.documentElement.style.setProperty('--tag-pack-font-size', appConfig.fonts.tagPackSize || '48px');
+      document.documentElement.style.setProperty('--tag-dim-font-size', appConfig.fonts.tagDimSize || '38px');
+    }
+
+    window.onload = function() {
+      applyFontVariables();
+      initFirebaseCloud();
+      renderInventory();
+    };
+  </script>
+</body>
+</html>
