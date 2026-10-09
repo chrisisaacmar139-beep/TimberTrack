@@ -97,11 +97,10 @@
 </head>
 <body class="flex flex-col min-h-screen text-slate-800">
 
-  <!-- TOP HEADER (STREAMLINED & ULTRA CONDENSED FOR ALL SCREENS) -->
+  <!-- TOP HEADER -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-2.5 py-2 shadow-sm">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-1.5 flex-nowrap">
       
-      <!-- Brand Logo & Title -->
       <div class="flex items-center space-x-1.5 shrink min-w-0">
         <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-black text-base">
           🌲
@@ -112,41 +111,33 @@
         </div>
       </div>
 
-      <!-- Action Buttons Row (Ultra Compact) -->
       <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
-        
-        <!-- Live Cloud Sync Indicator -->
         <div id="cloudSyncIndicator" class="flex items-center bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-[11px] text-slate-600 font-bold whitespace-nowrap">
           <span class="w-2 h-2 rounded-full bg-amber-400 mr-1 animate-pulse"></span>
           <span class="hidden md:inline">Live Cloud Sync</span>
           <span class="md:hidden">Sync</span>
         </div>
 
-        <!-- Orders -->
         <button type="button" onclick="openPoListModal()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
           <span>📋</span>
           <span class="hidden sm:inline">Orders</span>
           <span class="bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded-md text-[10px] font-black" id="openPoBadge">0</span>
         </button>
 
-        <!-- Settings -->
         <button type="button" onclick="openSettingsModal()" title="Yard Settings" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
           <span>⚙️</span>
           <span class="hidden lg:inline">Settings</span>
         </button>
 
-        <!-- New PO -->
         <button type="button" onclick="openPoDrawer()" class="px-2 sm:px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm shadow-sky-600/20 active:scale-95 whitespace-nowrap flex items-center gap-1">
           <span>+</span>
           <span>PO</span>
         </button>
 
-        <!-- Add Stock -->
         <button type="button" onclick="openEntryDrawer()" class="px-2 sm:px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-lg text-xs shadow-sm shadow-amber-500/20 active:scale-95 whitespace-nowrap flex items-center gap-1">
           <span>+</span>
           <span>Stock</span>
         </button>
-
       </div>
 
     </div>
@@ -265,8 +256,12 @@
 
         <!-- CUSTOM PACK TAG FIELD -->
         <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200">
-          <label class="block text-xs font-bold text-amber-900 uppercase mb-1">Pack / Bundle Tag #</label>
-          <input type="text" id="drawerCustomTagId" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" placeholder="Leave empty for auto-generated tag (e.g. PK-4050)" />
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-bold text-amber-900 uppercase">Pack / Bundle Tag #</label>
+            <span id="packTagUniqueNotice" class="text-[11px] font-bold text-emerald-700 hidden">✓ Tag Available</span>
+          </div>
+          <input type="text" id="drawerCustomTagId" oninput="checkDuplicateTagRealtime(this.value)" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" placeholder="Leave empty for auto-generated tag (e.g. PK-4050)" />
+          <span id="packTagErrorNotice" class="text-[11px] font-bold text-rose-600 mt-1 hidden">⚠️ This pack number already exists in your inventory. Duplicate numbers are not allowed.</span>
           <span class="text-[11px] text-amber-800/80 mt-1 block">Specify your own tag or leave blank to assign next available sequence.</span>
         </div>
 
@@ -388,7 +383,7 @@
           <button type="button" onclick="printDrawerTagDirect()" class="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 flex items-center justify-center gap-1 shadow-sm">
             🏷️ Print Tag
           </button>
-          <button type="submit" class="col-span-2 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl text-sm shadow-md shadow-amber-500/20">
+          <button type="submit" id="savePackSubmitBtn" class="col-span-2 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl text-sm shadow-md shadow-amber-500/20">
             Save Pack
           </button>
         </div>
@@ -402,7 +397,7 @@
       <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
         <div>
           <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
-          <p class="text-xs text-slate-500">C.I.M. MFG INC • Allocates Stock & Deducts Inventory</p>
+          <p class="text-xs text-slate-500">C.I.M. MFG INC • Order stock from inventory or enter custom specs</p>
         </div>
         <button type="button" onclick="closePoDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
       </div>
@@ -440,13 +435,13 @@
         <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Order Line Items</span>
-            <span class="text-[11px] text-slate-500">Pick pack & target milling pattern</span>
+            <span class="text-[11px] text-slate-500">Stock pack or unlinked custom line</span>
           </div>
 
           <div id="poLineItemsContainer" class="space-y-2.5"></div>
 
           <button type="button" onclick="addPoLineItemRow()" class="w-full py-2 bg-white hover:bg-slate-100 text-sky-700 font-bold text-xs rounded-xl border border-sky-300 shadow-sm flex items-center justify-center gap-1">
-            + Add Pack To Order
+            + Add Line Item To Order
           </button>
         </div>
 
@@ -460,7 +455,7 @@
         </div>
 
         <button type="submit" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl text-sm shadow-md shadow-sky-600/20">
-          Create & Deduct from Inventory
+          Create & Save Purchase Order
         </button>
       </form>
     </div>
@@ -745,7 +740,7 @@
   </div>
   <div id="printableTagContainer" class="hidden"></div>
 
-  <!-- APP LOGIC -->
+  <!-- APP ENGINE SCRIPT -->
   <script>
     var DEFAULT_CONFIG = {
       rates: {
@@ -886,15 +881,15 @@
     function getGradeBadgeHtml(grade) {
       var g = (grade || "").toLowerCase();
       if (g.includes("1&2") || g.includes("common")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("clear") || g.includes("select")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("low")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("stain")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
       }
-      return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + grade + '</span>';
+      return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + grade + '</span>';
     }
 
     function getDisplayStage(item) {
@@ -934,6 +929,47 @@
         return lA - lB;
       });
     }
+
+    function generateUniquePackId() {
+      var candidate;
+      var exists = true;
+      var attempts = 0;
+      while (exists && attempts < 1000) {
+        candidate = "PK-" + Math.floor(1000 + Math.random() * 9000);
+        exists = inventory.some(function(i){ return i.id.toUpperCase() === candidate.toUpperCase(); });
+        attempts++;
+      }
+      return candidate;
+    }
+
+    window.checkDuplicateTagRealtime = function(val) {
+      var inputVal = (val || '').trim().toUpperCase();
+      var editId = (document.getElementById('drawerEditId').value || '').trim().toUpperCase();
+      var errorNotice = document.getElementById('packTagErrorNotice');
+      var uniqueNotice = document.getElementById('packTagUniqueNotice');
+      var submitBtn = document.getElementById('savePackSubmitBtn');
+
+      if (!inputVal) {
+        errorNotice.classList.add('hidden');
+        uniqueNotice.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      var isDuplicate = inventory.some(function(i) {
+        return i.id.toUpperCase() === inputVal && i.id.toUpperCase() !== editId;
+      });
+
+      if (isDuplicate) {
+        errorNotice.classList.remove('hidden');
+        uniqueNotice.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = true;
+      } else {
+        errorNotice.classList.add('hidden');
+        uniqueNotice.classList.remove('hidden');
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
 
     function renderInventory() {
       var tbody = document.getElementById('inventoryTableBody');
@@ -1238,9 +1274,13 @@
       document.getElementById('drawerEditId').value = "";
       document.getElementById('drawerTitle').innerText = "Add Yard Stock";
       
-      var nextTag = "PK-" + Math.floor(1000 + Math.random() * 9000);
+      var nextTag = generateUniquePackId();
       document.getElementById('drawerCustomTagId').value = "";
       document.getElementById('drawerCustomTagId').placeholder = "e.g. " + nextTag;
+
+      document.getElementById('packTagErrorNotice').classList.add('hidden');
+      document.getElementById('packTagUniqueNotice').classList.add('hidden');
+      document.getElementById('savePackSubmitBtn').disabled = false;
 
       document.getElementById('drawerSpecies').value = "Eastern White Pine";
       document.getElementById('drawerGrade').value = "1&2 Common";
@@ -1298,7 +1338,7 @@
       
       var finalTagId = editId || customEnteredId;
       if (!finalTagId) {
-        finalTagId = "PK-" + Math.floor(1000 + Math.random() * 9000);
+        finalTagId = generateUniquePackId();
         document.getElementById('drawerCustomTagId').value = finalTagId;
       }
 
@@ -1359,7 +1399,19 @@
       var customEnteredId = document.getElementById('drawerCustomTagId').value.trim();
       var existing = editId ? inventory.find(function(i){ return i.id === editId; }) : null;
 
-      var finalId = editId || (customEnteredId ? customEnteredId : ("PK-" + Math.floor(1000 + Math.random() * 9000)));
+      var finalId = editId || (customEnteredId ? customEnteredId : generateUniquePackId());
+
+      // STRICT DUPLICATE PACK ID VALIDATION
+      var duplicateExists = inventory.some(function(i) {
+        return i.id.toUpperCase() === finalId.toUpperCase() && (!editId || i.id.toUpperCase() !== editId.toUpperCase());
+      });
+
+      if (duplicateExists) {
+        alert("⚠️ Pack number '" + finalId + "' is already in use by another bundle in your inventory.\n\nPlease assign a unique pack tag number.");
+        document.getElementById('packTagErrorNotice').classList.remove('hidden');
+        document.getElementById('drawerCustomTagId').focus();
+        return;
+      }
 
       var pack = {
         id: finalId,
@@ -1475,6 +1527,11 @@
       document.getElementById('drawerPieces').value = item.pieces;
       document.getElementById('drawerLocation').value = item.location || "Shop";
       document.getElementById('drawerNotes').value = item.notes || "";
+      
+      document.getElementById('packTagErrorNotice').classList.add('hidden');
+      document.getElementById('packTagUniqueNotice').classList.add('hidden');
+      document.getElementById('savePackSubmitBtn').disabled = false;
+
       recalcDrawerBF();
     };
 
@@ -1524,7 +1581,7 @@
       document.getElementById('tagPreviewModal').style.display = 'none';
     };
 
-    /* PO CREATION & NOTIFICATION */
+    /* PO CREATION SYSTEM (SUPPORTS STOCK PACK OR UNLINKED / CUSTOM SPEC LINES) */
     window.openPoDrawer = function() {
       var today = new Date().toISOString().split('T')[0];
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
@@ -1556,12 +1613,51 @@
       var rowHtml = '<div id="' + rowId + '" class="po-line-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">' +
         '<div class="flex items-center gap-2">' +
           '<div class="flex-1">' +
-            '<label class="block text-[11px] uppercase font-bold text-slate-500">Pick Source Pack:</label>' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Pick Stock Pack or Custom:</label>' +
             '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
-              '<option value="">Select stock pack...</option>' + options +
+              '<option value="">Select stock pack...</option>' +
+              '<option value="CUSTOM_UNLINKED" class="font-bold text-sky-700 bg-sky-50">✨ -- Custom / Unlinked Stock (No Inventory Deduction) --</option>' +
+              options +
             '</select>' +
           '</div>' +
           '<button type="button" onclick="removePoLineItemRow(\'' + rowId + '\')" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1 mt-4">✕</button>' +
+        '</div>' +
+
+        /* UNLINKED CUSTOM STOCK PARAMETERS (SHOWN ONLY WHEN CUSTOM_UNLINKED IS SELECTED) */
+        '<div class="po-custom-stock-fields hidden bg-sky-50/80 border border-sky-200 rounded-lg p-2.5 space-y-2">' +
+          '<div class="flex justify-between items-center text-[11px] font-bold text-sky-900 uppercase tracking-wider">' +
+            '<span>Unlinked / Non-Inventory Lumber Specs</span>' +
+            '<span class="text-sky-600 font-normal">Will NOT deduct stock</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-2">' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Species</label>' +
+              '<input type="text" class="po-cust-species w-full bg-white border border-slate-300 rounded p-1 text-xs" value="Eastern White Pine" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Grade</label>' +
+              '<select class="po-cust-grade w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
+                '<option value="1&2 Common">1&2 Common</option>' +
+                '<option value="Clear">Clear / Select</option>' +
+                '<option value="Low Grade">Low Grade</option>' +
+                '<option value="Stain">Stain</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-3 gap-2">' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Thick (")</label>' +
+              '<input type="number" step="0.125" class="po-cust-thick w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="1" oninput="recalcPoLiveSummary()" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Width (")</label>' +
+              '<input type="number" step="0.125" class="po-cust-width w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="6" oninput="recalcPoLiveSummary()" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Length (\')</label>' +
+              '<input type="number" step="0.5" class="po-cust-len w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="12" oninput="recalcPoLiveSummary()" />' +
+            '</div>' +
+          '</div>' +
         '</div>' +
 
         '<div class="bg-amber-50/70 border border-amber-200 rounded-lg p-2 space-y-1.5">' +
@@ -1615,6 +1711,7 @@
       } else {
         otherWrapper.classList.add('hidden');
       }
+      recalcPoLiveSummary();
     };
 
     window.handlePoPackSelectChange = function(rowId) {
@@ -1623,16 +1720,26 @@
       var select = row.querySelector('.po-pack-select');
       var pcsInput = row.querySelector('.po-pcs-input');
       var rateInput = row.querySelector('.po-rate-input');
+      var customFields = row.querySelector('.po-custom-stock-fields');
 
       var packId = select.value;
-      var pack = inventory.find(function(i){ return i.id === packId; });
-      if (pack) {
-        pcsInput.value = pack.pieces;
-        var rateInfo = getGradeRates(pack.grade);
-        rateInput.value = (pack.stage === 'Rough') ? rateInfo.rough : rateInfo.milled;
+      if (packId === "CUSTOM_UNLINKED") {
+        customFields.classList.remove('hidden');
+        if (!pcsInput.value) pcsInput.value = "100";
+        var custGrade = row.querySelector('.po-cust-grade').value;
+        var rateInfo = getGradeRates(custGrade);
+        rateInput.value = rateInfo.milled;
       } else {
-        pcsInput.value = "";
-        rateInput.value = "";
+        customFields.classList.add('hidden');
+        var pack = inventory.find(function(i){ return i.id === packId; });
+        if (pack) {
+          pcsInput.value = pack.pieces;
+          var rateInfo = getGradeRates(pack.grade);
+          rateInput.value = (pack.stage === 'Rough') ? rateInfo.rough : rateInfo.milled;
+        } else {
+          pcsInput.value = "";
+          rateInput.value = "";
+        }
       }
       recalcPoLiveSummary();
     };
@@ -1649,16 +1756,29 @@
         var rate = parseFloat(row.querySelector('.po-rate-input').value) || 0;
         var preview = row.querySelector('.po-line-preview');
 
-        var pack = inventory.find(function(i){ return i.id === packId; });
-        if (pack && pcs > 0) {
-          var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcs);
+        if (packId === "CUSTOM_UNLINKED") {
+          var t = parseFloat(row.querySelector('.po-cust-thick').value) || 1;
+          var w = parseFloat(row.querySelector('.po-cust-width').value) || 6;
+          var l = parseFloat(row.querySelector('.po-cust-len').value) || 12;
+
+          var lineBF = calculateBF(t, w, l, pcs);
           var lineCost = lineBF * rate;
           grandPieces += pcs;
           grandBF += lineBF;
           grandSubtotal += lineCost;
           preview.innerText = lineBF.toFixed(1) + " BF • $" + lineCost.toFixed(2);
         } else {
-          preview.innerText = "0 BF • $0";
+          var pack = inventory.find(function(i){ return i.id === packId; });
+          if (pack && pcs > 0) {
+            var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcs);
+            var lineCost = lineBF * rate;
+            grandPieces += pcs;
+            grandBF += lineBF;
+            grandSubtotal += lineCost;
+            preview.innerText = lineBF.toFixed(1) + " BF • $" + lineCost.toFixed(2);
+          } else {
+            preview.innerText = "0 BF • $0";
+          }
         }
       });
 
@@ -1686,7 +1806,7 @@
       }
 
       var rows = document.querySelectorAll('.po-line-row');
-      if (rows.length === 0) { alert("Please add at least one pack item to this purchase order."); return; }
+      if (rows.length === 0) { alert("Please add at least one line item to this purchase order."); return; }
 
       var lineItems = [];
       var partialBundlesCreated = [];
@@ -1700,46 +1820,75 @@
         var rate = parseFloat(r.querySelector('.po-rate-input').value) || 0;
 
         if (!packId || pcsNeeded <= 0) {
-          alert("All rows must have an active pack and positive piece count.");
+          alert("All rows must have a selected pack or custom specification and a positive piece count.");
           return;
         }
 
         var effectiveTargetProfile = (targetProfile === 'Other' && targetOther) ? targetOther : targetProfile;
-        var pack = inventory.find(function(item){ return item.id === packId; });
-        if (!pack) continue;
 
-        if (pcsNeeded > pack.pieces) {
-          alert("Error: Pack " + pack.id + " only has " + pack.pieces + " pcs available.");
-          return;
-        }
+        if (packId === "CUSTOM_UNLINKED") {
+          var specSpecies = r.querySelector('.po-cust-species').value.trim() || "Eastern White Pine";
+          var specGrade = r.querySelector('.po-cust-grade').value;
+          var specThick = parseFloat(r.querySelector('.po-cust-thick').value) || 1;
+          var specWidth = parseFloat(r.querySelector('.po-cust-width').value) || 6;
+          var specLen = parseFloat(r.querySelector('.po-cust-len').value) || 12;
 
-        var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcsNeeded);
-        var lineCost = lineBF * rate;
+          var lineBF = calculateBF(specThick, specWidth, specLen, pcsNeeded);
+          var lineCost = lineBF * rate;
 
-        lineItems.push({
-          packId: pack.id,
-          species: pack.species,
-          grade: pack.grade,
-          sourceStage: getDisplayStage(pack),
-          targetProfile: effectiveTargetProfile,
-          thickness: pack.thickness,
-          width: pack.width,
-          length: pack.length,
-          pieces: pcsNeeded,
-          rate: rate,
-          bf: lineBF,
-          total: lineCost
-        });
-
-        if (pcsNeeded === pack.pieces) {
-          pack.pieces = 0;
-          pack.partialTaken = false;
+          lineItems.push({
+            packId: "CUSTOM",
+            species: specSpecies,
+            grade: specGrade,
+            sourceStage: "Special Order / Incoming Run",
+            targetProfile: effectiveTargetProfile,
+            thickness: specThick,
+            width: specWidth,
+            length: specLen,
+            pieces: pcsNeeded,
+            rate: rate,
+            bf: lineBF,
+            total: lineCost,
+            isUnlinked: true
+          });
         } else {
-          pack.pieces = pack.pieces - pcsNeeded;
-          pack.partialTaken = true;
-          partialBundlesCreated.push(pack.id + " (" + pack.pieces + " pcs remaining)");
+          var pack = inventory.find(function(item){ return item.id === packId; });
+          if (!pack) continue;
+
+          if (pcsNeeded > pack.pieces) {
+            alert("Error: Pack " + pack.id + " only has " + pack.pieces + " pcs available.");
+            return;
+          }
+
+          var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcsNeeded);
+          var lineCost = lineBF * rate;
+
+          lineItems.push({
+            packId: pack.id,
+            species: pack.species,
+            grade: pack.grade,
+            sourceStage: getDisplayStage(pack),
+            targetProfile: effectiveTargetProfile,
+            thickness: pack.thickness,
+            width: pack.width,
+            length: pack.length,
+            pieces: pcsNeeded,
+            rate: rate,
+            bf: lineBF,
+            total: lineCost,
+            isUnlinked: false
+          });
+
+          if (pcsNeeded === pack.pieces) {
+            pack.pieces = 0;
+            pack.partialTaken = false;
+          } else {
+            pack.pieces = pack.pieces - pcsNeeded;
+            pack.partialTaken = true;
+            partialBundlesCreated.push(pack.id + " (" + pack.pieces + " pcs remaining)");
+          }
+          syncCloudItem(pack);
         }
-        syncCloudItem(pack);
       }
 
       var subtotal = lineItems.reduce(function(acc, item){ return acc + item.total; }, 0);
@@ -1787,7 +1936,8 @@
           "Line Items:%0D%0A";
         
         lineItems.forEach(function(it, idx){
-          emailBodyText += (idx+1) + ". " + it.packId + " - " + it.pieces + " pcs " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
+          var tagLabel = it.isUnlinked ? "CUSTOM ORDER" : it.packId;
+          emailBodyText += (idx+1) + ". [" + tagLabel + "] - " + it.pieces + " pcs " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
         });
 
         window.location.href = "mailto:chris@cimmfg.ca?subject=" + emailSubject + "&body=" + emailBodyText;
@@ -1817,7 +1967,8 @@
         tbody.innerHTML = purchaseOrders.map(function(po) {
           var isOpen = po.status === "OPEN";
           var itemsSummary = po.items.map(function(it){
-            return it.pieces + " pcs " + it.thickness + '×' + it.width + ' ➔ ' + (it.targetProfile || it.sourceStage);
+            var prefix = it.isUnlinked ? "[Custom] " : "";
+            return prefix + it.pieces + " pcs " + it.thickness + '×' + it.width + ' ➔ ' + (it.targetProfile || it.sourceStage);
           }).join(', ');
 
           var sub = po.subtotal !== undefined ? po.subtotal : (po.totalAmount / 1.13);
@@ -1878,9 +2029,11 @@
       var itemsRows = po.items.map(function(it, idx) {
         var dimStr = it.thickness + '" × ' + (it.width===0?'RW':it.width+'"') + ' × ' + (it.length===0?'RL':it.length+"'");
         var targetProf = it.targetProfile || it.sourceStage || 'Rough';
+        var tagBadge = it.isUnlinked ? '<span style="color:#0284c7;font-weight:bold;">Custom Order</span>' : it.packId;
+
         return '<tr style="border-bottom: 1px solid #cbd5e1;">' +
           '<td style="padding: 10px 8px; text-align: center; font-weight: bold;">' + (idx+1) + '</td>' +
-          '<td style="padding: 10px 8px; font-weight: bold; font-family: monospace;">' + it.packId + '</td>' +
+          '<td style="padding: 10px 8px; font-weight: bold; font-family: monospace;">' + tagBadge + '</td>' +
           '<td style="padding: 10px 8px;">' + it.species + ' (' + it.grade + ')</td>' +
           '<td style="padding: 10px 8px; font-weight: bold; font-size: 13px; color: #0f172a;">' + targetProf + '</td>' +
           '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
