@@ -626,9 +626,9 @@
           <div>
             <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
             <div class="flex items-center space-x-1.5">
-              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
+              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
               <span>-</span>
-              <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
+              <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
             </div>
           </div>
         </div>
@@ -821,6 +821,19 @@
           auth = firebase.auth();
           db = firebase.firestore();
 
+          // Catches user returning from Google redirect authentication
+          auth.getRedirectResult().then(function(result) {
+            if (result && result.user) {
+              currentUser = result.user;
+              updateGoogleAccountUI();
+              listenToFirestoreSync();
+            }
+          }).catch(function(err) {
+            if (err && err.code) {
+              alert("Sign-in error: " + err.message);
+            }
+          });
+
           auth.onAuthStateChanged(function(user) {
             currentUser = user;
             updateGoogleAccountUI();
@@ -845,7 +858,8 @@
     function handleSignInGoogle() {
       if (!auth) { alert("Firebase not initialized."); return; }
       var provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(function(err){ alert("Sign-in: " + err.message); });
+      // Uses redirect instead of popup to prevent mobile browser dropouts
+      auth.signInWithRedirect(provider);
     }
 
     function handleSignOutGoogle() {
