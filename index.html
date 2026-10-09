@@ -175,21 +175,44 @@
         </div>
       </div>
 
-      <!-- Quick Width Filter -->
-      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Width Filter</span>
-          <span id="activeWidthLabel" class="text-xs font-mono font-bold text-amber-700">All Widths</span>
+      <!-- Quick Width & Length Filter Card -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm space-y-2.5">
+        
+        <!-- Width Section -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Width Filter</span>
+            <span id="activeWidthLabel" class="text-xs font-mono font-bold text-amber-700">All Widths</span>
+          </div>
+          <div class="grid grid-cols-7 gap-1" id="widthFilterContainer">
+            <button type="button" onclick="setWidthFilter('ALL')" id="wb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+            <button type="button" onclick="setWidthFilter('4')" id="wb-4" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">4"</button>
+            <button type="button" onclick="setWidthFilter('6')" id="wb-6" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">6"</button>
+            <button type="button" onclick="setWidthFilter('8')" id="wb-8" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">8"</button>
+            <button type="button" onclick="setWidthFilter('10')" id="wb-10" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">10"</button>
+            <button type="button" onclick="setWidthFilter('12')" id="wb-12" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">12"</button>
+            <button type="button" onclick="setWidthFilter('RW')" id="wb-RW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">RW</button>
+          </div>
         </div>
-        <div class="grid grid-cols-7 gap-1" id="widthFilterContainer">
-          <button type="button" onclick="setWidthFilter('ALL')" id="wb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
-          <button type="button" onclick="setWidthFilter('4')" id="wb-4" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">4"</button>
-          <button type="button" onclick="setWidthFilter('6')" id="wb-6" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">6"</button>
-          <button type="button" onclick="setWidthFilter('8')" id="wb-8" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">8"</button>
-          <button type="button" onclick="setWidthFilter('10')" id="wb-10" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">10"</button>
-          <button type="button" onclick="setWidthFilter('12')" id="wb-12" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">12"</button>
-          <button type="button" onclick="setWidthFilter('RW')" id="wb-RW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">RW</button>
+
+        <!-- Length Section (Directly Below Width Filter) -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Length Filter</span>
+            <span id="activeLengthLabel" class="text-xs font-mono font-bold text-amber-700">All Lengths</span>
+          </div>
+          <div class="grid grid-cols-8 gap-0.5 sm:gap-1" id="lengthFilterContainer">
+            <button type="button" onclick="setLengthFilter('ALL')" id="lb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+            <button type="button" onclick="setLengthFilter('6')" id="lb-6" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">6'</button>
+            <button type="button" onclick="setLengthFilter('8')" id="lb-8" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">8'</button>
+            <button type="button" onclick="setLengthFilter('10')" id="lb-10" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">10'</button>
+            <button type="button" onclick="setLengthFilter('12')" id="lb-12" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">12'</button>
+            <button type="button" onclick="setLengthFilter('14')" id="lb-14" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">14'</button>
+            <button type="button" onclick="setLengthFilter('16')" id="lb-16" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">16'</button>
+            <button type="button" onclick="setLengthFilter('RL')" id="lb-RL" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">RL</button>
+          </div>
         </div>
+
       </div>
 
       <!-- Live Volume Totals -->
@@ -828,6 +851,7 @@
 
     var currentStageFilter = "Rough";
     var currentWidthFilter = "ALL";
+    var currentLengthFilter = "ALL";
     var searchQuery = "";
     var itemPendingDeletionId = null;
     var poPendingDeletionId = null;
@@ -848,7 +872,6 @@
             var cloudItems = [];
             snap.forEach(function(doc){ 
               var d = doc.data();
-              // Only load items with remaining pieces > 0
               if ((parseInt(d.pieces) || 0) > 0) {
                 cloudItems.push(d);
               }
@@ -899,7 +922,6 @@
       }
     }
 
-    // ROBUST BF CALCULATION (SUPPORTS RANDOM WIDTH AND RANDOM LENGTH ESTIMATION)
     function calculateBF(t, w, l, p) {
       t = parseFloat(t) || 0;
       w = parseFloat(w) || 0;
@@ -955,17 +977,19 @@
         var effWB = wB === 0 ? 9999 : wB;
         if (effWA !== effWB) return effWA - effWB;
 
+        var lA = parseFloat(a.length) || 0;
+        var lB = parseFloat(b.length) || 0;
+        var effLA = lA === 0 ? 9999 : lA;
+        var effLB = lB === 0 ? 9999 : lB;
+        if (effLA !== effLB) return effLA - effLB;
+
         var gA = getGradeRank(a.grade);
         var gB = getGradeRank(b.grade);
         if (gA !== gB) return gA - gB;
 
         var tA = parseFloat(a.thickness) || 0;
         var tB = parseFloat(b.thickness) || 0;
-        if (tA !== tB) return tA - tB;
-
-        var lA = parseFloat(a.length) || 0;
-        var lB = parseFloat(b.length) || 0;
-        return lA - lB;
+        return tA - tB;
       });
     }
 
@@ -1015,7 +1039,6 @@
       var empty = document.getElementById('emptyInventoryState');
       if (!tbody) return;
 
-      // Filter out zero-piece packs completely
       var filtered = inventory.filter(function(item) {
         var p = parseInt(item.pieces) || 0;
         if (p <= 0) return false;
@@ -1028,10 +1051,18 @@
           if (currentStageFilter !== "OTHER" && s !== currentStageFilter) return false;
         }
 
+        // Width Filter
         if (currentWidthFilter !== 'ALL') {
           if (currentWidthFilter === 'RW' && item.width !== 0) return false;
           if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return false;
         }
+
+        // Length Filter
+        if (currentLengthFilter !== 'ALL') {
+          if (currentLengthFilter === 'RL' && item.length !== 0) return false;
+          if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return false;
+        }
+
         if (searchQuery.trim() !== '') {
           var match = (item.id + " " + item.grade + " " + item.species + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
           if (match.indexOf(searchQuery.toLowerCase()) === -1) return false;
@@ -1101,7 +1132,7 @@
 
             '<td class="py-2.5 px-3 align-top">' +
               '<div class="flex items-center space-x-1.5">' +
-                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
                 '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
               '</div>' +
               (isPending ? '<div class="text-[11px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
@@ -1174,7 +1205,7 @@
 
       inventory.forEach(function(item) {
         var p = parseInt(item.pieces) || 0;
-        if (p <= 0) return; // Ignore zero qty packs in metrics
+        if (p <= 0) return;
 
         var s = item.stage || "Rough";
         if (currentStageFilter === "Rough" && s !== "Rough") return;
@@ -1188,6 +1219,12 @@
           if (currentWidthFilter === 'RW' && item.width !== 0) return;
           if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return;
         }
+
+        if (currentLengthFilter !== 'ALL') {
+          if (currentLengthFilter === 'RL' && item.length !== 0) return;
+          if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return;
+        }
+
         var h = parseInt(item.pendingPieces) || 0;
         var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
 
@@ -1247,6 +1284,18 @@
         var el = document.getElementById('wb-' + val);
         if (el) {
           el.className = val === w ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
+        }
+      });
+      renderInventory();
+    };
+
+    window.setLengthFilter = function(l) {
+      currentLengthFilter = l;
+      document.getElementById('activeLengthLabel').innerText = l === 'ALL' ? 'All Lengths' : (l === 'RL' ? 'Random Length' : l + "' Stock");
+      ["ALL", "6", "8", "10", "12", "14", "16", "RL"].forEach(function(val) {
+        var el = document.getElementById('lb-' + val);
+        if (el) {
+          el.className = val === l ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
         }
       });
       renderInventory();
@@ -1515,14 +1564,12 @@
       renderInventory();
     };
 
-    // INLINE EDIT PIECES: AUTO-PURGES IF CHANGED TO 0
     window.updatePieces = function(id, val) {
       var newPcs = Math.max(0, parseInt(val) || 0);
       var itemIdx = inventory.findIndex(function(i){ return i.id === id; });
       if (itemIdx === -1) return;
 
       if (newPcs <= 0) {
-        // Drop from inventory and remove from cloud
         var removed = inventory.splice(itemIdx, 1)[0];
         removeCloudItem(id);
         localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
@@ -1650,7 +1697,7 @@
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((item.width===0||item.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
-        '<div class="text-sm font-bold pt-1">Location: ' + (item.location || 'Shop') + '</div>' +
+        '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
       '</div>';
 
       document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
@@ -1661,7 +1708,7 @@
       document.getElementById('tagPreviewModal').style.display = 'none';
     };
 
-    /* PO CREATION SYSTEM (AUTOMATIC ZERO-REMOVAL OF PACKS + FULL BACKUP DATA EMBEDDED) */
+    /* PO CREATION SYSTEM */
     window.openPoDrawer = function() {
       var today = new Date().toISOString().split('T')[0];
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
@@ -1942,8 +1989,6 @@
 
           var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcsNeeded);
           var lineCost = lineBF * rate;
-
-          // Snapshot of the pack at this exact moment so it can be restored if PO is deleted
           var packSnapshot = JSON.parse(JSON.stringify(pack));
 
           lineItems.push({
@@ -1960,14 +2005,12 @@
             bf: lineBF,
             total: lineCost,
             isUnlinked: false,
-            originalPackData: packSnapshot // Preserved for restoration
+            originalPackData: packSnapshot
           });
 
           if (pcsNeeded === pack.pieces) {
-            // Full pack consumed: flag for complete removal
             packsToRemoveCompletely.push(pack.id);
           } else {
-            // Partial pull: deduct and flag
             pack.pieces = pack.pieces - pcsNeeded;
             pack.partialTaken = true;
             partialBundlesCreated.push(pack.id + " (" + pack.pieces + " pcs remaining)");
@@ -1976,7 +2019,6 @@
         }
       }
 
-      // Remove 0-quantity packs completely from local inventory and Firestore
       if (packsToRemoveCompletely.length > 0) {
         inventory = inventory.filter(function(i){ return !packsToRemoveCompletely.includes(i.id); });
         packsToRemoveCompletely.forEach(function(pid){
@@ -2088,11 +2130,11 @@
               '</span>' +
             '</td>' +
             '<td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">' +
-              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs transition">🖨️</button>' +
+              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2.5 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs transition">🖨️</button>' +
               (isOpen ? 
-                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">✓ Done</button>'
+                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">✓ Done</button>'
               : '') +
-              '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="px-2 py-1 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs transition font-bold" title="Delete PO & Restore Stock">🗑️</button>' +
+              '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs transition font-bold" title="Delete PO & Restore Stock">🗑️</button>' +
             '</td>' +
           '</tr>';
         }).join('');
@@ -2135,18 +2177,16 @@
       if (targetPo && targetPo.items) {
         
         targetPo.items.forEach(function(lineItem) {
-          if (lineItem.isUnlinked) return; // Unlinked custom lines never affected inventory
+          if (lineItem.isUnlinked) return;
 
           var packId = lineItem.packId;
           var existingPack = inventory.find(function(i){ return i.id === packId; });
 
           if (existingPack) {
-            // Pack still exists: add the pieces back
             existingPack.pieces = (parseInt(existingPack.pieces) || 0) + (parseInt(lineItem.pieces) || 0);
             existingPack.partialTaken = false;
             syncCloudItem(existingPack);
           } else if (lineItem.originalPackData) {
-            // Pack was previously completely wiped out (went to 0): restore full pack object
             var restoredPack = JSON.parse(JSON.stringify(lineItem.originalPackData));
             restoredPack.pieces = parseInt(lineItem.pieces) || restoredPack.originalPieces || 1;
             restoredPack.partialTaken = false;
@@ -2155,7 +2195,6 @@
           }
         });
 
-        // Remove the PO
         purchaseOrders = purchaseOrders.filter(function(p){ return p.id !== poPendingDeletionId; });
         removeCloudPo(poPendingDeletionId);
 
