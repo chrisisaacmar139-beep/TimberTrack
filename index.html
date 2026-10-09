@@ -628,7 +628,7 @@
             <div class="flex items-center space-x-1.5">
               <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
               <span>-</span>
-              <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
+              <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
             </div>
           </div>
         </div>
@@ -815,31 +815,24 @@
     var currentUser = null;
 
     function initFirebaseCloud() {
-      if (appConfig.firebase && typeof firebase !== 'undefined') {
+      if (typeof firebase !== 'undefined' && appConfig.firebase) {
         try {
-          if (!firebase.apps.length) firebase.initializeApp(appConfig.firebase);
+          if (!firebase.apps.length) {
+            firebase.initializeApp(appConfig.firebase);
+          }
           auth = firebase.auth();
           db = firebase.firestore();
-
-          // Catches user returning from Google redirect authentication
-          auth.getRedirectResult().then(function(result) {
-            if (result && result.user) {
-              currentUser = result.user;
-              updateGoogleAccountUI();
-              listenToFirestoreSync();
-            }
-          }).catch(function(err) {
-            if (err && err.code) {
-              alert("Sign-in error: " + err.message);
-            }
-          });
 
           auth.onAuthStateChanged(function(user) {
             currentUser = user;
             updateGoogleAccountUI();
-            if (user) listenToFirestoreSync();
+            if (user) {
+              listenToFirestoreSync();
+            }
           });
-        } catch(e) {}
+        } catch(e) {
+          console.error("Firebase init error:", e);
+        }
       }
       updateGoogleAccountUI();
     }
@@ -856,10 +849,24 @@
     }
 
     function handleSignInGoogle() {
-      if (!auth) { alert("Firebase not initialized."); return; }
+      if (!auth) {
+        alert("Connecting to database... please wait 2 seconds and tap Sign In again.");
+        return;
+      }
       var provider = new firebase.auth.GoogleAuthProvider();
-      // Uses redirect instead of popup to prevent mobile browser dropouts
-      auth.signInWithRedirect(provider);
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
+      auth.signInWithPopup(provider)
+        .then(function(res) {
+          alert("Signed in as " + (res.user.displayName || res.user.email));
+        })
+        .catch(function(err) {
+          if (err.code === 'auth/popup-blocked') {
+            alert("Mobile browser blocked the popup. Look for 'Pop-up blocked' at the bottom of Chrome and tap Always allow.");
+          } else {
+            alert("Sign-in notice: " + err.message);
+          }
+        });
     }
 
     function handleSignOutGoogle() {
