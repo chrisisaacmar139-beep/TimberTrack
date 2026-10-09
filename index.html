@@ -13,10 +13,10 @@
 
   <style>
     :root {
-      --app-base-font-size: 14px;
-      --table-font-scale: 1.0;
-      --tag-pack-font-size: 48px;
-      --tag-dim-font-size: 38px;
+      --app-base-font-size: 16px;
+      --table-font-scale: 1.05;
+      --tag-pack-font-size: 52px;
+      --tag-dim-font-size: 42px;
     }
     html, body {
       font-size: var(--app-base-font-size);
@@ -97,60 +97,72 @@
 </head>
 <body class="flex flex-col min-h-screen text-slate-800">
 
-  <!-- TOP HEADER -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-3 py-2.5 sm:px-6 shadow-sm">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+  <!-- TOP HEADER (STREAMLINED & ULTRA CONDENSED FOR ALL SCREENS) -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-2.5 py-2 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-1.5 flex-nowrap">
       
-      <div class="flex items-center space-x-2.5 min-w-0">
-        <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-black text-lg">
+      <!-- Brand Logo & Title -->
+      <div class="flex items-center space-x-1.5 shrink min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-black text-base">
           🌲
         </div>
         <div class="truncate">
-          <div class="flex items-center space-x-2">
-            <h1 class="text-base sm:text-lg font-black tracking-tight text-slate-900 leading-tight">TimberTrack</h1>
-            <span class="hidden sm:inline px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-100 text-amber-800 border border-amber-300">YARD</span>
-          </div>
-          <p class="text-[11px] text-slate-500 hidden md:block">White Pine Staging & Inventory</p>
+          <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 leading-none truncate">TimberTrack</h1>
+          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">C.I.M. Yard</span>
         </div>
       </div>
 
-      <div class="flex items-center space-x-2 shrink-0">
+      <!-- Action Buttons Row (Ultra Compact) -->
+      <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+        
         <!-- Live Cloud Sync Indicator -->
-        <div id="cloudSyncIndicator" class="flex items-center bg-slate-100 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs text-slate-600 font-bold">
-          <span class="w-2 h-2 rounded-full bg-amber-400 mr-1.5 animate-pulse"></span> Connecting...
+        <div id="cloudSyncIndicator" class="flex items-center bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-[11px] text-slate-600 font-bold whitespace-nowrap">
+          <span class="w-2 h-2 rounded-full bg-amber-400 mr-1 animate-pulse"></span>
+          <span class="hidden md:inline">Live Cloud Sync</span>
+          <span class="md:hidden">Sync</span>
         </div>
 
-        <button type="button" onclick="openPoListModal()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-300 text-xs font-semibold">
-          📋 Orders (<span id="openPoBadge">0</span>)
+        <!-- Orders -->
+        <button type="button" onclick="openPoListModal()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
+          <span>📋</span>
+          <span class="hidden sm:inline">Orders</span>
+          <span class="bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded-md text-[10px] font-black" id="openPoBadge">0</span>
         </button>
 
-        <button type="button" onclick="openSettingsModal()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-300 text-xs font-semibold">
-          ⚙️ Settings
+        <!-- Settings -->
+        <button type="button" onclick="openSettingsModal()" title="Yard Settings" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
+          <span>⚙️</span>
+          <span class="hidden lg:inline">Settings</span>
         </button>
 
-        <button type="button" onclick="openPoDrawer()" class="px-3 sm:px-3.5 py-1.5 sm:py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 active:scale-95">
-          + New PO
+        <!-- New PO -->
+        <button type="button" onclick="openPoDrawer()" class="px-2 sm:px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm shadow-sky-600/20 active:scale-95 whitespace-nowrap flex items-center gap-1">
+          <span>+</span>
+          <span>PO</span>
         </button>
 
-        <button type="button" onclick="openEntryDrawer()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-500/20 active:scale-95">
-          + Add Stock
+        <!-- Add Stock -->
+        <button type="button" onclick="openEntryDrawer()" class="px-2 sm:px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-lg text-xs shadow-sm shadow-amber-500/20 active:scale-95 whitespace-nowrap flex items-center gap-1">
+          <span>+</span>
+          <span>Stock</span>
         </button>
+
       </div>
 
     </div>
   </header>
 
   <!-- DASHBOARD -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-4">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-5 space-y-3 sm:space-y-4">
 
     <!-- METRICS & FILTERS -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3">
       
       <!-- Stage Filter -->
       <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Milling Profile Stage</span>
-          <span id="activeStageLabel" class="text-[11px] font-mono font-bold text-amber-700">Rough Stock</span>
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Milling Profile Stage</span>
+          <span id="activeStageLabel" class="text-xs font-mono font-bold text-amber-700">Rough Stock</span>
         </div>
         <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button type="button" onclick="setStageFilter('Rough')" id="filterBtnRough" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">Rough</button>
@@ -158,7 +170,7 @@
           <button type="button" onclick="setStageFilter('ALL')" id="filterBtnAll" class="py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900">All Stock</button>
         </div>
         <div class="mt-2">
-          <select id="subStageSelector" onchange="setSpecificStageFilter(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-amber-500">
+          <select id="subStageSelector" onchange="setSpecificStageFilter(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500">
             <option value="ALL_STAGES">Filter by Specific Profile (Select)...</option>
             <option value="Rough">Rough (Default)</option>
             <option value="D4S">D4S</option>
@@ -175,8 +187,8 @@
       <!-- Quick Width Filter -->
       <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Width Filter</span>
-          <span id="activeWidthLabel" class="text-[11px] font-mono font-bold text-amber-700">All Widths</span>
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Width Filter</span>
+          <span id="activeWidthLabel" class="text-xs font-mono font-bold text-amber-700">All Widths</span>
         </div>
         <div class="grid grid-cols-7 gap-1" id="widthFilterContainer">
           <button type="button" onclick="setWidthFilter('ALL')" id="wb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
@@ -192,14 +204,14 @@
       <!-- Live Volume Totals -->
       <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex items-center justify-between shadow-sm">
         <div>
-          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Visible Volume</span>
-          <div class="text-xl sm:text-2xl font-black text-amber-700 font-mono" id="metricTotalBF">0.0 <span class="text-xs font-sans text-slate-500">BF</span></div>
-          <span class="text-[11px] text-slate-500" id="metricPackCount">0 Packs</span>
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Visible Volume</span>
+          <div class="text-2xl sm:text-3xl font-black text-amber-700 font-mono" id="metricTotalBF">0.0 <span class="text-sm font-sans text-slate-500">BF</span></div>
+          <span class="text-xs text-slate-500" id="metricPackCount">0 Packs</span>
         </div>
         <div class="text-right">
-          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Available Pieces</span>
-          <div class="text-lg sm:text-xl font-black text-emerald-700 font-mono" id="metricTotalPieces">0 <span class="text-xs font-sans text-slate-500">pcs</span></div>
-          <span class="text-[10px] text-rose-600 font-medium" id="metricPendingPieces">0 held</span>
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Available Pieces</span>
+          <div class="text-xl sm:text-2xl font-black text-emerald-700 font-mono" id="metricTotalPieces">0 <span class="text-sm font-sans text-slate-500">pcs</span></div>
+          <span class="text-xs text-rose-600 font-medium" id="metricPendingPieces">0 held</span>
         </div>
       </div>
 
@@ -207,7 +219,7 @@
 
     <!-- TABLE -->
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      <div class="p-3 sm:p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50">
+      <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50">
         <div class="flex items-center space-x-2">
           <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
           <h2 class="text-xs sm:text-sm font-bold tracking-wide text-slate-900 uppercase" id="inventoryTableHeading">Rough Lumber Stock</h2>
@@ -218,7 +230,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse scale-table">
           <thead>
-            <tr class="border-b border-slate-200 bg-slate-100 text-[11px] font-bold text-slate-600 uppercase font-mono">
+            <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
               <th class="py-2.5 px-3">Pack & Grade</th>
               <th class="py-2.5 px-3 whitespace-nowrap">Profile & Milling Stage</th>
               <th class="py-2.5 px-3">Pieces Count</th>
@@ -232,18 +244,18 @@
           <tbody id="inventoryTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
         </table>
       </div>
-      <div id="emptyInventoryState" class="hidden p-8 text-center text-slate-500 text-xs">No packs found matching current filters.</div>
+      <div id="emptyInventoryState" class="hidden p-8 text-center text-slate-500 text-sm">No packs found matching current filters.</div>
     </div>
 
   </main>
 
-  <!-- ADD / EDIT DRAWER WITH PRINT TAG BUTTON -->
+  <!-- ADD / EDIT DRAWER -->
   <div id="drawerOverlay">
     <div class="w-full max-w-lg bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl overflow-y-auto">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
         <div>
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider" id="drawerTitle">Add Yard Stock</h3>
-          <p class="text-[11px] text-slate-500">Sequential Entry Sequence</p>
+          <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider" id="drawerTitle">Add Yard Stock</h3>
+          <p class="text-xs text-slate-500">Sequential Entry Sequence</p>
         </div>
         <button type="button" onclick="closeEntryDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
       </div>
@@ -251,13 +263,20 @@
       <form id="lumberEntryForm" onsubmit="handleSaveLumberPack(event)" class="p-4 space-y-3.5 flex-1">
         <input type="hidden" id="drawerEditId" value="" />
 
+        <!-- CUSTOM PACK TAG FIELD -->
+        <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200">
+          <label class="block text-xs font-bold text-amber-900 uppercase mb-1">Pack / Bundle Tag #</label>
+          <input type="text" id="drawerCustomTagId" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" placeholder="Leave empty for auto-generated tag (e.g. PK-4050)" />
+          <span class="text-[11px] text-amber-800/80 mt-1 block">Specify your own tag or leave blank to assign next available sequence.</span>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Species</label>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Species</label>
             <input type="text" id="drawerSpecies" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Eastern White Pine" />
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Grade</label>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Grade</label>
             <select id="drawerGrade" onchange="recalcDrawerBF()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-700">
               <option value="1&2 Common">1&2 Common (Green)</option>
               <option value="Clear">Clear / Select (Yellow)</option>
@@ -268,8 +287,8 @@
         </div>
 
         <!-- MILLING STAGE SELECTOR -->
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <label class="block text-[11px] font-bold text-amber-800 uppercase tracking-wider">Milling Profile Stage</label>
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+          <label class="block text-xs font-bold text-amber-800 uppercase tracking-wider">Milling Profile Stage</label>
           <select id="drawerStageSelect" onchange="handleDrawerStageChange(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
             <option value="Rough">Rough (Default)</option>
             <option value="D4S">D4S</option>
@@ -282,79 +301,79 @@
           </select>
 
           <div id="drawerOtherStageWrapper" class="hidden pt-1.5">
-            <label class="block text-[10px] uppercase font-bold text-sky-700 tracking-wider mb-1">Specify Other Milling Pattern:</label>
-            <input type="text" id="drawerStageOtherDetail" class="w-full bg-white border border-sky-400 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" placeholder="e.g. Bullnose Siding..." />
+            <label class="block text-[11px] uppercase font-bold text-sky-700 tracking-wider mb-1">Specify Other Milling Pattern:</label>
+            <input type="text" id="drawerStageOtherDetail" class="w-full bg-white border border-sky-400 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" placeholder="e.g. Bullnose Siding..." />
           </div>
         </div>
 
-        <!-- MOISTURE CONTENT RANGE & LOCATION -->
+        <!-- MOISTURE CONTENT RANGE & DEFAULT LOCATION ("Shop") -->
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Moisture Range (%)</label>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Moisture Range (%)</label>
             <div class="flex items-center space-x-1.5">
-              <input type="number" id="drawerMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-center text-slate-800" value="10" />
+              <input type="number" id="drawerMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center text-slate-800" value="10" />
               <span class="text-xs font-bold text-slate-400">-</span>
-              <input type="number" id="drawerMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs font-mono font-bold text-center text-slate-800" value="15" />
+              <input type="number" id="drawerMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center text-slate-800" value="15" />
               <span class="text-xs font-bold text-slate-500">%</span>
             </div>
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Yard Location</label>
-            <input type="text" id="drawerLocation" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Air Bunk 2" />
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Yard Location</label>
+            <input type="text" id="drawerLocation" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Shop" />
           </div>
         </div>
 
         <!-- 1. THICKNESS -->
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="flex items-center justify-between text-[11px] font-bold text-amber-800 uppercase">1. Thickness</div>
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">1. Thickness</div>
           <input type="number" id="drawerThickness" step="0.125" oninput="setDrawerThickness(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="1" />
           <div class="grid grid-cols-6 gap-1" id="thickBtnGroup">
-            <button type="button" onclick="setDrawerThickness(1)" data-val="1" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">1"</button>
-            <button type="button" onclick="setDrawerThickness(1.25)" data-val="1.25" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">1¼"</button>
-            <button type="button" onclick="setDrawerThickness(1.5)" data-val="1.5" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">1½"</button>
-            <button type="button" onclick="setDrawerThickness(2)" data-val="2" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">2"</button>
-            <button type="button" onclick="setDrawerThickness(2.5)" data-val="2.5" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">2½"</button>
-            <button type="button" onclick="setDrawerThickness(3)" data-val="3" class="thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">3"</button>
+            <button type="button" onclick="setDrawerThickness(1)" data-val="1" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">1"</button>
+            <button type="button" onclick="setDrawerThickness(1.25)" data-val="1.25" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">1¼"</button>
+            <button type="button" onclick="setDrawerThickness(1.5)" data-val="1.5" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">1½"</button>
+            <button type="button" onclick="setDrawerThickness(2)" data-val="2" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">2"</button>
+            <button type="button" onclick="setDrawerThickness(2.5)" data-val="2.5" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">2½"</button>
+            <button type="button" onclick="setDrawerThickness(3)" data-val="3" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">3"</button>
           </div>
         </div>
 
         <!-- 2. WIDTH -->
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="flex items-center justify-between text-[11px] font-bold text-amber-800 uppercase">2. Width</div>
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">2. Width</div>
           <input type="number" id="drawerWidth" step="0.125" oninput="setDrawerWidth(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="6" />
           <div class="grid grid-cols-6 gap-1" id="widthBtnGroup">
-            <button type="button" onclick="setDrawerWidth(4)" data-val="4" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">4"</button>
-            <button type="button" onclick="setDrawerWidth(6)" data-val="6" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">6"</button>
-            <button type="button" onclick="setDrawerWidth(8)" data-val="8" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">8"</button>
-            <button type="button" onclick="setDrawerWidth(10)" data-val="10" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">10"</button>
-            <button type="button" onclick="setDrawerWidth(12)" data-val="12" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">12"</button>
-            <button type="button" onclick="setDrawerWidth(0)" data-val="0" class="width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">RW</button>
+            <button type="button" onclick="setDrawerWidth(4)" data-val="4" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">4"</button>
+            <button type="button" onclick="setDrawerWidth(6)" data-val="6" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">6"</button>
+            <button type="button" onclick="setDrawerWidth(8)" data-val="8" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">8"</button>
+            <button type="button" onclick="setDrawerWidth(10)" data-val="10" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">10"</button>
+            <button type="button" onclick="setDrawerWidth(12)" data-val="12" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">12"</button>
+            <button type="button" onclick="setDrawerWidth(0)" data-val="0" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">RW</button>
           </div>
         </div>
 
         <!-- 3. LENGTH -->
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="flex items-center justify-between text-[11px] font-bold text-amber-800 uppercase">3. Length</div>
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">3. Length</div>
           <input type="number" id="drawerLength" step="0.5" oninput="setDrawerLength(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="12" />
           <div class="grid grid-cols-7 gap-1" id="lenBtnGroup">
-            <button type="button" onclick="setDrawerLength(6)" data-val="6" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">6'</button>
-            <button type="button" onclick="setDrawerLength(8)" data-val="8" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">8'</button>
-            <button type="button" onclick="setDrawerLength(10)" data-val="10" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">10'</button>
-            <button type="button" onclick="setDrawerLength(12)" data-val="12" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">12'</button>
-            <button type="button" onclick="setDrawerLength(14)" data-val="14" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">14'</button>
-            <button type="button" onclick="setDrawerLength(16)" data-val="16" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">16'</button>
-            <button type="button" onclick="setDrawerLength(0)" data-val="0" class="len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 transition">RL</button>
+            <button type="button" onclick="setDrawerLength(6)" data-val="6" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">6'</button>
+            <button type="button" onclick="setDrawerLength(8)" data-val="8" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">8'</button>
+            <button type="button" onclick="setDrawerLength(10)" data-val="10" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">10'</button>
+            <button type="button" onclick="setDrawerLength(12)" data-val="12" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">12'</button>
+            <button type="button" onclick="setDrawerLength(14)" data-val="14" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">14'</button>
+            <button type="button" onclick="setDrawerLength(16)" data-val="16" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">16'</button>
+            <button type="button" onclick="setDrawerLength(0)" data-val="0" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">RL</button>
           </div>
         </div>
 
         <!-- Pieces & Notes -->
         <div class="space-y-3">
           <div>
-            <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">4. Pieces Count</label>
+            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">4. Pieces Count</label>
             <input type="number" id="drawerPieces" oninput="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" placeholder="Number of pieces..." />
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
+            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
             <input type="text" id="drawerNotes" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Tight knot batch" />
           </div>
         </div>
@@ -382,38 +401,38 @@
     <div class="w-full max-w-xl bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl overflow-y-auto">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
         <div>
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
-          <p class="text-[11px] text-slate-500">C.I.M. MFG INC • Allocates Stock & Deducts Inventory</p>
+          <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
+          <p class="text-xs text-slate-500">C.I.M. MFG INC • Allocates Stock & Deducts Inventory</p>
         </div>
         <button type="button" onclick="closePoDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
       </div>
 
-      <form id="poEntryForm" onsubmit="handleCreatePurchaseOrder(event)" class="p-4 space-y-4 flex-1">
+      <form id="poEntryForm" onsubmit="handleCreatePurchaseOrder(event)" class="p-4 space-y-3.5 flex-1">
         
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Customer Name *</label>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Customer Name *</label>
             <input type="text" id="poCustomerName" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-sky-500" placeholder="e.g. Highland Millwork" />
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">PO / Order #</label>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">PO / Order #</label>
             <input type="text" id="poOrderNumber" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800" />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold text-amber-800 uppercase mb-1">Due Date *</label>
+            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">Due Date *</label>
             <input type="date" id="poDueDate" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-sky-500" />
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Order Date</label>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Order Date</label>
             <input type="date" id="poOrderDate" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-600" />
           </div>
         </div>
 
         <div>
-          <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">PO Notes / Job Site Delivery</label>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">PO Notes / Job Site Delivery</label>
           <input type="text" id="poNotes" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Siding run - Deliver to shop side door" />
         </div>
 
@@ -431,6 +450,7 @@
           </button>
         </div>
 
+        <!-- LIVE PO SUMMARY WITH 13% HST -->
         <div class="bg-sky-50 border border-sky-200 rounded-xl p-3 text-xs space-y-1">
           <div class="flex justify-between font-bold"><span class="text-slate-600">Total Pieces:</span><span id="poLivePieces" class="text-slate-900 font-mono">0 pcs</span></div>
           <div class="flex justify-between font-bold"><span class="text-slate-600">Total Volume:</span><span id="poLiveBF" class="text-sky-800 font-mono">0.0 BF</span></div>
@@ -446,15 +466,15 @@
     </div>
   </div>
 
-  <!-- PURCHASE ORDERS MANAGEMENT MODAL -->
+  <!-- PURCHASE ORDERS REGISTRY MODAL -->
   <div id="poListModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
         <div class="flex items-center space-x-2">
           <span class="text-sky-600 text-lg">📋</span>
           <div>
-            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Purchase Orders Registry</h4>
-            <span class="text-[10px] text-slate-500 font-semibold uppercase">C.I.M. MFG INC • Prices & 13% HST Included</span>
+            <h4 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Purchase Orders Registry</h4>
+            <span class="text-[11px] text-slate-500 font-semibold uppercase">C.I.M. MFG INC • Prices & 13% HST Included</span>
           </div>
         </div>
         <button type="button" onclick="closePoListModal()" class="text-slate-500 hover:text-slate-800 font-bold text-lg w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">✕</button>
@@ -463,7 +483,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
-            <tr class="border-b border-slate-200 bg-slate-100 text-[11px] font-bold text-slate-600 uppercase font-mono">
+            <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
               <th class="py-2.5 px-3">PO #</th>
               <th class="py-2.5 px-3">Customer & Dates</th>
               <th class="py-2.5 px-3">Milling Schedule</th>
@@ -486,7 +506,7 @@
       <div class="flex justify-between items-center pb-2 border-b border-slate-200">
         <span class="text-xs font-bold text-slate-900 uppercase">C.I.M. MFG INC — Purchase Order Work Order (8.5" × 11")</span>
         <div class="space-x-2">
-          <button type="button" onclick="window.print()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded text-xs shadow-sm">Print Order</button>
+          <button type="button" onclick="window.print()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm">Print Order</button>
           <button type="button" onclick="closePoPrintModal()" class="text-slate-500 font-bold text-sm">✕</button>
         </div>
       </div>
@@ -495,7 +515,7 @@
   </div>
   <div id="printablePoContainer" class="hidden"></div>
 
-  <!-- SETTINGS MODAL -->
+  <!-- COMPLETE SETTINGS MODAL -->
   <div id="settingsModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
       
@@ -507,7 +527,7 @@
         <button type="button" onclick="closeSettingsModal()" class="text-slate-500 hover:text-slate-800 font-bold text-lg w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">✕</button>
       </div>
 
-      <div class="grid grid-cols-5 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold text-center">
+      <div class="grid grid-cols-5 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold text-center">
         <button type="button" onclick="switchSettingsTab('pricing')" id="tabBtnPricing" class="py-1.5 rounded-lg bg-amber-500 text-white shadow">Pricing</button>
         <button type="button" onclick="switchSettingsTab('defaults')" id="tabBtnDefaults" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Defaults</button>
         <button type="button" onclick="switchSettingsTab('fonts')" id="tabBtnFonts" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Fonts</button>
@@ -515,11 +535,11 @@
         <button type="button" onclick="switchSettingsTab('backup')" id="tabBtnBackup" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Backup</button>
       </div>
 
-      <!-- PRICING -->
+      <!-- PRICING TAB -->
       <div id="settingsTabPricing" class="space-y-3">
         <div class="flex justify-between items-center">
           <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Lumber Grade Pricing Schedule ($ / BF)</h5>
-          <span class="text-[10px] text-slate-500">Board foot pricing schedule</span>
+          <span class="text-xs text-slate-500">Board foot pricing schedule</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
           
@@ -529,11 +549,11 @@
             </span>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
                 <input type="number" id="cfgRate12CommonRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
               <div>
-                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
                 <input type="number" id="cfgRate12CommonMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
             </div>
@@ -545,11 +565,11 @@
             </span>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
                 <input type="number" id="cfgRateSelectRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
               <div>
-                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
                 <input type="number" id="cfgRateSelectMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
             </div>
@@ -561,11 +581,11 @@
             </span>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
                 <input type="number" id="cfgRateLowGradeRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
               <div>
-                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
                 <input type="number" id="cfgRateLowGradeMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
             </div>
@@ -577,11 +597,11 @@
             </span>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <span class="text-[10px] text-slate-500 block">Rough Rate</span>
+                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
                 <input type="number" id="cfgRateStainRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
               <div>
-                <span class="text-[10px] text-slate-500 block">Milled Rate</span>
+                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
                 <input type="number" id="cfgRateStainMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
               </div>
             </div>
@@ -590,16 +610,16 @@
         </div>
       </div>
 
-      <!-- DEFAULTS -->
+      <!-- DEFAULTS TAB -->
       <div id="settingsTabDefaults" class="space-y-3 hidden">
         <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Yard Operations Defaults</h5>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Species</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Species</label>
             <input type="text" id="cfgDefaultSpecies" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800" />
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Starting View Filter</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Starting View Filter</label>
             <select id="cfgDefaultStageFilter" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
               <option value="Rough">Rough Stock (Default)</option>
               <option value="MILLED">All Milled Stock</option>
@@ -607,19 +627,19 @@
             </select>
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Thickness (Inches)</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Thickness (Inches)</label>
             <input type="number" id="cfgDefaultThickness" step="0.125" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Width (Inches)</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Width (Inches)</label>
             <input type="number" id="cfgDefaultWidth" step="0.125" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Length (Feet)</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Length (Feet)</label>
             <input type="number" id="cfgDefaultLength" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
             <div class="flex items-center space-x-1.5">
               <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
               <span>-</span>
@@ -629,52 +649,52 @@
         </div>
       </div>
 
-      <!-- FONTS -->
+      <!-- FONTS TAB -->
       <div id="settingsTabFonts" class="space-y-3 hidden">
         <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Typography & Display Scaling</h5>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">App UI Base Text Size</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">App UI Base Text Size</label>
             <select id="cfgBaseFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
-              <option value="12px">Compact Mobile (12px)</option>
-              <option value="14px">Standard Clean (14px)</option>
-              <option value="16px">Large Yard View (16px)</option>
+              <option value="14px">Standard (14px)</option>
+              <option value="16px">Large Clean (16px - Current)</option>
+              <option value="18px">Oversized Yard View (18px)</option>
             </select>
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Inventory Table Font Scale</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Inventory Table Font Scale</label>
             <select id="cfgTableFontScale" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
-              <option value="0.9">Small Condensed (0.9x)</option>
-              <option value="1.0">Standard Normal (1.0x)</option>
-              <option value="1.15">Enlarged Text (1.15x)</option>
+              <option value="0.95">Compact (0.95x)</option>
+              <option value="1.05">Enhanced (1.05x - Current)</option>
+              <option value="1.2">Enlarged Text (1.2x)</option>
             </select>
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Tag Pack Number Size</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Tag Pack Number Size</label>
             <select id="cfgTagPackFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
-              <option value="40px">Large (40px)</option>
-              <option value="48px">Extra Large (48px)</option>
-              <option value="56px">Oversized / Mega (56px)</option>
+              <option value="48px">Large (48px)</option>
+              <option value="52px">Extra Large (52px - Current)</option>
+              <option value="60px">Oversized / Mega (60px)</option>
             </select>
           </div>
           <div>
-            <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Tag Dimension Size</label>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Tag Dimension Size</label>
             <select id="cfgTagDimFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
-              <option value="32px">Large (32px)</option>
-              <option value="38px">Extra Large (38px)</option>
-              <option value="46px">Oversized (46px)</option>
+              <option value="38px">Large (38px)</option>
+              <option value="42px">Extra Large (42px - Current)</option>
+              <option value="48px">Oversized (48px)</option>
             </select>
           </div>
         </div>
       </div>
 
-      <!-- CLOUD -->
+      <!-- CLOUD TAB -->
       <div id="settingsTabCloud" class="space-y-3 hidden">
         <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Firebase Cloud Configuration</h5>
         <textarea id="cfgFirebaseConfig" rows="6" class="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none"></textarea>
       </div>
 
-      <!-- BACKUP -->
+      <!-- BACKUP TAB -->
       <div id="settingsTabBackup" class="space-y-3 hidden">
         <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Inventory Data Backup</h5>
         <div class="space-y-2">
@@ -688,7 +708,7 @@
 
       <!-- FOOTER -->
       <div class="flex items-center justify-between pt-3 border-t border-slate-200">
-        <button type="button" onclick="resetSettingsToFactory()" class="text-xs text-slate-500 hover:text-rose-600 underline">Reset to Factory Defaults</button>
+        <button type="button" onclick="resetSettingsToFactory()" class="text-xs text-slate-500 hover:text-rose-600 underline">Reset to Factory</button>
         <div class="space-x-2">
           <button type="button" onclick="closeSettingsModal()" class="px-3 py-1.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
           <button type="button" onclick="saveAppSettings()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md">Save Settings</button>
@@ -716,7 +736,7 @@
       <div class="flex justify-between items-center pb-2 border-b border-slate-200">
         <span class="text-xs font-bold text-slate-900 uppercase">Bunk Tag Preview (8" × 5")</span>
         <div class="space-x-2">
-          <button type="button" onclick="window.print()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded text-xs shadow-sm">Print</button>
+          <button type="button" onclick="window.print()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs shadow-sm">Print</button>
           <button type="button" onclick="closeTagModal()" class="text-slate-500 hover:text-slate-800 font-bold text-sm">✕</button>
         </div>
       </div>
@@ -725,7 +745,7 @@
   </div>
   <div id="printableTagContainer" class="hidden"></div>
 
-  <!-- APP LOGIC (DIRECT FIRESTORE SYNC, ZERO LOGIN REQUIRED) -->
+  <!-- APP LOGIC -->
   <script>
     var DEFAULT_CONFIG = {
       rates: {
@@ -742,13 +762,14 @@
         width: 6,
         length: 12,
         moistureMin: 10,
-        moistureMax: 15
+        moistureMax: 15,
+        location: "Shop"
       },
       fonts: {
-        baseSize: "14px",
-        tableScale: "1.0",
-        tagPackSize: "48px",
-        tagDimSize: "38px"
+        baseSize: "16px",
+        tableScale: "1.05",
+        tagPackSize: "52px",
+        tagDimSize: "42px"
       },
       firebase: {
         apiKey: "AIzaSyDzLA2Ihnw80A6OIMw7Bs9NbKYl3gEF6GU",
@@ -798,9 +819,8 @@
           }
           db = firebase.firestore();
 
-          // Listen to live database changes from anywhere
           db.collection('yard_inventory').onSnapshot(function(snap) {
-            if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Live Cloud Sync';
+            if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> <span class="hidden md:inline">Live Cloud Sync</span><span class="md:hidden">Sync</span>';
             if (!snap.empty) {
               var cloudItems = [];
               snap.forEach(function(doc){ cloudItems.push(doc.data()); });
@@ -808,12 +828,11 @@
               localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
               renderInventory();
             } else if (inventory.length > 0) {
-              // Push local stock up to cloud so partner can see it
               inventory.forEach(function(item){ syncCloudItem(item); });
             }
           }, function(err) {
             console.error(err);
-            if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span> Local Mode';
+            if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500 mr-1"></span> Local';
           });
 
           db.collection('yard_pos').onSnapshot(function(snap) {
@@ -867,15 +886,15 @@
     function getGradeBadgeHtml(grade) {
       var g = (grade || "").toLowerCase();
       if (g.includes("1&2") || g.includes("common")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("clear") || g.includes("select")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("low")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("stain")) {
-        return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
+        return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
       }
-      return '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + grade + '</span>';
+      return '<span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + grade + '</span>';
     }
 
     function getDisplayStage(item) {
@@ -971,7 +990,7 @@
 
           var rowClass = "border-b border-slate-200 transition-colors ";
           if (isPartial) {
-            rowClass += "bg-amber-100/75 border-l-4 border-l-amber-500 ";
+            rowClass += "bg-amber-100/80 border-l-4 border-l-amber-500 ";
           } else if (isPending) {
             rowClass += "bg-rose-50/70 border-l-4 border-l-rose-500 ";
           } else {
@@ -980,73 +999,73 @@
 
           return '<tr class="' + rowClass + '">' +
             '<td class="py-2.5 px-3 align-top">' +
-              '<div class="font-mono font-bold text-amber-800">' + item.id + '</div>' +
-              '<div class="text-[10px] text-slate-500">' + item.species + '</div>' +
+              '<div class="font-mono font-black text-amber-800 text-sm">' + item.id + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + item.species + '</div>' +
               '<div class="mt-1">' + getGradeBadgeHtml(item.grade) + '</div>' +
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top whitespace-nowrap">' +
-              '<div class="font-mono font-extrabold text-slate-900 text-base tracking-tight">' + dimString + '</div>' +
+              '<div class="font-mono font-black text-slate-900 text-lg tracking-tight">' + dimString + '</div>' +
               '<div class="mt-1 flex items-center space-x-1.5">' +
-                '<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
+                '<span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
                   displayStage +
                 '</span>' +
-                '<span class="text-[10px] text-slate-500 font-mono">MC ' + moistureDisplay + ' • ' + (item.location || 'Yard') + '</span>' +
+                '<span class="text-xs text-slate-500 font-mono">MC ' + moistureDisplay + ' • ' + (item.location || 'Shop') + '</span>' +
               '</div>' +
               (isPartial ? 
-                '<div class="mt-2 p-1.5 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-[11px] font-bold flex items-center justify-between gap-2 shadow-sm">' +
+                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex items-center justify-between gap-2 shadow-sm">' +
                   '<span>⚠️ Partial pull: <strong>' + totalPieces + ' pcs left</strong>. Update bundle tag!</span>' +
-                  '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
+                  '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
                 '</div>'
               : '') +
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top">' +
               '<div class="flex items-center space-x-1.5">' +
-                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-16 bg-white border border-slate-300 rounded px-2 py-0.5 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
                 '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
               '</div>' +
-              (isPending ? '<div class="text-[10px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
+              (isPending ? '<div class="text-[11px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
-              (item.notes ? '<div class="p-1.5 rounded bg-slate-50 border border-slate-200 leading-snug">' + item.notes + '</div>' : '<span class="text-slate-400">—</span>') +
+              (item.notes ? '<div class="p-2 rounded bg-slate-50 border border-slate-200 leading-snug">' + item.notes + '</div>' : '<span class="text-slate-400">—</span>') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800">' +
-              '<div>' + bf.toFixed(1) + ' <span class="text-[10px] text-slate-500 font-normal">BF</span></div>' +
-              (isPending ? '<div class="text-[10px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
+            '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
+              '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span></div>' +
+              (isPending ? '<div class="text-[11px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top font-mono whitespace-nowrap">' +
               '<div class="text-xs font-bold ' + (isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
                 '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Rgh:</span>' +
-                '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[10px] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
+                '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[11px] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
               '</div>' +
               '<div class="text-xs font-bold mt-0.5 ' + (!isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
                 '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Mld:</span>' +
-                '$' + milledPcPrice.toFixed(2) + '/pc <span class="text-[10px] font-normal text-slate-400">(@$' + rateInfo.milled.toFixed(2) + ')</span>' +
+                '$' + milledPcPrice.toFixed(2) + '/pc <span class="text-[11px] font-normal text-slate-400">(@$' + rateInfo.milled.toFixed(2) + ')</span>' +
               '</div>' +
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top min-w-[170px]">' +
-              '<button type="button" onclick="toggleStatus(\'' + item.id + '\')" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase transition ' + (isPending ? 'bg-rose-600 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300') + '">' +
+              '<button type="button" onclick="toggleStatus(\'' + item.id + '\')" class="px-2 py-0.5 rounded text-xs font-bold uppercase transition ' + (isPending ? 'bg-rose-600 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300') + '">' +
                 (isPending ? 'Pending Order' : 'In Stock') +
               '</button>' +
               (isPending ? 
                 '<div class="mt-2 space-y-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-xs shadow-sm">' +
                   '<div>' +
-                    '<label class="block text-[9px] uppercase font-bold text-rose-800 tracking-wider">Pending For (Customer):</label>' +
-                    '<input type="text" value="' + (item.customer || '') + '" oninput="updateCustomer(\'' + item.id + '\', this.value)" placeholder="Customer name..." class="w-full bg-white border border-rose-300 rounded px-1.5 py-0.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500" />' +
+                    '<label class="block text-[10px] uppercase font-bold text-rose-800 tracking-wider">Pending Customer:</label>' +
+                    '<input type="text" value="' + (item.customer || '') + '" oninput="updateCustomer(\'' + item.id + '\', this.value)" placeholder="Customer name..." class="w-full bg-white border border-rose-300 rounded px-2 py-1 text-xs text-slate-900 focus:outline-none focus:border-rose-500" />' +
                   '</div>' +
                   '<div>' +
-                    '<label class="block text-[9px] uppercase font-bold text-rose-800 tracking-wider">Pieces Wanted / Hold:</label>' +
+                    '<label class="block text-[10px] uppercase font-bold text-rose-800 tracking-wider">Pieces On Hold:</label>' +
                     '<div class="flex items-center space-x-1">' +
-                      '<input type="number" value="' + heldPieces + '" onchange="updatePendingPieces(\'' + item.id + '\', this.value)" class="w-16 bg-white border border-rose-300 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-rose-500" />' +
-                      '<span class="text-[10px] text-slate-500">pcs</span>' +
+                      '<input type="number" value="' + heldPieces + '" onchange="updatePendingPieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-rose-300 rounded px-2 py-0.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-rose-500" />' +
+                      '<span class="text-xs text-slate-500">pcs</span>' +
                     '</div>' +
                   '</div>' +
-                  '<div class="text-[10px] font-mono pt-0.5 border-t border-rose-200 flex justify-between">' +
+                  '<div class="text-xs font-mono pt-1 border-t border-rose-200 flex justify-between">' +
                     '<span class="text-slate-600">Left for Sale:</span>' +
                     '<span class="font-bold text-emerald-700">' + leftPieces + ' pcs</span>' +
                   '</div>' +
@@ -1055,9 +1074,9 @@
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top text-right space-x-1 whitespace-nowrap">' +
-              '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded text-xs transition border border-slate-300">🏷️</button>' +
-              '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs transition border border-slate-300">✏️</button>' +
-              '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded text-xs transition border border-slate-300">🗑️</button>' +
+              '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded-lg text-xs transition border border-slate-300">🏷️</button>' +
+              '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition border border-slate-300">✏️</button>' +
+              '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded-lg text-xs transition border border-slate-300">🗑️</button>' +
             '</td>' +
           '</tr>';
         }).join('');
@@ -1096,8 +1115,8 @@
         packCount++;
       });
 
-      document.getElementById('metricTotalBF').innerHTML = totalBF.toFixed(1) + ' <span class="text-xs font-sans text-slate-500">BF</span>';
-      document.getElementById('metricTotalPieces').innerHTML = totalPieces + ' <span class="text-xs font-sans text-slate-500">pcs</span>';
+      document.getElementById('metricTotalBF').innerHTML = totalBF.toFixed(1) + ' <span class="text-sm font-sans text-slate-500">BF</span>';
+      document.getElementById('metricTotalPieces').innerHTML = totalPieces + ' <span class="text-sm font-sans text-slate-500">pcs</span>';
       document.getElementById('metricPendingPieces').innerText = pendingCount + ' held';
       document.getElementById('metricPackCount').innerText = packCount + ' Packs';
     }
@@ -1170,27 +1189,27 @@
       document.querySelectorAll('#thickBtnGroup .thick-btn').forEach(function(btn) {
         var btnVal = parseFloat(btn.getAttribute('data-val'));
         if (btnVal === parseFloat(thicknessVal)) {
-          btn.className = "thick-btn py-1 text-[11px] font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+          btn.className = "thick-btn py-1 text-xs font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
         } else {
-          btn.className = "thick-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+          btn.className = "thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
         }
       });
 
       document.querySelectorAll('#widthBtnGroup .width-btn').forEach(function(btn) {
         var btnVal = parseFloat(btn.getAttribute('data-val'));
         if (btnVal === parseFloat(widthVal)) {
-          btn.className = "width-btn py-1 text-[11px] font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+          btn.className = "width-btn py-1 text-xs font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
         } else {
-          btn.className = "width-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+          btn.className = "width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
         }
       });
 
       document.querySelectorAll('#lenBtnGroup .len-btn').forEach(function(btn) {
         var btnVal = parseFloat(btn.getAttribute('data-val'));
         if (btnVal === parseFloat(lengthVal)) {
-          btn.className = "len-btn py-1 text-[11px] font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+          btn.className = "len-btn py-1 text-xs font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
         } else {
-          btn.className = "len-btn py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+          btn.className = "len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
         }
       });
     }
@@ -1219,6 +1238,10 @@
       document.getElementById('drawerEditId').value = "";
       document.getElementById('drawerTitle').innerText = "Add Yard Stock";
       
+      var nextTag = "PK-" + Math.floor(1000 + Math.random() * 9000);
+      document.getElementById('drawerCustomTagId').value = "";
+      document.getElementById('drawerCustomTagId').placeholder = "e.g. " + nextTag;
+
       document.getElementById('drawerSpecies').value = "Eastern White Pine";
       document.getElementById('drawerGrade').value = "1&2 Common";
       document.getElementById('drawerStageSelect').value = "Rough";
@@ -1232,10 +1255,11 @@
       document.getElementById('drawerWidth').value = 6;
       document.getElementById('drawerLength').value = 12;
 
+      document.getElementById('drawerLocation').value = "Shop";
+
       updateDimensionButtonHighlights(1, 6, 12);
 
       document.getElementById('drawerPieces').value = "";
-      document.getElementById('drawerLocation').value = "";
       document.getElementById('drawerNotes').value = "";
       recalcDrawerBF();
     };
@@ -1262,13 +1286,22 @@
       document.getElementById('drawerLiveTotal').innerText = "$" + (bf * rate).toFixed(2);
     };
 
+    /* FIXED DIRECT PRINT TAG (PACK ID PROPERLY RETRIEVED) */
     window.printDrawerTagDirect = function() {
       var p = parseInt(document.getElementById('drawerPieces').value);
       if (isNaN(p) || p <= 0) { 
         alert("Enter piece count before printing tag."); 
         return; 
       }
-      var editId = document.getElementById('drawerEditId').value;
+      var editId = document.getElementById('drawerEditId').value.trim();
+      var customEnteredId = document.getElementById('drawerCustomTagId').value.trim();
+      
+      var finalTagId = editId || customEnteredId;
+      if (!finalTagId) {
+        finalTagId = "PK-" + Math.floor(1000 + Math.random() * 9000);
+        document.getElementById('drawerCustomTagId').value = finalTagId;
+      }
+
       var selectedStage = document.getElementById('drawerStageSelect').value;
       var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
       var displayStage = (selectedStage === "Other" && otherDetail) ? otherDetail : selectedStage;
@@ -1278,7 +1311,7 @@
       var mStr = mMin + "-" + mMax + "%";
 
       var tempItem = {
-        id: editId || "PK-NEW",
+        id: finalTagId,
         species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
         grade: document.getElementById('drawerGrade').value,
         stage: selectedStage,
@@ -1287,7 +1320,7 @@
         width: parseFloat(document.getElementById('drawerWidth').value) || 6,
         length: parseFloat(document.getElementById('drawerLength').value) || 12,
         pieces: p,
-        location: document.getElementById('drawerLocation').value.trim() || "Yard Bunk",
+        location: document.getElementById('drawerLocation').value.trim() || "Shop",
         moisture: mStr
       };
 
@@ -1295,15 +1328,15 @@
 
       var tagHtml = '<div class="space-y-4">' +
         '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
-          '<div><div class="tag-pack-heading font-black font-mono">' + tempItem.id + '</div><div class="text-xl font-bold">' + tempItem.species + '</div></div>' +
-          '<div class="text-right font-black border-2 border-black px-2 py-1 uppercase">' + displayStage + ' • ' + tempItem.grade + '<div class="text-xs font-mono font-bold mt-1">MC: ' + tempItem.moisture + '</div></div>' +
+          '<div><div class="tag-pack-heading font-black font-mono">' + tempItem.id + '</div><div class="text-2xl font-black">' + tempItem.species + '</div></div>' +
+          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + tempItem.grade + '<div class="text-sm font-mono font-bold mt-1">MC: ' + tempItem.moisture + '</div></div>' +
         '</div>' +
         '<div class="tag-dim-heading font-black font-mono my-2">' + tempItem.thickness + '" × ' + (tempItem.width===0?'RW':tempItem.width+'"') + ' × ' + (tempItem.length===0?'RL':tempItem.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + tempItem.pieces + ' PCS</div></div>' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
-        '<div class="text-xs font-bold pt-1">Location: ' + tempItem.location + '</div>' +
+        '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
       '</div>';
 
       document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
@@ -1322,11 +1355,14 @@
       var mMin = parseFloat(document.getElementById('drawerMoistureMin').value) || 10;
       var mMax = parseFloat(document.getElementById('drawerMoistureMax').value) || 15;
 
-      var editId = document.getElementById('drawerEditId').value;
+      var editId = document.getElementById('drawerEditId').value.trim();
+      var customEnteredId = document.getElementById('drawerCustomTagId').value.trim();
       var existing = editId ? inventory.find(function(i){ return i.id === editId; }) : null;
 
+      var finalId = editId || (customEnteredId ? customEnteredId : ("PK-" + Math.floor(1000 + Math.random() * 9000)));
+
       var pack = {
-        id: editId || ("PK-" + Math.floor(1000 + Math.random() * 9000)),
+        id: finalId,
         species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
         grade: document.getElementById('drawerGrade').value,
         stage: selectedStage,
@@ -1336,7 +1372,7 @@
         length: parseFloat(document.getElementById('drawerLength').value) || 12,
         pieces: p,
         originalPieces: existing ? (existing.originalPieces || p) : p,
-        location: document.getElementById('drawerLocation').value.trim(),
+        location: document.getElementById('drawerLocation').value.trim() || "Shop",
         notes: document.getElementById('drawerNotes').value.trim(),
         moisture: mMin + "-" + mMax,
         status: existing ? existing.status : "IN_STOCK",
@@ -1412,6 +1448,7 @@
       var d = document.getElementById('drawerOverlay');
       if (d) d.style.display = 'flex';
       document.getElementById('drawerEditId').value = item.id;
+      document.getElementById('drawerCustomTagId').value = item.id;
       document.getElementById('drawerTitle').innerText = "Edit Pack " + item.id;
       document.getElementById('drawerSpecies').value = item.species;
       document.getElementById('drawerGrade').value = item.grade === "Select" ? "Clear" : item.grade;
@@ -1436,7 +1473,7 @@
       updateDimensionButtonHighlights(item.thickness, item.width, item.length);
 
       document.getElementById('drawerPieces').value = item.pieces;
-      document.getElementById('drawerLocation').value = item.location || "";
+      document.getElementById('drawerLocation').value = item.location || "Shop";
       document.getElementById('drawerNotes').value = item.notes || "";
       recalcDrawerBF();
     };
@@ -1468,15 +1505,15 @@
 
       var tagHtml = '<div class="space-y-4">' +
         '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
-          '<div><div class="tag-pack-heading font-black font-mono">' + item.id + '</div><div class="text-xl font-bold">' + item.species + '</div></div>' +
-          '<div class="text-right font-black border-2 border-black px-2 py-1 uppercase">' + displayStage + ' • ' + item.grade + '<div class="text-xs font-mono font-bold mt-1">MC: ' + moistureDisplay + '</div></div>' +
+          '<div><div class="tag-pack-heading font-black font-mono">' + item.id + '</div><div class="text-2xl font-black">' + item.species + '</div></div>' +
+          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + item.grade + '<div class="text-sm font-mono font-bold mt-1">MC: ' + moistureDisplay + '</div></div>' +
         '</div>' +
         '<div class="tag-dim-heading font-black font-mono my-2">' + item.thickness + '" × ' + (item.width===0?'RW':item.width+'"') + ' × ' + (item.length===0?'RL':item.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
-        '<div class="text-xs font-bold pt-1">Location: ' + (item.location || 'Yard Bunk') + '</div>' +
+        '<div class="text-sm font-bold pt-1">Location: ' + (item.location || 'Shop') + '</div>' +
       '</div>';
 
       document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
@@ -1487,7 +1524,7 @@
       document.getElementById('tagPreviewModal').style.display = 'none';
     };
 
-    /* PO SYSTEM */
+    /* PO CREATION & NOTIFICATION */
     window.openPoDrawer = function() {
       var today = new Date().toISOString().split('T')[0];
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
@@ -1519,8 +1556,8 @@
       var rowHtml = '<div id="' + rowId + '" class="po-line-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">' +
         '<div class="flex items-center gap-2">' +
           '<div class="flex-1">' +
-            '<label class="block text-[10px] uppercase font-bold text-slate-500">Pick Source Pack:</label>' +
-            '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Pick Source Pack:</label>' +
+            '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
               '<option value="">Select stock pack...</option>' + options +
             '</select>' +
           '</div>' +
@@ -1528,8 +1565,8 @@
         '</div>' +
 
         '<div class="bg-amber-50/70 border border-amber-200 rounded-lg p-2 space-y-1.5">' +
-          '<label class="block text-[10px] uppercase font-bold text-amber-900 tracking-wider">Target Profile to Mill Into:</label>' +
-          '<select class="po-target-profile-select w-full bg-white border border-amber-300 rounded-lg p-1.5 text-xs font-bold text-amber-800" onchange="handlePoTargetProfileChange(\'' + rowId + '\', this.value)">' +
+          '<label class="block text-[11px] uppercase font-bold text-amber-900 tracking-wider">Target Profile to Mill Into:</label>' +
+          '<select class="po-target-profile-select w-full bg-white border border-amber-300 rounded-lg p-2 text-xs font-bold text-amber-800" onchange="handlePoTargetProfileChange(\'' + rowId + '\', this.value)">' +
             '<option value="Rough">Rough (Leave Rough)</option>' +
             '<option value="D4S">D4S</option>' +
             '<option value="V Match">V Match</option>' +
@@ -1540,22 +1577,22 @@
             '<option value="Other">Other (Specify Custom Profile)...</option>' +
           '</select>' +
           '<div class="po-target-other-wrapper hidden pt-1">' +
-            '<input type="text" placeholder="Specify custom pattern..." class="po-target-other-input w-full bg-white border border-sky-400 rounded-lg px-2 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" />' +
+            '<input type="text" placeholder="Specify custom pattern..." class="po-target-other-input w-full bg-white border border-sky-400 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" />' +
           '</div>' +
         '</div>' +
 
         '<div class="grid grid-cols-3 gap-2">' +
           '<div>' +
-            '<label class="block text-[10px] uppercase font-bold text-slate-500">Pcs Needed:</label>' +
-            '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Pcs Needed:</label>' +
+            '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
           '</div>' +
           '<div>' +
-            '<label class="block text-[10px] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
-            '<input type="number" step="0.05" class="po-rate-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
+            '<input type="number" step="0.05" class="po-rate-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
           '</div>' +
           '<div>' +
-            '<label class="block text-[10px] uppercase font-bold text-slate-500">Line BF / Total:</label>' +
-            '<div class="po-line-preview text-[11px] font-mono font-bold text-emerald-700 pt-1.5">0 BF • $0</div>' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Line BF / Total:</label>' +
+            '<div class="po-line-preview text-xs font-mono font-bold text-emerald-700 pt-2">0 BF • $0</div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1733,8 +1770,31 @@
       renderInventory();
       updatePoBadge();
 
+      var sendEmailConfirm = confirm("Purchase Order " + poNum + " created successfully!\n\nDo you want to send an email notification to chris@cimmfg.ca?");
+      if (sendEmailConfirm) {
+        var emailSubject = encodeURIComponent("New Lumber Purchase Order Created: " + poNum + " (" + cust + ")");
+        var emailBodyText = "C.I.M. MFG INC - NEW PURCHASE ORDER ALERT%0D%0A%0D%0A" +
+          "PO Number: " + poNum + "%0D%0A" +
+          "Customer: " + cust + "%0D%0A" +
+          "Order Date: " + orderDate + "%0D%0A" +
+          "Due Date: " + dueDate + "%0D%0A" +
+          "Total Pieces: " + poOrder.totalPieces + " pcs%0D%0A" +
+          "Total Board Footage: " + poOrder.totalBF.toFixed(1) + " BF%0D%0A" +
+          "Subtotal: $" + subtotal.toFixed(2) + "%0D%0A" +
+          "HST (13%): $" + hstAmount.toFixed(2) + "%0D%0A" +
+          "Total Amount: $" + totalAmount.toFixed(2) + "%0D%0A" +
+          "Notes: " + (notes || "None") + "%0D%0A%0D%0A" +
+          "Line Items:%0D%0A";
+        
+        lineItems.forEach(function(it, idx){
+          emailBodyText += (idx+1) + ". " + it.packId + " - " + it.pieces + " pcs " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
+        });
+
+        window.location.href = "mailto:chris@cimmfg.ca?subject=" + emailSubject + "&body=" + emailBodyText;
+      }
+
       if (partialBundlesCreated.length > 0) {
-        alert("Purchase Order created!\n\n⚠️ Notice: Partial bundles taken:\n" + partialBundlesCreated.join('\n'));
+        alert("⚠️ Notice: Partial bundles were pulled:\n" + partialBundlesCreated.join('\n') + "\n\nThese packs are highlighted in yellow on your inventory list as a reminder to update bundle tags.");
       }
     };
 
@@ -1768,25 +1828,25 @@
             '<td class="py-2.5 px-3 font-mono font-bold text-sky-800">' + po.id + '</td>' +
             '<td class="py-2.5 px-3">' +
               '<strong>' + po.customer + '</strong>' +
-              '<div class="text-[10px] text-slate-500">Ordered: ' + (po.orderDate || po.date || '—') + '</div>' +
-              '<div class="text-[10px] font-bold text-amber-800 font-mono">DUE: ' + (po.dueDate || '—') + '</div>' +
+              '<div class="text-[11px] text-slate-500">Ordered: ' + (po.orderDate || po.date || '—') + '</div>' +
+              '<div class="text-[11px] font-bold text-amber-800 font-mono">DUE: ' + (po.dueDate || '—') + '</div>' +
             '</td>' +
-            '<td class="py-2.5 px-3 max-w-[200px] truncate text-[11px] text-slate-700">' + itemsSummary + '</td>' +
+            '<td class="py-2.5 px-3 max-w-[200px] truncate text-xs text-slate-700">' + itemsSummary + '</td>' +
             '<td class="py-2.5 px-3 font-mono font-bold">' + po.totalBF.toFixed(1) + ' BF</td>' +
             '<td class="py-2.5 px-3 font-mono">' +
               '<div class="text-slate-600 text-[11px]">Sub: $' + sub.toFixed(2) + '</div>' +
-              '<div class="text-amber-800 text-[10px]">HST: $' + hst.toFixed(2) + '</div>' +
+              '<div class="text-amber-800 text-[11px]">HST: $' + hst.toFixed(2) + '</div>' +
               '<div class="font-bold text-emerald-700 text-xs">Total: $' + tot.toFixed(2) + '</div>' +
             '</td>' +
             '<td class="py-2.5 px-3">' +
-              '<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
+              '<span class="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
                 (isOpen ? 'Open Order' : 'Completed') +
               '</span>' +
             '</td>' +
             '<td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">' +
-              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded border border-slate-300 text-slate-700 text-xs transition">🖨️ Print Work Order</button>' +
+              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2.5 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs transition">🖨️ Print Order</button>' +
               (isOpen ? 
-                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-xs transition">✓ Mark Completed</button>'
+                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">✓ Complete</button>'
               : '') +
             '</td>' +
           '</tr>';
@@ -1873,7 +1933,7 @@
           '<tbody>' + itemsRows + '</tbody>' +
         '</table>' +
 
-        '<div style="display: flex; justify-content: space-end; margin-top: 10px;">' +
+        '<div style="display: flex; justify-content: flex-end; margin-top: 10px;">' +
           '<div style="width: 280px; border-top: 2px solid #000; padding-top: 10px; font-size: 13px;">' +
             '<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span>Total Quantity:</span><strong style="font-family: monospace; font-size: 15px;">' + po.totalPieces + ' pcs</strong></div>' +
             '<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span>Total Board Footage:</span><strong style="font-family: monospace; font-size: 15px;">' + po.totalBF.toFixed(1) + ' BF</strong></div>' +
@@ -1895,7 +1955,7 @@
       document.getElementById('poPrintModal').style.display = 'none';
     };
 
-    /* SETTINGS */
+    /* SETTINGS ENGINE */
     window.openSettingsModal = function() {
       document.getElementById('cfgRate12CommonRough').value = appConfig.rates["1&2 Common"].rough;
       document.getElementById('cfgRate12CommonMilled').value = appConfig.rates["1&2 Common"].milled;
@@ -1914,10 +1974,10 @@
       document.getElementById('cfgDefaultMoistureMin').value = appConfig.defaults.moistureMin || 10;
       document.getElementById('cfgDefaultMoistureMax').value = appConfig.defaults.moistureMax || 15;
 
-      document.getElementById('cfgBaseFontSize').value = appConfig.fonts.baseSize;
-      document.getElementById('cfgTableFontScale').value = appConfig.fonts.tableScale;
-      document.getElementById('cfgTagPackFontSize').value = appConfig.fonts.tagPackSize;
-      document.getElementById('cfgTagDimFontSize').value = appConfig.fonts.tagDimSize;
+      document.getElementById('cfgBaseFontSize').value = appConfig.fonts.baseSize || "16px";
+      document.getElementById('cfgTableFontScale').value = appConfig.fonts.tableScale || "1.05";
+      document.getElementById('cfgTagPackFontSize').value = appConfig.fonts.tagPackSize || "52px";
+      document.getElementById('cfgTagDimFontSize').value = appConfig.fonts.tagDimSize || "42px";
 
       document.getElementById('cfgFirebaseConfig').value = JSON.stringify(appConfig.firebase, null, 2);
 
@@ -2017,10 +2077,10 @@
 
     function applyFontVariables() {
       if (!appConfig.fonts) return;
-      document.documentElement.style.setProperty('--app-base-font-size', appConfig.fonts.baseSize || '14px');
-      document.documentElement.style.setProperty('--table-font-scale', appConfig.fonts.tableScale || '1.0');
-      document.documentElement.style.setProperty('--tag-pack-font-size', appConfig.fonts.tagPackSize || '48px');
-      document.documentElement.style.setProperty('--tag-dim-font-size', appConfig.fonts.tagDimSize || '38px');
+      document.documentElement.style.setProperty('--app-base-font-size', appConfig.fonts.baseSize || '16px');
+      document.documentElement.style.setProperty('--table-font-scale', appConfig.fonts.tableScale || '1.05');
+      document.documentElement.style.setProperty('--tag-pack-font-size', appConfig.fonts.tagPackSize || '52px');
+      document.documentElement.style.setProperty('--tag-dim-font-size', appConfig.fonts.tagDimSize || '42px');
     }
 
     window.onload = function() {
