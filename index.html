@@ -46,7 +46,7 @@
       z-index: 9999;
       justify-content: flex-end;
     }
-    #settingsModal, #deleteConfirmModal, #tagPreviewModal, #poListModal, #poPrintModal {
+    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #tagPreviewModal, #poListModal, #poPrintModal {
       display: none;
       position: fixed;
       inset: 0;
@@ -476,7 +476,7 @@
     </div>
   </div>
 
-  <!-- PURCHASE ORDERS REGISTRY MODAL -->
+  <!-- PURCHASE ORDERS REGISTRY MODAL (WITH PO DELETION) -->
   <div id="poListModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -507,6 +507,18 @@
         </table>
       </div>
       <div id="emptyPoListState" class="hidden p-6 text-center text-slate-500 text-xs">No purchase orders found.</div>
+    </div>
+  </div>
+
+  <!-- PO DELETE CONFIRMATION MODAL -->
+  <div id="poDeleteConfirmModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+      <h4 class="text-sm font-bold text-slate-900 uppercase">Delete Purchase Order</h4>
+      <p class="text-xs text-slate-600" id="poDeleteModalMessage">Are you sure you want to delete this purchase order? Any packs deducted or removed by this order will be fully restored to your inventory list.</p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button type="button" onclick="closePoDeleteModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+        <button type="button" onclick="confirmExecutePoDelete()" class="flex-1 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md">Delete & Restore</button>
+      </div>
     </div>
   </div>
 
@@ -728,7 +740,7 @@
     </div>
   </div>
 
-  <!-- DELETE MODAL -->
+  <!-- DELETE PACK MODAL -->
   <div id="deleteConfirmModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
       <h4 class="text-sm font-bold text-slate-900 uppercase">Confirm Pack Deletion</h4>
@@ -818,6 +830,7 @@
     var currentWidthFilter = "ALL";
     var searchQuery = "";
     var itemPendingDeletionId = null;
+    var poPendingDeletionId = null;
 
     var db = null;
 
@@ -833,7 +846,13 @@
           db.collection('yard_inventory').onSnapshot(function(snap) {
             if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> <span class="hidden md:inline">Live Cloud Sync</span><span class="md:hidden">Sync</span>';
             var cloudItems = [];
-            snap.forEach(function(doc){ cloudItems.push(doc.data()); });
+            snap.forEach(function(doc){ 
+              var d = doc.data();
+              // Only load items with remaining pieces > 0
+              if ((parseInt(d.pieces) || 0) > 0) {
+                cloudItems.push(d);
+              }
+            });
             inventory = cloudItems;
             localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
             renderInventory();
@@ -874,6 +893,12 @@
       }
     }
 
+    function removeCloudPo(poId) {
+      if (db) {
+        db.collection('yard_pos').doc(poId).delete().catch(function(){});
+      }
+    }
+
     // ROBUST BF CALCULATION (SUPPORTS RANDOM WIDTH AND RANDOM LENGTH ESTIMATION)
     function calculateBF(t, w, l, p) {
       t = parseFloat(t) || 0;
@@ -881,9 +906,7 @@
       l = parseFloat(l) || 0;
       p = parseInt(p) || 0;
 
-      // Handle Random Width (RW = 0): default to 6" average for volume calculation
       var effW = (w === 0) ? 6 : w;
-      // Handle Random Length (RL = 0): default to 10' average for volume calculation
       var effL = (l === 0) ? 10 : l;
 
       return (t * effW * effL * p) / 12;
@@ -992,7 +1015,11 @@
       var empty = document.getElementById('emptyInventoryState');
       if (!tbody) return;
 
+      // Filter out zero-piece packs completely
       var filtered = inventory.filter(function(item) {
+        var p = parseInt(item.pieces) || 0;
+        if (p <= 0) return false;
+
         var s = item.stage || "Rough";
         if (currentStageFilter === "Rough" && s !== "Rough") return false;
         if (currentStageFilter === "MILLED" && s === "Rough") return false;
@@ -1074,7 +1101,7 @@
 
             '<td class="py-2.5 px-3 align-top">' +
               '<div class="flex items-center space-x-1.5">' +
-                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
                 '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
               '</div>' +
               (isPending ? '<div class="text-[11px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
@@ -1146,6 +1173,9 @@
       var packCount = 0;
 
       inventory.forEach(function(item) {
+        var p = parseInt(item.pieces) || 0;
+        if (p <= 0) return; // Ignore zero qty packs in metrics
+
         var s = item.stage || "Rough";
         if (currentStageFilter === "Rough" && s !== "Rough") return;
         if (currentStageFilter === "MILLED" && s === "Rough") return;
@@ -1158,7 +1188,6 @@
           if (currentWidthFilter === 'RW' && item.width !== 0) return;
           if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return;
         }
-        var p = parseInt(item.pieces) || 0;
         var h = parseInt(item.pendingPieces) || 0;
         var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
 
@@ -1326,7 +1355,6 @@
       if (d) d.style.display = 'none';
     };
 
-    // FIXED: ACCURATELY TRIGGERS ESTIMATED BOARD FOOTAGE WHEN RW OR RL IS SELECTED
     window.recalcDrawerBF = function() {
       var t = parseFloat(document.getElementById('drawerThickness').value) || 1;
       var w = parseFloat(document.getElementById('drawerWidth').value);
@@ -1340,7 +1368,6 @@
       var g = document.getElementById('drawerGrade').value;
       var s = document.getElementById('drawerStageSelect').value;
 
-      // Handle visibility indicators for RW / RL
       var rwNotice = document.getElementById('rwNotice');
       var rlNotice = document.getElementById('rlNotice');
 
@@ -1370,7 +1397,6 @@
       document.getElementById('drawerLiveTotal').innerText = "$" + (bf * rate).toFixed(2);
     };
 
-    /* FIXED DIRECT PRINT TAG (PACK ID PROPERLY RETRIEVED) */
     window.printDrawerTagDirect = function() {
       var p = parseInt(document.getElementById('drawerPieces').value);
       if (isNaN(p) || p <= 0) { 
@@ -1489,10 +1515,21 @@
       renderInventory();
     };
 
+    // INLINE EDIT PIECES: AUTO-PURGES IF CHANGED TO 0
     window.updatePieces = function(id, val) {
-      var item = inventory.find(function(i){ return i.id === id; });
-      if (item) {
-        item.pieces = Math.max(0, parseInt(val) || 0);
+      var newPcs = Math.max(0, parseInt(val) || 0);
+      var itemIdx = inventory.findIndex(function(i){ return i.id === id; });
+      if (itemIdx === -1) return;
+
+      if (newPcs <= 0) {
+        // Drop from inventory and remove from cloud
+        var removed = inventory.splice(itemIdx, 1)[0];
+        removeCloudItem(id);
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        renderInventory();
+      } else {
+        var item = inventory[itemIdx];
+        item.pieces = newPcs;
         if (item.pendingPieces > item.pieces) item.pendingPieces = item.pieces;
         localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
         syncCloudItem(item);
@@ -1624,7 +1661,7 @@
       document.getElementById('tagPreviewModal').style.display = 'none';
     };
 
-    /* PO CREATION SYSTEM */
+    /* PO CREATION SYSTEM (AUTOMATIC ZERO-REMOVAL OF PACKS + FULL BACKUP DATA EMBEDDED) */
     window.openPoDrawer = function() {
       var today = new Date().toISOString().split('T')[0];
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
@@ -1851,6 +1888,7 @@
       if (rows.length === 0) { alert("Please add at least one line item to this purchase order."); return; }
 
       var lineItems = [];
+      var packsToRemoveCompletely = [];
       var partialBundlesCreated = [];
 
       for (var i = 0; i < rows.length; i++) {
@@ -1905,6 +1943,9 @@
           var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcsNeeded);
           var lineCost = lineBF * rate;
 
+          // Snapshot of the pack at this exact moment so it can be restored if PO is deleted
+          var packSnapshot = JSON.parse(JSON.stringify(pack));
+
           lineItems.push({
             packId: pack.id,
             species: pack.species,
@@ -1918,19 +1959,29 @@
             rate: rate,
             bf: lineBF,
             total: lineCost,
-            isUnlinked: false
+            isUnlinked: false,
+            originalPackData: packSnapshot // Preserved for restoration
           });
 
           if (pcsNeeded === pack.pieces) {
-            pack.pieces = 0;
-            pack.partialTaken = false;
+            // Full pack consumed: flag for complete removal
+            packsToRemoveCompletely.push(pack.id);
           } else {
+            // Partial pull: deduct and flag
             pack.pieces = pack.pieces - pcsNeeded;
             pack.partialTaken = true;
             partialBundlesCreated.push(pack.id + " (" + pack.pieces + " pcs remaining)");
+            syncCloudItem(pack);
           }
-          syncCloudItem(pack);
         }
+      }
+
+      // Remove 0-quantity packs completely from local inventory and Firestore
+      if (packsToRemoveCompletely.length > 0) {
+        inventory = inventory.filter(function(i){ return !packsToRemoveCompletely.includes(i.id); });
+        packsToRemoveCompletely.forEach(function(pid){
+          removeCloudItem(pid);
+        });
       }
 
       var subtotal = lineItems.reduce(function(acc, item){ return acc + item.total; }, 0);
@@ -2037,10 +2088,11 @@
               '</span>' +
             '</td>' +
             '<td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">' +
-              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2.5 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs transition">🖨️ Print Order</button>' +
+              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs transition">🖨️</button>' +
               (isOpen ? 
-                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">✓ Complete</button>'
+                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">✓ Done</button>'
               : '') +
+              '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="px-2 py-1 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs transition font-bold" title="Delete PO & Restore Stock">🗑️</button>' +
             '</td>' +
           '</tr>';
         }).join('');
@@ -2062,6 +2114,59 @@
         openPoListModal();
         updatePoBadge();
       }
+    };
+
+    /* DELETE PO & RESTORE INVENTORY */
+    window.promptDeletePo = function(poId) {
+      poPendingDeletionId = poId;
+      document.getElementById('poDeleteModalMessage').innerText = "Delete purchase order " + poId + "? All packs and pieces allocated to this order will be fully restored to your active inventory.";
+      document.getElementById('poDeleteConfirmModal').style.display = 'flex';
+    };
+
+    window.closePoDeleteModal = function() {
+      poPendingDeletionId = null;
+      document.getElementById('poDeleteConfirmModal').style.display = 'none';
+    };
+
+    window.confirmExecutePoDelete = function() {
+      if (!poPendingDeletionId) return;
+
+      var targetPo = purchaseOrders.find(function(p){ return p.id === poPendingDeletionId; });
+      if (targetPo && targetPo.items) {
+        
+        targetPo.items.forEach(function(lineItem) {
+          if (lineItem.isUnlinked) return; // Unlinked custom lines never affected inventory
+
+          var packId = lineItem.packId;
+          var existingPack = inventory.find(function(i){ return i.id === packId; });
+
+          if (existingPack) {
+            // Pack still exists: add the pieces back
+            existingPack.pieces = (parseInt(existingPack.pieces) || 0) + (parseInt(lineItem.pieces) || 0);
+            existingPack.partialTaken = false;
+            syncCloudItem(existingPack);
+          } else if (lineItem.originalPackData) {
+            // Pack was previously completely wiped out (went to 0): restore full pack object
+            var restoredPack = JSON.parse(JSON.stringify(lineItem.originalPackData));
+            restoredPack.pieces = parseInt(lineItem.pieces) || restoredPack.originalPieces || 1;
+            restoredPack.partialTaken = false;
+            inventory.unshift(restoredPack);
+            syncCloudItem(restoredPack);
+          }
+        });
+
+        // Remove the PO
+        purchaseOrders = purchaseOrders.filter(function(p){ return p.id !== poPendingDeletionId; });
+        removeCloudPo(poPendingDeletionId);
+
+        localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      }
+
+      closePoDeleteModal();
+      renderInventory();
+      openPoListModal();
+      updatePoBadge();
     };
 
     window.previewPrintPo = function(poId) {
