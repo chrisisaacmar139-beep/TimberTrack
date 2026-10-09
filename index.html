@@ -626,7 +626,7 @@
           <div>
             <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
             <div class="flex items-center space-x-1.5">
-              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
+              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
               <span>-</span>
               <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
             </div>
@@ -841,31 +841,30 @@
       var container = document.getElementById('googleAccountArea');
       if (!container) return;
       if (currentUser) {
-        container.innerHTML = '<span class="text-emerald-700 font-bold text-xs truncate max-w-[90px]">' + (currentUser.displayName || currentUser.email) + '</span>' +
+        container.innerHTML = '<span class="text-emerald-700 font-bold text-xs truncate max-w-[120px]">' + (currentUser.displayName || currentUser.email) + '</span>' +
           '<button type="button" onclick="handleSignOutGoogle()" class="text-slate-500 hover:text-rose-600 ml-1.5 text-[10px]">Logout</button>';
       } else {
         container.innerHTML = '<button type="button" onclick="handleSignInGoogle()" class="text-amber-700 font-bold text-xs">Sign In</button>';
       }
     }
 
+    /* DIRECT IN-APP EMAIL & PASSWORD LOGIN (BYPASSES MOBILE COOKIE/POPUP BLOCKING) */
     function handleSignInGoogle() {
       if (!auth) {
-        alert("Connecting to database... please wait 2 seconds and tap Sign In again.");
+        alert("Connecting to database... please wait a few seconds and tap Sign In again.");
         return;
       }
-      var provider = new firebase.auth.GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      
-      auth.signInWithPopup(provider)
+      var email = prompt("Enter your login email:", "chrisisaacmar139@gmail.com");
+      if (!email) return;
+      var pass = prompt("Enter your TimberTrack password:");
+      if (!pass) return;
+
+      auth.signInWithEmailAndPassword(email.trim(), pass)
         .then(function(res) {
-          alert("Signed in as " + (res.user.displayName || res.user.email));
+          alert("Signed in successfully as " + res.user.email);
         })
         .catch(function(err) {
-          if (err.code === 'auth/popup-blocked') {
-            alert("Mobile browser blocked the popup. Look for 'Pop-up blocked' at the bottom of Chrome and tap Always allow.");
-          } else {
-            alert("Sign-in notice: " + err.message);
-          }
+          alert("Login error: " + err.message);
         });
     }
 
