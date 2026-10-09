@@ -626,7 +626,7 @@
           <div>
             <label class="block text-[10px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
             <div class="flex items-center space-x-1.5">
-              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
+              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
               <span>-</span>
               <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
             </div>
@@ -764,12 +764,12 @@
         tagDimSize: "38px"
       },
       firebase: {
-        apiKey: "AIzaSyDzLA2Ihnw80A60IMw7Bs9NbK",
+        apiKey: "AIzaSyDzLA2Ihnw80A6OIMw7Bs9NbKYl3gEF6GU",
         authDomain: "timbertrack-6c42d.firebaseapp.com",
         projectId: "timbertrack-6c42d",
         storageBucket: "timbertrack-6c42d.firebasestorage.app",
         messagingSenderId: "876066859760",
-        appId: "1:876066859760:web:839654a3f5e2"
+        appId: "1:876066859760:web:839654a3f5e26b9fce3035"
       }
     };
 
@@ -779,6 +779,8 @@
       if (savedCfg) {
         var parsed = JSON.parse(savedCfg);
         appConfig = Object.assign({}, DEFAULT_CONFIG, parsed);
+        // Force the valid firebase config over any older cached invalid key:
+        appConfig.firebase = DEFAULT_CONFIG.firebase;
         if (!appConfig.rates) appConfig.rates = DEFAULT_CONFIG.rates;
         if (!appConfig.defaults) appConfig.defaults = DEFAULT_CONFIG.defaults;
         if (!appConfig.fonts) appConfig.fonts = DEFAULT_CONFIG.fonts;
@@ -1930,8 +1932,8 @@
         '<div style="display: flex; justify-content: space-between; border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 16px;">' +
           '<div>' +
             '<h1 style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: #000;">C.I.M. MFG INC</h1>' +
-            '<p style="margin: 4px 0 0; font-size: 12px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Millwork & Lumber Yard Order</p>' +
-          '</div>' +
+            '<p style="margin: 4px 0 0; font-size: 12px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Millwork & Lumber Yard Order</p>
+          </div>' +
           '<div style="text-align: right;">' +
             '<h2 style="margin: 0; font-size: 22px; font-weight: 900; color: #0284c7;">PURCHASE ORDER</h2>' +
             '<div style="font-size: 14px; font-weight: 800; font-family: monospace; margin-top: 2px;">#' + po.id + '</div>' +
