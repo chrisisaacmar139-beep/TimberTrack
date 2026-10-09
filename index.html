@@ -332,9 +332,12 @@
           </div>
         </div>
 
-        <!-- 2. WIDTH -->
+        <!-- 2. WIDTH (WITH RW / RANDOM WIDTH OPTION) -->
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">2. Width</div>
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">
+            <span>2. Width</span>
+            <span id="rwNotice" class="text-[11px] font-mono text-amber-700 hidden">(RW: Estimating @ 6" avg)</span>
+          </div>
           <input type="number" id="drawerWidth" step="0.125" oninput="setDrawerWidth(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="6" />
           <div class="grid grid-cols-6 gap-1" id="widthBtnGroup">
             <button type="button" onclick="setDrawerWidth(4)" data-val="4" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">4"</button>
@@ -346,9 +349,12 @@
           </div>
         </div>
 
-        <!-- 3. LENGTH -->
+        <!-- 3. LENGTH (WITH RL / RANDOM LENGTH OPTION) -->
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">3. Length</div>
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">
+            <span>3. Length</span>
+            <span id="rlNotice" class="text-[11px] font-mono text-amber-700 hidden">(RL: Estimating @ 10' avg)</span>
+          </div>
           <input type="number" id="drawerLength" step="0.5" oninput="setDrawerLength(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="12" />
           <div class="grid grid-cols-7 gap-1" id="lenBtnGroup">
             <button type="button" onclick="setDrawerLength(6)" data-val="6" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">6'</button>
@@ -374,9 +380,18 @@
         </div>
 
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-1">
-          <div class="flex justify-between font-bold"><span class="text-slate-600">Volume:</span><span id="drawerLiveBF" class="text-amber-800 font-mono">0.0 BF</span></div>
-          <div class="flex justify-between"><span class="text-slate-600">Applied Rate:</span><span id="drawerLiveRate" class="text-slate-700 font-mono">$1.65 / BF</span></div>
-          <div class="flex justify-between border-t border-amber-200 pt-1"><span class="text-slate-700 font-bold">Estimated Total:</span><span id="drawerLiveTotal" class="text-emerald-700 font-mono font-bold">$0.00</span></div>
+          <div class="flex justify-between font-bold">
+            <span class="text-slate-600">Volume:</span>
+            <span id="drawerLiveBF" class="text-amber-800 font-mono">0.0 BF</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-600">Applied Rate:</span>
+            <span id="drawerLiveRate" class="text-slate-700 font-mono">$1.65 / BF</span>
+          </div>
+          <div class="flex justify-between border-t border-amber-200 pt-1">
+            <span class="text-slate-700 font-bold">Estimated Total:</span>
+            <span id="drawerLiveTotal" class="text-emerald-700 font-mono font-bold">$0.00</span>
+          </div>
         </div>
 
         <div class="grid grid-cols-3 gap-2 pt-1">
@@ -786,6 +801,7 @@
       }
     } catch(e) {}
 
+    // CLEAN INITIAL STORAGE: STRICTLY NO TEST PACKS EVER
     var inventory = [];
     try {
       var savedInv = localStorage.getItem('timbertrack_inventory');
@@ -816,28 +832,22 @@
 
           db.collection('yard_inventory').onSnapshot(function(snap) {
             if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> <span class="hidden md:inline">Live Cloud Sync</span><span class="md:hidden">Sync</span>';
-            if (!snap.empty) {
-              var cloudItems = [];
-              snap.forEach(function(doc){ cloudItems.push(doc.data()); });
-              inventory = cloudItems;
-              localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
-              renderInventory();
-            } else if (inventory.length > 0) {
-              inventory.forEach(function(item){ syncCloudItem(item); });
-            }
+            var cloudItems = [];
+            snap.forEach(function(doc){ cloudItems.push(doc.data()); });
+            inventory = cloudItems;
+            localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+            renderInventory();
           }, function(err) {
             console.error(err);
             if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500 mr-1"></span> Local';
           });
 
           db.collection('yard_pos').onSnapshot(function(snap) {
-            if (!snap.empty) {
-              var cloudPos = [];
-              snap.forEach(function(doc){ cloudPos.push(doc.data()); });
-              purchaseOrders = cloudPos;
-              localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
-              updatePoBadge();
-            }
+            var cloudPos = [];
+            snap.forEach(function(doc){ cloudPos.push(doc.data()); });
+            purchaseOrders = cloudPos;
+            localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+            updatePoBadge();
           });
 
         } catch(e) {
@@ -864,13 +874,19 @@
       }
     }
 
+    // ROBUST BF CALCULATION (SUPPORTS RANDOM WIDTH AND RANDOM LENGTH ESTIMATION)
     function calculateBF(t, w, l, p) {
       t = parseFloat(t) || 0;
       w = parseFloat(w) || 0;
       l = parseFloat(l) || 0;
       p = parseInt(p) || 0;
-      if (w === 0) return 0;
-      return (t * w * l * p) / 12;
+
+      // Handle Random Width (RW = 0): default to 6" average for volume calculation
+      var effW = (w === 0) ? 6 : w;
+      // Handle Random Length (RL = 0): default to 10' average for volume calculation
+      var effL = (l === 0) ? 10 : l;
+
+      return (t * effW * effL * p) / 12;
     }
 
     function getGradeRates(grade) {
@@ -1069,7 +1085,8 @@
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
-              '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span></div>' +
+              '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span>' + 
+              ((item.width === 0 || item.length === 0) ? ' <span class="text-[10px] text-amber-600 font-normal">(est)</span>' : '') + '</div>' +
               (isPending ? '<div class="text-[11px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
             '</td>' +
 
@@ -1110,9 +1127,9 @@
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top text-right space-x-1 whitespace-nowrap">' +
-              '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded-lg text-xs transition border border-slate-300">🏷️</button>' +
-              '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition border border-slate-300">✏️</button>' +
-              '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded-lg text-xs transition border border-slate-300">🗑️</button>' +
+              '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded-lg text-xs transition border border-slate-300">🏷️</button>' +
+              '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition border border-slate-300">✏️</button>' +
+              '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded-lg text-xs transition border border-slate-300">🗑️</button>' +
             '</td>' +
           '</tr>';
         }).join('');
@@ -1309,19 +1326,46 @@
       if (d) d.style.display = 'none';
     };
 
+    // FIXED: ACCURATELY TRIGGERS ESTIMATED BOARD FOOTAGE WHEN RW OR RL IS SELECTED
     window.recalcDrawerBF = function() {
-      var t = document.getElementById('drawerThickness').value;
-      var w = document.getElementById('drawerWidth').value;
-      var l = document.getElementById('drawerLength').value;
-      var p = document.getElementById('drawerPieces').value || 1;
+      var t = parseFloat(document.getElementById('drawerThickness').value) || 1;
+      var w = parseFloat(document.getElementById('drawerWidth').value);
+      if (isNaN(w)) w = 6;
+      var l = parseFloat(document.getElementById('drawerLength').value);
+      if (isNaN(l)) l = 12;
+
+      var pInput = document.getElementById('drawerPieces').value;
+      var p = (pInput === "" || isNaN(parseInt(pInput))) ? 1 : parseInt(pInput);
+
       var g = document.getElementById('drawerGrade').value;
       var s = document.getElementById('drawerStageSelect').value;
+
+      // Handle visibility indicators for RW / RL
+      var rwNotice = document.getElementById('rwNotice');
+      var rlNotice = document.getElementById('rlNotice');
+
+      if (w === 0) {
+        if (rwNotice) rwNotice.classList.remove('hidden');
+      } else {
+        if (rwNotice) rwNotice.classList.add('hidden');
+      }
+
+      if (l === 0) {
+        if (rlNotice) rlNotice.classList.remove('hidden');
+      } else {
+        if (rlNotice) rlNotice.classList.add('hidden');
+      }
 
       var bf = calculateBF(t, w, l, p);
       var rateInfo = getGradeRates(g);
       var rate = s === 'Rough' ? rateInfo.rough : rateInfo.milled;
 
-      document.getElementById('drawerLiveBF').innerText = bf.toFixed(1) + " BF";
+      var noteText = "";
+      if (w === 0 && l === 0) noteText = " (est. 6\"×10')";
+      else if (w === 0) noteText = " (est. 6\" width)";
+      else if (l === 0) noteText = " (est. 10' len)";
+
+      document.getElementById('drawerLiveBF').innerText = bf.toFixed(1) + " BF" + noteText;
       document.getElementById('drawerLiveRate').innerText = "$" + rate.toFixed(2) + " / BF";
       document.getElementById('drawerLiveTotal').innerText = "$" + (bf * rate).toFixed(2);
     };
@@ -1357,8 +1401,8 @@
         stage: selectedStage,
         stageDetail: otherDetail,
         thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
-        width: parseFloat(document.getElementById('drawerWidth').value) || 6,
-        length: parseFloat(document.getElementById('drawerLength').value) || 12,
+        width: parseFloat(document.getElementById('drawerWidth').value) || 0,
+        length: parseFloat(document.getElementById('drawerLength').value) || 0,
         pieces: p,
         location: document.getElementById('drawerLocation').value.trim() || "Shop",
         moisture: mStr
@@ -1374,7 +1418,7 @@
         '<div class="tag-dim-heading font-black font-mono my-2">' + tempItem.thickness + '" × ' + (tempItem.width===0?'RW':tempItem.width+'"') + ' × ' + (tempItem.length===0?'RL':tempItem.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + tempItem.pieces + ' PCS</div></div>' +
-          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((tempItem.width===0||tempItem.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
         '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
       '</div>';
@@ -1401,7 +1445,6 @@
 
       var finalId = editId || (customEnteredId ? customEnteredId : generateUniquePackId());
 
-      // STRICT DUPLICATE PACK ID VALIDATION
       var duplicateExists = inventory.some(function(i) {
         return i.id.toUpperCase() === finalId.toUpperCase() && (!editId || i.id.toUpperCase() !== editId.toUpperCase());
       });
@@ -1420,8 +1463,8 @@
         stage: selectedStage,
         stageDetail: selectedStage === "Other" ? otherDetail : "",
         thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
-        width: parseFloat(document.getElementById('drawerWidth').value) || 6,
-        length: parseFloat(document.getElementById('drawerLength').value) || 12,
+        width: parseFloat(document.getElementById('drawerWidth').value) || 0,
+        length: parseFloat(document.getElementById('drawerLength').value) || 0,
         pieces: p,
         originalPieces: existing ? (existing.originalPieces || p) : p,
         location: document.getElementById('drawerLocation').value.trim() || "Shop",
@@ -1568,7 +1611,7 @@
         '<div class="tag-dim-heading font-black font-mono my-2">' + item.thickness + '" × ' + (item.width===0?'RW':item.width+'"') + ' × ' + (item.length===0?'RL':item.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>' +
-          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((item.width===0||item.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
         '<div class="text-sm font-bold pt-1">Location: ' + (item.location || 'Shop') + '</div>' +
       '</div>';
@@ -1581,7 +1624,7 @@
       document.getElementById('tagPreviewModal').style.display = 'none';
     };
 
-    /* PO CREATION SYSTEM (SUPPORTS STOCK PACK OR UNLINKED / CUSTOM SPEC LINES) */
+    /* PO CREATION SYSTEM */
     window.openPoDrawer = function() {
       var today = new Date().toISOString().split('T')[0];
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
@@ -1623,7 +1666,6 @@
           '<button type="button" onclick="removePoLineItemRow(\'' + rowId + '\')" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1 mt-4">✕</button>' +
         '</div>' +
 
-        /* UNLINKED CUSTOM STOCK PARAMETERS (SHOWN ONLY WHEN CUSTOM_UNLINKED IS SELECTED) */
         '<div class="po-custom-stock-fields hidden bg-sky-50/80 border border-sky-200 rounded-lg p-2.5 space-y-2">' +
           '<div class="flex justify-between items-center text-[11px] font-bold text-sky-900 uppercase tracking-wider">' +
             '<span>Unlinked / Non-Inventory Lumber Specs</span>' +
@@ -1968,7 +2010,7 @@
           var isOpen = po.status === "OPEN";
           var itemsSummary = po.items.map(function(it){
             var prefix = it.isUnlinked ? "[Custom] " : "";
-            return prefix + it.pieces + " pcs " + it.thickness + '×' + it.width + ' ➔ ' + (it.targetProfile || it.sourceStage);
+            return prefix + it.pieces + " pcs " + it.thickness + '×' + (it.width===0?'RW':it.width+'"') + ' ➔ ' + (it.targetProfile || it.sourceStage);
           }).join(', ');
 
           var sub = po.subtotal !== undefined ? po.subtotal : (po.totalAmount / 1.13);
