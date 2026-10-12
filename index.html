@@ -107,7 +107,7 @@
         </div>
         <div class="truncate">
           <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 leading-none truncate">TimberTrack</h1>
-          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">C.I.M. Yard</span>
+          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline" id="activeYardSubheading">C.I.M. MFG INC</span>
         </div>
       </div>
 
@@ -145,6 +145,18 @@
 
   <!-- DASHBOARD -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-5 space-y-3 sm:space-y-4">
+
+    <!-- PRIMARY COMPANY TABS -->
+    <div class="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-1.5">
+      <button type="button" onclick="switchCompanyView('C.I.M. MFG INC')" id="companyTabCim" class="flex-1 py-2 text-xs sm:text-sm font-black rounded-xl bg-amber-500 text-white shadow transition-all flex items-center justify-center gap-2">
+        <span>🏭</span>
+        <span>C.I.M. MFG INC</span>
+      </button>
+      <button type="button" onclick="switchCompanyView('Crosshill Sawmill')" id="companyTabCrosshill" class="flex-1 py-2 text-xs sm:text-sm font-black rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-2">
+        <span>🪵</span>
+        <span>Crosshill Sawmill</span>
+      </button>
+    </div>
 
     <!-- METRICS & FILTERS -->
     <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3">
@@ -195,7 +207,7 @@
           </div>
         </div>
 
-        <!-- Length Section (Directly Below Width Filter) -->
+        <!-- Length Section -->
         <div class="pt-2 border-t border-slate-100">
           <div class="flex items-center justify-between mb-1">
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Length Filter</span>
@@ -236,16 +248,16 @@
       <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50">
         <div class="flex items-center space-x-2">
           <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-          <h2 class="text-xs sm:text-sm font-bold tracking-wide text-slate-900 uppercase" id="inventoryTableHeading">Rough Lumber Stock</h2>
+          <h2 class="text-xs sm:text-sm font-bold tracking-wide text-slate-900 uppercase" id="inventoryTableHeading">C.I.M. MFG INC — Rough Stock</h2>
         </div>
-        <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search packs, grade, stage, notes..." class="w-full sm:w-64 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" />
+        <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search packs, grade, stage, drying, notes..." class="w-full sm:w-64 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" />
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse scale-table">
           <thead>
             <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
-              <th class="py-2.5 px-3">Pack & Grade</th>
+              <th class="py-2.5 px-3">Pack, Grade & Drying</th>
               <th class="py-2.5 px-3 whitespace-nowrap">Profile & Milling Stage</th>
               <th class="py-2.5 px-3">Pieces Count</th>
               <th class="py-2.5 px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
@@ -277,6 +289,15 @@
       <form id="lumberEntryForm" onsubmit="handleSaveLumberPack(event)" class="p-4 space-y-3.5 flex-1">
         <input type="hidden" id="drawerEditId" value="" />
 
+        <!-- COMPANY INVENTORY ASSIGNMENT -->
+        <div class="bg-slate-100 p-3 rounded-xl border border-slate-300">
+          <label class="block text-xs font-black text-slate-700 uppercase mb-1">Inventory List / Facility</label>
+          <select id="drawerCompanySelect" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-amber-800 focus:outline-none focus:border-amber-500">
+            <option value="C.I.M. MFG INC">C.I.M. MFG INC</option>
+            <option value="Crosshill Sawmill">Crosshill Sawmill</option>
+          </select>
+        </div>
+
         <!-- CUSTOM PACK TAG FIELD -->
         <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200">
           <div class="flex justify-between items-center mb-1">
@@ -294,20 +315,42 @@
             <input type="text" id="drawerSpecies" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Eastern White Pine" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Grade</label>
-            <select id="drawerGrade" onchange="recalcDrawerBF()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-700">
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Grade *</label>
+            <select id="drawerGrade" onchange="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-700 focus:outline-none focus:border-amber-500">
+              <option value="" disabled selected>-- Select Grade --</option>
               <option value="1&2 Common">1&2 Common (Green)</option>
               <option value="Clear">Clear / Select (Yellow)</option>
+              <option value="Millrun">Millrun (Purple)</option>
+              <option value="Barn Board">Barn Board (Stone)</option>
               <option value="Low Grade">Low Grade (Red)</option>
               <option value="Stain">Stain (Blue)</option>
             </select>
           </div>
         </div>
 
+        <!-- DRYING METHOD & CUT DATE SELECTOR -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+          <label class="block text-xs font-bold text-amber-900 uppercase tracking-wider">Drying Method & Seasoning *</label>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-slate-500 mb-0.5">Method</label>
+              <select id="drawerDryingMethod" onchange="handleDryingMethodChange(this.value); recalcDrawerBF();" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
+                <option value="" disabled selected>-- Select Drying Method --</option>
+                <option value="Kiln Dried">Kiln Dried (KD)</option>
+                <option value="Air Dried">Air Dried (AD)</option>
+              </select>
+            </div>
+            <div id="drawerCutDateWrapper" class="hidden">
+              <label class="block text-[10px] uppercase font-bold text-sky-700 mb-0.5">Cut / Stacked Date</label>
+              <input type="date" id="drawerCutDate" class="w-full bg-white border border-sky-300 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none" />
+            </div>
+          </div>
+        </div>
+
         <!-- MILLING STAGE SELECTOR -->
         <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
           <label class="block text-xs font-bold text-amber-800 uppercase tracking-wider">Milling Profile Stage</label>
-          <select id="drawerStageSelect" onchange="handleDrawerStageChange(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
+          <select id="drawerStageSelect" onchange="handleDrawerStageChange(this.value); recalcDrawerBF();" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
             <option value="Rough">Rough (Default)</option>
             <option value="D4S">D4S</option>
             <option value="V Match">V Match</option>
@@ -324,9 +367,9 @@
           </div>
         </div>
 
-        <!-- MOISTURE CONTENT RANGE & DEFAULT LOCATION ("Shop") -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
+        <!-- MOISTURE CONTENT RANGE & YARD LOCATION -->
+        <div class="grid grid-cols-2 gap-3" id="moistureAndLocationGrid">
+          <div id="drawerMoistureFieldWrapper" class="hidden">
             <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Moisture Range (%)</label>
             <div class="flex items-center space-x-1.5">
               <input type="number" id="drawerMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center text-slate-800" value="10" />
@@ -335,7 +378,7 @@
               <span class="text-xs font-bold text-slate-500">%</span>
             </div>
           </div>
-          <div>
+          <div id="drawerLocationFieldWrapper" class="w-full">
             <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Yard Location</label>
             <input type="text" id="drawerLocation" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Shop" />
           </div>
@@ -398,7 +441,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
-            <input type="text" id="drawerNotes" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Tight knot batch" />
+            <input type="text" id="drawerNotes" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Weathered surface, dark patina" />
           </div>
         </div>
 
@@ -435,7 +478,7 @@
       <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
         <div>
           <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
-          <p class="text-xs text-slate-500">C.I.M. MFG INC • Order stock from inventory or enter custom specs</p>
+          <p class="text-xs text-slate-500">Allocates stock from active inventory or records custom specs</p>
         </div>
         <button type="button" onclick="closePoDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
       </div>
@@ -473,7 +516,7 @@
         <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Order Line Items</span>
-            <span class="text-[11px] text-slate-500">Stock pack or unlinked custom line</span>
+            <span class="text-[11px] text-slate-500">Picks from active company list or unlinked</span>
           </div>
 
           <div id="poLineItemsContainer" class="space-y-2.5"></div>
@@ -499,7 +542,7 @@
     </div>
   </div>
 
-  <!-- PURCHASE ORDERS REGISTRY MODAL (WITH PO DELETION) -->
+  <!-- PURCHASE ORDERS REGISTRY MODAL -->
   <div id="poListModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -507,7 +550,7 @@
           <span class="text-sky-600 text-lg">📋</span>
           <div>
             <h4 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Purchase Orders Registry</h4>
-            <span class="text-[11px] text-slate-500 font-semibold uppercase">C.I.M. MFG INC • Prices & 13% HST Included</span>
+            <span class="text-[11px] text-slate-500 font-semibold uppercase">TimberTrack Orders • 13% HST Included</span>
           </div>
         </div>
         <button type="button" onclick="closePoListModal()" class="text-slate-500 hover:text-slate-800 font-bold text-lg w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">✕</button>
@@ -537,7 +580,7 @@
   <div id="poDeleteConfirmModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
       <h4 class="text-sm font-bold text-slate-900 uppercase">Delete Purchase Order</h4>
-      <p class="text-xs text-slate-600" id="poDeleteModalMessage">Are you sure you want to delete this purchase order? Any packs deducted or removed by this order will be fully restored to your inventory list.</p>
+      <p class="text-xs text-slate-600" id="poDeleteModalMessage">Delete this purchase order? All packs and pieces allocated to this order will be fully restored to active inventory.</p>
       <div class="flex items-center space-x-2 pt-2">
         <button type="button" onclick="closePoDeleteModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
         <button type="button" onclick="confirmExecutePoDelete()" class="flex-1 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md">Delete & Restore</button>
@@ -549,7 +592,7 @@
   <div id="poPrintModal">
     <div class="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-4 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
       <div class="flex justify-between items-center pb-2 border-b border-slate-200">
-        <span class="text-xs font-bold text-slate-900 uppercase">C.I.M. MFG INC — Purchase Order Work Order (8.5" × 11")</span>
+        <span class="text-xs font-bold text-slate-900 uppercase">Purchase Order Work Order (8.5" × 11")</span>
         <div class="space-x-2">
           <button type="button" onclick="window.print()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm">Print Order</button>
           <button type="button" onclick="closePoPrintModal()" class="text-slate-500 font-bold text-sm">✕</button>
@@ -562,7 +605,7 @@
 
   <!-- COMPLETE SETTINGS MODAL -->
   <div id="settingsModal">
-    <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
       
       <div class="flex items-center justify-between border-b border-slate-200 pb-3">
         <div class="flex items-center space-x-2">
@@ -580,85 +623,160 @@
         <button type="button" onclick="switchSettingsTab('backup')" id="tabBtnBackup" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Backup</button>
       </div>
 
-      <!-- PRICING TAB -->
-      <div id="settingsTabPricing" class="space-y-3">
-        <div class="flex justify-between items-center">
-          <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Lumber Grade Pricing Schedule ($ / BF)</h5>
-          <span class="text-xs text-slate-500">Board foot pricing schedule</span>
+      <!-- PRICING TAB (2-PART: KILN DRIED VS AIR DRIED + WIDTH MATRIX) -->
+      <div id="settingsTabPricing" class="space-y-3.5">
+        
+        <!-- Part 1 & 2 Selector: Kiln Dried vs Air Dried -->
+        <div class="flex items-center justify-between bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+          <button type="button" onclick="switchPricingDryingPart('KD')" id="pricingPartBtnKD" class="flex-1 py-1.5 text-xs font-black rounded-lg bg-orange-500 text-white shadow flex items-center justify-center gap-1.5">
+            <span>🔥</span> Part 1: Kiln Dried (KD)
+          </button>
+          <button type="button" onclick="switchPricingDryingPart('AD')" id="pricingPartBtnAD" class="flex-1 py-1.5 text-xs font-black rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
+            <span>💨</span> Part 2: Air Dried (AD)
+          </button>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-          
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
-            <span class="font-bold text-emerald-700 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 1&2 Common
-            </span>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
-                <input type="number" id="cfgRate12CommonRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-              <div>
-                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
-                <input type="number" id="cfgRate12CommonMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-            </div>
-          </div>
 
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
-            <span class="font-bold text-amber-700 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-amber-500"></span> Clear / Select
-            </span>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
-                <input type="number" id="cfgRateSelectRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-              <div>
-                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
-                <input type="number" id="cfgRateSelectMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-            </div>
+        <!-- Grade Selector Pill Bar -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-600 uppercase">Select Grade to Edit Width Rates:</span>
+            <span id="activePricingPartIndicator" class="font-mono font-bold text-orange-700">Kiln Dried Rates</span>
           </div>
-
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
-            <span class="font-bold text-rose-700 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-rose-500"></span> Low Grade
-            </span>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
-                <input type="number" id="cfgRateLowGradeRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-              <div>
-                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
-                <input type="number" id="cfgRateLowGradeMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-            </div>
+          <div class="grid grid-cols-6 gap-1 text-[11px] font-bold" id="pricingGradePillBar">
+            <button type="button" onclick="switchPricingGradeTab('1&2 Common')" id="pgTab_12" class="py-1.5 rounded-lg bg-emerald-600 text-white shadow">1&2 Common</button>
+            <button type="button" onclick="switchPricingGradeTab('Clear')" id="pgTab_Clear" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Clear</button>
+            <button type="button" onclick="switchPricingGradeTab('Millrun')" id="pgTab_Millrun" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Millrun</button>
+            <button type="button" onclick="switchPricingGradeTab('Barn Board')" id="pgTab_BarnBoard" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn Board</button>
+            <button type="button" onclick="switchPricingGradeTab('Low Grade')" id="pgTab_Low" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low Grade</button>
+            <button type="button" onclick="switchPricingGradeTab('Stain')" id="pgTab_Stain" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>
           </div>
-
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
-            <span class="font-bold text-sky-700 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-sky-500"></span> Stain
-            </span>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <span class="text-[11px] text-slate-500 block">Rough Rate</span>
-                <input type="number" id="cfgRateStainRough" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-              <div>
-                <span class="text-[11px] text-slate-500 block">Milled Rate</span>
-                <input type="number" id="cfgRateStainMilled" step="0.05" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono" />
-              </div>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Width Matrix Container for the selected Grade & Drying Part -->
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2.5">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+            <div class="text-xs font-black uppercase text-slate-800" id="matrixSectionHeading">1&2 Common Rates by Width</div>
+            <span class="text-[11px] text-slate-500">Board Foot Rates ($/BF)</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+            
+            <!-- 4" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">4" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_4_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_4_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 6" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">6" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_6_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_6_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 8" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">8" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_8_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_8_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 10" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">10" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_10_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_10_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 12" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">12" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_12_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_12_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- RW (Random Width) -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">Random Width (RW)</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_RW_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_RW_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </div>
 
       <!-- DEFAULTS TAB -->
       <div id="settingsTabDefaults" class="space-y-3 hidden">
         <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Yard Operations Defaults</h5>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1 font-bold">Default Facility for Add Stock</label>
+            <select id="cfgDefaultFacilityDrawer" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-bold">
+              <option value="C.I.M. MFG INC">C.I.M. MFG INC</option>
+              <option value="Crosshill Sawmill">Crosshill Sawmill</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1 font-bold">Default Home Screen View</label>
+            <select id="cfgDefaultHomeView" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-bold">
+              <option value="C.I.M. MFG INC">C.I.M. MFG INC</option>
+              <option value="Crosshill Sawmill">Crosshill Sawmill</option>
+            </select>
+          </div>
+
           <div>
             <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Species</label>
             <input type="text" id="cfgDefaultSpecies" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800" />
@@ -792,15 +910,44 @@
 
   <!-- APP ENGINE SCRIPT -->
   <script>
+    var DEFAULT_WIDTHS = ["4", "6", "8", "10", "12", "RW"];
+    
+    function makeDefaultWidthMap(baseR, baseM) {
+      var map = {};
+      DEFAULT_WIDTHS.forEach(function(w) {
+        var wBonus = 0;
+        if (w === "8") wBonus = 0.05;
+        if (w === "10") wBonus = 0.15;
+        if (w === "12") wBonus = 0.25;
+        map[w] = { rough: +(baseR + wBonus).toFixed(2), milled: +(baseM + wBonus).toFixed(2) };
+      });
+      return map;
+    }
+
     var DEFAULT_CONFIG = {
-      rates: {
-        "1&2 Common": { rough: 1.65, milled: 2.00 },
-        "Clear": { rough: 2.40, milled: 2.65 },
-        "Select": { rough: 2.40, milled: 2.65 },
-        "Low Grade": { rough: 1.20, milled: 1.40 },
-        "Stain": { rough: 1.20, milled: 1.40 }
+      matrixRates: {
+        KD: {
+          "1&2 Common": makeDefaultWidthMap(1.65, 2.00),
+          "Clear": makeDefaultWidthMap(2.40, 2.65),
+          "Select": makeDefaultWidthMap(2.40, 2.65),
+          "Millrun": makeDefaultWidthMap(1.50, 1.85),
+          "Barn Board": makeDefaultWidthMap(1.75, 2.10),
+          "Low Grade": makeDefaultWidthMap(1.20, 1.40),
+          "Stain": makeDefaultWidthMap(1.20, 1.40)
+        },
+        AD: {
+          "1&2 Common": makeDefaultWidthMap(1.45, 1.80),
+          "Clear": makeDefaultWidthMap(2.15, 2.40),
+          "Select": makeDefaultWidthMap(2.15, 2.40),
+          "Millrun": makeDefaultWidthMap(1.35, 1.65),
+          "Barn Board": makeDefaultWidthMap(1.60, 1.95),
+          "Low Grade": makeDefaultWidthMap(1.10, 1.30),
+          "Stain": makeDefaultWidthMap(1.10, 1.30)
+        }
       },
       defaults: {
+        defaultFacilityDrawer: "C.I.M. MFG INC",
+        defaultHomeView: "C.I.M. MFG INC",
         species: "Eastern White Pine",
         stageFilter: "Rough",
         thickness: 1,
@@ -832,15 +979,26 @@
       if (savedCfg) {
         var parsed = JSON.parse(savedCfg);
         appConfig = Object.assign({}, DEFAULT_CONFIG, parsed);
+        if (!appConfig.matrixRates) appConfig.matrixRates = DEFAULT_CONFIG.matrixRates;
+        if (!appConfig.matrixRates.KD) appConfig.matrixRates.KD = DEFAULT_CONFIG.matrixRates.KD;
+        if (!appConfig.matrixRates.AD) appConfig.matrixRates.AD = DEFAULT_CONFIG.matrixRates.AD;
+        if (!appConfig.matrixRates.KD["Barn Board"]) appConfig.matrixRates.KD["Barn Board"] = makeDefaultWidthMap(1.75, 2.10);
+        if (!appConfig.matrixRates.AD["Barn Board"]) appConfig.matrixRates.AD["Barn Board"] = makeDefaultWidthMap(1.60, 1.95);
         appConfig.firebase = DEFAULT_CONFIG.firebase;
       }
     } catch(e) {}
 
-    // CLEAN INITIAL STORAGE: STRICTLY NO TEST PACKS EVER
     var inventory = [];
     try {
       var savedInv = localStorage.getItem('timbertrack_inventory');
-      if (savedInv) inventory = JSON.parse(savedInv);
+      if (savedInv) {
+        var parsedList = JSON.parse(savedInv);
+        inventory = parsedList.map(function(item){
+          if (!item.company) item.company = "C.I.M. MFG INC";
+          if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
+          return item;
+        });
+      }
     } catch(e) {}
 
     var purchaseOrders = [];
@@ -849,12 +1007,17 @@
       if (savedPos) purchaseOrders = JSON.parse(savedPos);
     } catch(e) {}
 
+    var activeCompany = (appConfig.defaults && appConfig.defaults.defaultHomeView) ? appConfig.defaults.defaultHomeView : "C.I.M. MFG INC";
+
     var currentStageFilter = "Rough";
     var currentWidthFilter = "ALL";
     var currentLengthFilter = "ALL";
     var searchQuery = "";
     var itemPendingDeletionId = null;
     var poPendingDeletionId = null;
+
+    var editPricingDryingPart = "KD";
+    var editPricingGrade = "1&2 Common";
 
     var db = null;
 
@@ -873,6 +1036,8 @@
             snap.forEach(function(doc){ 
               var d = doc.data();
               if ((parseInt(d.pieces) || 0) > 0) {
+                if (!d.company) d.company = "C.I.M. MFG INC";
+                if (!d.dryingMethod) d.dryingMethod = "Kiln Dried";
                 cloudItems.push(d);
               }
             });
@@ -900,6 +1065,8 @@
 
     function syncCloudItem(item) {
       if (db) {
+        if (!item.company) item.company = "C.I.M. MFG INC";
+        if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
         db.collection('yard_inventory').doc(item.id).set(item, { merge: true }).catch(function(){});
       }
     }
@@ -922,6 +1089,26 @@
       }
     }
 
+    window.switchCompanyView = function(companyName) {
+      activeCompany = companyName;
+      
+      var tabCim = document.getElementById('companyTabCim');
+      var tabCrosshill = document.getElementById('companyTabCrosshill');
+      var yardSub = document.getElementById('activeYardSubheading');
+
+      if (companyName === "C.I.M. MFG INC") {
+        tabCim.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl bg-amber-500 text-white shadow transition-all flex items-center justify-center gap-2";
+        tabCrosshill.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-2";
+        if (yardSub) yardSub.innerText = "C.I.M. MFG INC";
+      } else {
+        tabCrosshill.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl bg-amber-500 text-white shadow transition-all flex items-center justify-center gap-2";
+        tabCim.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-2";
+        if (yardSub) yardSub.innerText = "Crosshill Sawmill";
+      }
+
+      renderInventory();
+    };
+
     function calculateBF(t, w, l, p) {
       t = parseFloat(t) || 0;
       w = parseFloat(w) || 0;
@@ -934,9 +1121,16 @@
       return (t * effW * effL * p) / 12;
     }
 
-    function getGradeRates(grade) {
-      var g = grade === "Select" ? "Clear" : grade;
-      return (appConfig.rates && (appConfig.rates[g] || appConfig.rates[grade])) || appConfig.rates["1&2 Common"];
+    function getMatrixRates(dryingMethod, grade, width) {
+      var partKey = (dryingMethod === "Air Dried") ? "AD" : "KD";
+      var g = (grade === "Select") ? "Clear" : (grade || "1&2 Common");
+      var wStr = (width === 0 || width === "0" || width === "RW") ? "RW" : String(Math.round(parseFloat(width) || 6));
+
+      var partObj = (appConfig.matrixRates && appConfig.matrixRates[partKey]) || DEFAULT_CONFIG.matrixRates[partKey];
+      var gradeMap = partObj[g] || partObj["1&2 Common"];
+      
+      var ratePair = gradeMap[wStr] || gradeMap["6"] || gradeMap["RW"] || { rough: 1.65, milled: 2.00 };
+      return ratePair;
     }
 
     function getGradeBadgeHtml(grade) {
@@ -945,12 +1139,48 @@
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("clear") || g.includes("select")) {
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("millrun")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("barn")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-stone-200 text-stone-800 border border-stone-400 shadow-sm">' + grade + '</span>';
       } else if (g.includes("low")) {
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("stain")) {
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
       }
-      return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + grade + '</span>';
+      return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + (grade || 'Unspecified') + '</span>';
+    }
+
+    function getDryingBadgeHtml(item) {
+      var method = item.dryingMethod || "Kiln Dried";
+      if (method === "Air Dried") {
+        var durationText = "";
+        if (item.cutDate) {
+          var cut = new Date(item.cutDate);
+          var now = new Date();
+          var diffTime = now - cut;
+          var diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (isNaN(diffDays) || diffDays < 0) {
+            durationText = "Today";
+          } else if (diffDays < 60) {
+            durationText = diffDays + " days";
+          } else {
+            var months = (diffDays / 30.4).toFixed(1);
+            durationText = months + " mos";
+          }
+        }
+        
+        var titleAttr = item.cutDate ? 'title="Cut Date: ' + item.cutDate + '"' : '';
+        return '<span ' + titleAttr + ' class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-teal-100 text-teal-900 border border-teal-300 shadow-sm">' +
+          '<span>💨 AD</span>' +
+          (durationText ? '<span class="font-mono text-[10px] text-teal-800 bg-teal-200/80 px-1 py-0.2 rounded">' + durationText + '</span>' : '') +
+        '</span>';
+      } else {
+        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-orange-100 text-orange-900 border border-orange-300 shadow-sm" title="Kiln Dried">' +
+          '<span>🔥 KD</span>' +
+        '</span>';
+      }
     }
 
     function getDisplayStage(item) {
@@ -964,8 +1194,10 @@
       var g = (grade || "").toLowerCase();
       if (g.includes("1&2") || g.includes("common")) return 1;
       if (g.includes("clear") || g.includes("select")) return 2;
-      if (g.includes("low")) return 3;
-      if (g.includes("stain")) return 4;
+      if (g.includes("millrun")) return 3;
+      if (g.includes("barn")) return 4;
+      if (g.includes("low")) return 5;
+      if (g.includes("stain")) return 6;
       return 99;
     }
 
@@ -1034,12 +1266,44 @@
       }
     };
 
+    window.handleDryingMethodChange = function(methodVal) {
+      var dateWrapper = document.getElementById('drawerCutDateWrapper');
+      var moistureWrapper = document.getElementById('drawerMoistureFieldWrapper');
+      var grid = document.getElementById('moistureAndLocationGrid');
+
+      if (methodVal === "Air Dried") {
+        dateWrapper.classList.remove('hidden');
+        if (!document.getElementById('drawerCutDate').value) {
+          document.getElementById('drawerCutDate').value = new Date().toISOString().split('T')[0];
+        }
+        moistureWrapper.classList.add('hidden');
+        grid.className = "grid grid-cols-1 gap-3";
+      } else if (methodVal === "Kiln Dried") {
+        dateWrapper.classList.add('hidden');
+        moistureWrapper.classList.remove('hidden');
+        grid.className = "grid grid-cols-2 gap-3";
+      } else {
+        dateWrapper.classList.add('hidden');
+        moistureWrapper.classList.add('hidden');
+        grid.className = "grid grid-cols-1 gap-3";
+      }
+    };
+
     function renderInventory() {
       var tbody = document.getElementById('inventoryTableBody');
       var empty = document.getElementById('emptyInventoryState');
+      var heading = document.getElementById('inventoryTableHeading');
       if (!tbody) return;
 
+      if (heading) {
+        var stageTitle = (currentStageFilter === 'Rough' ? 'Rough Lumber Stock' : (currentStageFilter === 'MILLED' ? 'Milled Stock' : 'All Stock'));
+        heading.innerText = activeCompany + " — " + stageTitle;
+      }
+
       var filtered = inventory.filter(function(item) {
+        var itemCo = item.company || "C.I.M. MFG INC";
+        if (itemCo !== activeCompany) return false;
+
         var p = parseInt(item.pieces) || 0;
         if (p <= 0) return false;
 
@@ -1051,20 +1315,19 @@
           if (currentStageFilter !== "OTHER" && s !== currentStageFilter) return false;
         }
 
-        // Width Filter
         if (currentWidthFilter !== 'ALL') {
           if (currentWidthFilter === 'RW' && item.width !== 0) return false;
           if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return false;
         }
 
-        // Length Filter
         if (currentLengthFilter !== 'ALL') {
           if (currentLengthFilter === 'RL' && item.length !== 0) return false;
           if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return false;
         }
 
         if (searchQuery.trim() !== '') {
-          var match = (item.id + " " + item.grade + " " + item.species + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
+          var dryingTag = (item.dryingMethod === 'Air Dried' ? 'air dried ad' : 'kiln dried kd');
+          var match = (item.id + " " + (item.grade||'') + " " + item.species + " " + dryingTag + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
           if (match.indexOf(searchQuery.toLowerCase()) === -1) return false;
         }
         return true;
@@ -1088,7 +1351,7 @@
           var bf = calculateBF(item.thickness, item.width, item.length, totalPieces);
           var availableBF = calculateBF(item.thickness, item.width, item.length, leftPieces);
 
-          var rateInfo = getGradeRates(item.grade);
+          var rateInfo = getMatrixRates(item.dryingMethod, item.grade, item.width);
           var singlePieceBF = calculateBF(item.thickness, item.width, item.length, 1);
           var roughPcPrice = singlePieceBF * rateInfo.rough;
           var milledPcPrice = singlePieceBF * rateInfo.milled;
@@ -1096,7 +1359,10 @@
           var dimString = item.thickness + '" × ' + (item.width === 0 ? 'RW' : item.width + '"') + ' × ' + (item.length === 0 ? 'RL' : item.length + "'");
           var displayStage = getDisplayStage(item);
           var isRough = (item.stage === "Rough");
-          var moistureDisplay = item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%';
+
+          var isAirDried = (item.dryingMethod === "Air Dried");
+          var moistureDisplay = isAirDried ? "" : (item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%');
+          var subMetaString = isAirDried ? (item.location || 'Shop') : ('MC ' + moistureDisplay + ' • ' + (item.location || 'Shop'));
 
           var rowClass = "border-b border-slate-200 transition-colors ";
           if (isPartial) {
@@ -1111,7 +1377,10 @@
             '<td class="py-2.5 px-3 align-top">' +
               '<div class="font-mono font-black text-amber-800 text-sm">' + item.id + '</div>' +
               '<div class="text-[11px] text-slate-500">' + item.species + '</div>' +
-              '<div class="mt-1">' + getGradeBadgeHtml(item.grade) + '</div>' +
+              '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
+                getGradeBadgeHtml(item.grade) +
+                getDryingBadgeHtml(item) +
+              '</div>' +
             '</td>' +
 
             '<td class="py-2.5 px-3 align-top whitespace-nowrap">' +
@@ -1120,7 +1389,7 @@
                 '<span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
                   displayStage +
                 '</span>' +
-                '<span class="text-xs text-slate-500 font-mono">MC ' + moistureDisplay + ' • ' + (item.location || 'Shop') + '</span>' +
+                '<span class="text-xs text-slate-500 font-mono">' + subMetaString + '</span>' +
               '</div>' +
               (isPartial ? 
                 '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex items-center justify-between gap-2 shadow-sm">' +
@@ -1204,6 +1473,9 @@
       var packCount = 0;
 
       inventory.forEach(function(item) {
+        var itemCo = item.company || "C.I.M. MFG INC";
+        if (itemCo !== activeCompany) return;
+
         var p = parseInt(item.pieces) || 0;
         if (p <= 0) return;
 
@@ -1257,8 +1529,6 @@
       document.getElementById('filterBtnAll').className = s === 'ALL' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
       
       document.getElementById('activeStageLabel').innerText = s === 'Rough' ? 'Rough Stock' : (s === 'MILLED' ? 'All Milled Stock' : 'All Yard Stock');
-      document.getElementById('inventoryTableHeading').innerText = s === 'Rough' ? 'Rough Lumber Stock' : (s === 'MILLED' ? 'Milled Lumber Stock' : 'All Yard Stock');
-      document.getElementById('subStageSelector').value = "ALL_STAGES";
       renderInventory();
     };
 
@@ -1273,7 +1543,6 @@
       document.getElementById('filterBtnAll').className = 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
 
       document.getElementById('activeStageLabel').innerText = profile === 'OTHER' ? 'Custom Profiles' : profile;
-      document.getElementById('inventoryTableHeading').innerText = profile + ' Inventory';
       renderInventory();
     };
 
@@ -1369,6 +1638,9 @@
       document.getElementById('drawerEditId').value = "";
       document.getElementById('drawerTitle').innerText = "Add Yard Stock";
       
+      var configuredFacility = (appConfig.defaults && appConfig.defaults.defaultFacilityDrawer) ? appConfig.defaults.defaultFacilityDrawer : "C.I.M. MFG INC";
+      document.getElementById('drawerCompanySelect').value = configuredFacility;
+
       var nextTag = generateUniquePackId();
       document.getElementById('drawerCustomTagId').value = "";
       document.getElementById('drawerCustomTagId').placeholder = "e.g. " + nextTag;
@@ -1378,7 +1650,14 @@
       document.getElementById('savePackSubmitBtn').disabled = false;
 
       document.getElementById('drawerSpecies').value = "Eastern White Pine";
-      document.getElementById('drawerGrade').value = "1&2 Common";
+      document.getElementById('drawerGrade').value = "";
+      
+      document.getElementById('drawerDryingMethod').value = "";
+      document.getElementById('drawerCutDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('drawerCutDateWrapper').classList.add('hidden');
+      document.getElementById('drawerMoistureFieldWrapper').classList.add('hidden');
+      document.getElementById('moistureAndLocationGrid').className = "grid grid-cols-1 gap-3";
+
       document.getElementById('drawerStageSelect').value = "Rough";
       document.getElementById('drawerStageOtherDetail').value = "";
       document.getElementById('drawerOtherStageWrapper').classList.add('hidden');
@@ -1416,6 +1695,7 @@
 
       var g = document.getElementById('drawerGrade').value;
       var s = document.getElementById('drawerStageSelect').value;
+      var dm = document.getElementById('drawerDryingMethod').value || "Kiln Dried";
 
       var rwNotice = document.getElementById('rwNotice');
       var rlNotice = document.getElementById('rlNotice');
@@ -1433,7 +1713,7 @@
       }
 
       var bf = calculateBF(t, w, l, p);
-      var rateInfo = getGradeRates(g);
+      var rateInfo = getMatrixRates(dm, g, w);
       var rate = s === 'Rough' ? rateInfo.rough : rateInfo.milled;
 
       var noteText = "";
@@ -1442,11 +1722,23 @@
       else if (l === 0) noteText = " (est. 10' len)";
 
       document.getElementById('drawerLiveBF').innerText = bf.toFixed(1) + " BF" + noteText;
-      document.getElementById('drawerLiveRate').innerText = "$" + rate.toFixed(2) + " / BF";
-      document.getElementById('drawerLiveTotal').innerText = "$" + (bf * rate).toFixed(2);
+      document.getElementById('drawerLiveRate').innerText = g ? ("$" + rate.toFixed(2) + " / BF") : "$0.00 / BF";
+      document.getElementById('drawerLiveTotal').innerText = g ? ("$" + (bf * rate).toFixed(2)) : "$0.00";
     };
 
     window.printDrawerTagDirect = function() {
+      var grade = document.getElementById('drawerGrade').value;
+      if (!grade) {
+        alert("Please select a lumber grade before printing tag.");
+        return;
+      }
+
+      var dryingMethod = document.getElementById('drawerDryingMethod').value;
+      if (!dryingMethod) {
+        alert("Please select a drying method before printing tag.");
+        return;
+      }
+
       var p = parseInt(document.getElementById('drawerPieces').value);
       if (isNaN(p) || p <= 0) { 
         alert("Enter piece count before printing tag."); 
@@ -1465,14 +1757,21 @@
       var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
       var displayStage = (selectedStage === "Other" && otherDetail) ? otherDetail : selectedStage;
 
+      var cutDate = document.getElementById('drawerCutDate').value;
+      var dryingTag = (dryingMethod === "Air Dried") ? ("AD (Cut: " + (cutDate || '—') + ")") : "KD";
+
+      var isAirDried = (dryingMethod === "Air Dried");
       var mMin = parseFloat(document.getElementById('drawerMoistureMin').value) || 10;
       var mMax = parseFloat(document.getElementById('drawerMoistureMax').value) || 15;
-      var mStr = mMin + "-" + mMax + "%";
+      var mStr = isAirDried ? "" : (mMin + "-" + mMax + "%");
 
       var tempItem = {
         id: finalTagId,
+        company: document.getElementById('drawerCompanySelect').value || "C.I.M. MFG INC",
         species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
-        grade: document.getElementById('drawerGrade').value,
+        grade: grade,
+        dryingMethod: dryingMethod,
+        cutDate: cutDate,
         stage: selectedStage,
         stageDetail: otherDetail,
         thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
@@ -1487,8 +1786,14 @@
 
       var tagHtml = '<div class="space-y-4">' +
         '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
-          '<div><div class="tag-pack-heading font-black font-mono">' + tempItem.id + '</div><div class="text-2xl font-black">' + tempItem.species + '</div></div>' +
-          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + tempItem.grade + '<div class="text-sm font-mono font-bold mt-1">MC: ' + tempItem.moisture + '</div></div>' +
+          '<div>' +
+            '<div class="tag-pack-heading font-black font-mono">' + tempItem.id + '</div>' +
+            '<div class="text-2xl font-black">' + tempItem.species + '</div>' +
+            '<div class="text-sm font-bold uppercase tracking-wider text-slate-700">' + tempItem.company + '</div>' +
+          '</div>' +
+          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + tempItem.grade + ' • ' + dryingTag + 
+            (!isAirDried ? ('<div class="text-sm font-mono font-bold mt-1">MC: ' + tempItem.moisture + '</div>') : '') + 
+          '</div>' +
         '</div>' +
         '<div class="tag-dim-heading font-black font-mono my-2">' + tempItem.thickness + '" × ' + (tempItem.width===0?'RW':tempItem.width+'"') + ' × ' + (tempItem.length===0?'RL':tempItem.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
@@ -1505,14 +1810,34 @@
 
     window.handleSaveLumberPack = function(e) {
       e.preventDefault();
+      
+      var grade = document.getElementById('drawerGrade').value;
+      if (!grade) {
+        alert("Please select a lumber grade for this pack.");
+        document.getElementById('drawerGrade').focus();
+        return;
+      }
+
+      var dryingMethod = document.getElementById('drawerDryingMethod').value;
+      if (!dryingMethod) {
+        alert("Please select a drying method for this pack.");
+        document.getElementById('drawerDryingMethod').focus();
+        return;
+      }
+
       var p = parseInt(document.getElementById('drawerPieces').value);
       if (isNaN(p) || p <= 0) { alert("Enter a valid piece count"); return; }
 
       var selectedStage = document.getElementById('drawerStageSelect').value;
       var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
+      var selectedCompany = document.getElementById('drawerCompanySelect').value || "C.I.M. MFG INC";
 
+      var cutDate = (dryingMethod === "Air Dried") ? document.getElementById('drawerCutDate').value : "";
+
+      var isAirDried = (dryingMethod === "Air Dried");
       var mMin = parseFloat(document.getElementById('drawerMoistureMin').value) || 10;
       var mMax = parseFloat(document.getElementById('drawerMoistureMax').value) || 15;
+      var moistureVal = isAirDried ? "" : (mMin + "-" + mMax);
 
       var editId = document.getElementById('drawerEditId').value.trim();
       var customEnteredId = document.getElementById('drawerCustomTagId').value.trim();
@@ -1533,8 +1858,11 @@
 
       var pack = {
         id: finalId,
+        company: selectedCompany,
         species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
-        grade: document.getElementById('drawerGrade').value,
+        grade: grade,
+        dryingMethod: dryingMethod,
+        cutDate: cutDate,
         stage: selectedStage,
         stageDetail: selectedStage === "Other" ? otherDetail : "",
         thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
@@ -1544,7 +1872,7 @@
         originalPieces: existing ? (existing.originalPieces || p) : p,
         location: document.getElementById('drawerLocation').value.trim() || "Shop",
         notes: document.getElementById('drawerNotes').value.trim(),
-        moisture: mMin + "-" + mMax,
+        moisture: moistureVal,
         status: existing ? existing.status : "IN_STOCK",
         customer: existing ? existing.customer : "",
         pendingPieces: existing ? existing.pendingPieces : 0,
@@ -1561,7 +1889,12 @@
       localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
       syncCloudItem(pack);
       closeEntryDrawer();
-      renderInventory();
+
+      if (activeCompany !== selectedCompany) {
+        switchCompanyView(selectedCompany);
+      } else {
+        renderInventory();
+      }
     };
 
     window.updatePieces = function(id, val) {
@@ -1628,10 +1961,24 @@
       if (d) d.style.display = 'flex';
       document.getElementById('drawerEditId').value = item.id;
       document.getElementById('drawerCustomTagId').value = item.id;
+      document.getElementById('drawerCompanySelect').value = item.company || "C.I.M. MFG INC";
       document.getElementById('drawerTitle').innerText = "Edit Pack " + item.id;
       document.getElementById('drawerSpecies').value = item.species;
-      document.getElementById('drawerGrade').value = item.grade === "Select" ? "Clear" : item.grade;
+      document.getElementById('drawerGrade').value = item.grade || "";
       
+      var dryingMethod = item.dryingMethod || "";
+      document.getElementById('drawerDryingMethod').value = dryingMethod;
+      handleDryingMethodChange(dryingMethod);
+
+      if (dryingMethod === "Air Dried") {
+        document.getElementById('drawerCutDate').value = item.cutDate || new Date().toISOString().split('T')[0];
+      } else if (dryingMethod === "Kiln Dried") {
+        document.getElementById('drawerCutDate').value = "";
+        var mParts = String(item.moisture || "10-15").replace('%','').split('-');
+        document.getElementById('drawerMoistureMin').value = parseFloat(mParts[0]) || 10;
+        document.getElementById('drawerMoistureMax').value = parseFloat(mParts[1]) || 15;
+      }
+
       var stageSelector = document.getElementById('drawerStageSelect');
       stageSelector.value = item.stage || "Rough";
       if (item.stage === "Other") {
@@ -1641,10 +1988,6 @@
         document.getElementById('drawerOtherStageWrapper').classList.add('hidden');
         document.getElementById('drawerStageOtherDetail').value = "";
       }
-
-      var mParts = String(item.moisture || "10-15").replace('%','').split('-');
-      document.getElementById('drawerMoistureMin').value = parseFloat(mParts[0]) || 10;
-      document.getElementById('drawerMoistureMax').value = parseFloat(mParts[1]) || 15;
 
       document.getElementById('drawerThickness').value = item.thickness;
       document.getElementById('drawerWidth').value = item.width;
@@ -1685,12 +2028,20 @@
       if (!item) return;
       var bf = calculateBF(item.thickness, item.width, item.length, item.pieces);
       var displayStage = getDisplayStage(item);
-      var moistureDisplay = item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%';
+      var isAirDried = (item.dryingMethod === "Air Dried");
+      var moistureDisplay = isAirDried ? "" : (item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%');
+      var dryingTag = isAirDried ? ("AD (Cut: " + (item.cutDate || '—') + ")") : "KD";
 
       var tagHtml = '<div class="space-y-4">' +
         '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
-          '<div><div class="tag-pack-heading font-black font-mono">' + item.id + '</div><div class="text-2xl font-black">' + item.species + '</div></div>' +
-          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + item.grade + '<div class="text-sm font-mono font-bold mt-1">MC: ' + moistureDisplay + '</div></div>' +
+          '<div>' +
+            '<div class="tag-pack-heading font-black font-mono">' + item.id + '</div>' +
+            '<div class="text-2xl font-black">' + item.species + '</div>' +
+            '<div class="text-sm font-bold uppercase tracking-wider text-slate-700">' + (item.company || "C.I.M. MFG INC") + '</div>' +
+          '</div>' +
+          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + (item.grade || 'Unspecified') + ' • ' + dryingTag + 
+            (!isAirDried ? ('<div class="text-sm font-mono font-bold mt-1">MC: ' + moistureDisplay + '</div>') : '') + 
+          '</div>' +
         '</div>' +
         '<div class="tag-dim-heading font-black font-mono my-2">' + item.thickness + '" × ' + (item.width===0?'RW':item.width+'"') + ' × ' + (item.length===0?'RL':item.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
@@ -1731,10 +2082,14 @@
       var container = document.getElementById('poLineItemsContainer');
       var rowId = "poRow_" + Date.now() + "_" + Math.floor(Math.random()*1000);
 
-      var options = inventory.filter(function(i){ return (parseInt(i.pieces)||0) > 0; }).map(function(item) {
+      var options = inventory.filter(function(i){ 
+        return (parseInt(i.pieces)||0) > 0; 
+      }).map(function(item) {
         var dim = item.thickness + '"×' + (item.width===0?'RW':item.width+'"') + '×' + (item.length===0?'RL':item.length+"'");
         var displayStage = getDisplayStage(item);
-        return '<option value="' + item.id + '">' + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' pcs avail]</option>';
+        var coBadge = item.company === "Crosshill Sawmill" ? "[Crosshill] " : "[CIM] ";
+        var dryingPill = item.dryingMethod === "Air Dried" ? "[AD] " : "[KD] ";
+        return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' pcs avail]</option>';
       }).join('');
 
       var rowHtml = '<div id="' + rowId + '" class="po-line-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">' +
@@ -1755,19 +2110,28 @@
             '<span>Unlinked / Non-Inventory Lumber Specs</span>' +
             '<span class="text-sky-600 font-normal">Will NOT deduct stock</span>' +
           '</div>' +
-          '<div class="grid grid-cols-2 gap-2">' +
+          '<div class="grid grid-cols-3 gap-2">' +
             '<div>' +
-              '<label class="block text-[10px] uppercase font-bold text-slate-500">Species</label>' +
-              '<input type="text" class="po-cust-species w-full bg-white border border-slate-300 rounded p-1 text-xs" value="Eastern White Pine" />' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Drying</label>' +
+              '<select class="po-cust-drying w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
+                '<option value="Kiln Dried">Kiln Dried</option>' +
+                '<option value="Air Dried">Air Dried</option>' +
+              '</select>' +
             '</div>' +
             '<div>' +
               '<label class="block text-[10px] uppercase font-bold text-slate-500">Grade</label>' +
               '<select class="po-cust-grade w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
                 '<option value="1&2 Common">1&2 Common</option>' +
                 '<option value="Clear">Clear / Select</option>' +
+                '<option value="Millrun">Millrun</option>' +
+                '<option value="Barn Board">Barn Board</option>' +
                 '<option value="Low Grade">Low Grade</option>' +
                 '<option value="Stain">Stain</option>' +
               '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Species</label>' +
+              '<input type="text" class="po-cust-species w-full bg-white border border-slate-300 rounded p-1 text-xs" value="Eastern White Pine" />' +
             '</div>' +
           '</div>' +
           '<div class="grid grid-cols-3 gap-2">' +
@@ -1852,15 +2216,17 @@
       if (packId === "CUSTOM_UNLINKED") {
         customFields.classList.remove('hidden');
         if (!pcsInput.value) pcsInput.value = "100";
+        var custDrying = row.querySelector('.po-cust-drying').value;
         var custGrade = row.querySelector('.po-cust-grade').value;
-        var rateInfo = getGradeRates(custGrade);
+        var custW = row.querySelector('.po-cust-width').value;
+        var rateInfo = getMatrixRates(custDrying, custGrade, custW);
         rateInput.value = rateInfo.milled;
       } else {
         customFields.classList.add('hidden');
         var pack = inventory.find(function(i){ return i.id === packId; });
         if (pack) {
           pcsInput.value = pack.pieces;
-          var rateInfo = getGradeRates(pack.grade);
+          var rateInfo = getMatrixRates(pack.dryingMethod, pack.grade, pack.width);
           rateInput.value = (pack.stage === 'Rough') ? rateInfo.rough : rateInfo.milled;
         } else {
           pcsInput.value = "";
@@ -1956,6 +2322,7 @@
         if (packId === "CUSTOM_UNLINKED") {
           var specSpecies = r.querySelector('.po-cust-species').value.trim() || "Eastern White Pine";
           var specGrade = r.querySelector('.po-cust-grade').value;
+          var specDrying = r.querySelector('.po-cust-drying').value;
           var specThick = parseFloat(r.querySelector('.po-cust-thick').value) || 1;
           var specWidth = parseFloat(r.querySelector('.po-cust-width').value) || 6;
           var specLen = parseFloat(r.querySelector('.po-cust-len').value) || 12;
@@ -1967,6 +2334,7 @@
             packId: "CUSTOM",
             species: specSpecies,
             grade: specGrade,
+            dryingMethod: specDrying,
             sourceStage: "Special Order / Incoming Run",
             targetProfile: effectiveTargetProfile,
             thickness: specThick,
@@ -1995,6 +2363,7 @@
             packId: pack.id,
             species: pack.species,
             grade: pack.grade,
+            dryingMethod: pack.dryingMethod || "Kiln Dried",
             sourceStage: getDisplayStage(pack),
             targetProfile: effectiveTargetProfile,
             thickness: pack.thickness,
@@ -2057,7 +2426,7 @@
       var sendEmailConfirm = confirm("Purchase Order " + poNum + " created successfully!\n\nDo you want to send an email notification to chris@cimmfg.ca?");
       if (sendEmailConfirm) {
         var emailSubject = encodeURIComponent("New Lumber Purchase Order Created: " + poNum + " (" + cust + ")");
-        var emailBodyText = "C.I.M. MFG INC - NEW PURCHASE ORDER ALERT%0D%0A%0D%0A" +
+        var emailBodyText = "NEW PURCHASE ORDER ALERT%0D%0A%0D%0A" +
           "PO Number: " + poNum + "%0D%0A" +
           "Customer: " + cust + "%0D%0A" +
           "Order Date: " + orderDate + "%0D%0A" +
@@ -2158,10 +2527,9 @@
       }
     };
 
-    /* DELETE PO & RESTORE INVENTORY */
     window.promptDeletePo = function(poId) {
       poPendingDeletionId = poId;
-      document.getElementById('poDeleteModalMessage').innerText = "Delete purchase order " + poId + "? All packs and pieces allocated to this order will be fully restored to your active inventory.";
+      document.getElementById('poDeleteModalMessage').innerText = "Delete purchase order " + poId + "? All packs and pieces allocated to this order will be fully restored to active inventory.";
       document.getElementById('poDeleteConfirmModal').style.display = 'flex';
     };
 
@@ -2220,7 +2588,7 @@
         return '<tr style="border-bottom: 1px solid #cbd5e1;">' +
           '<td style="padding: 10px 8px; text-align: center; font-weight: bold;">' + (idx+1) + '</td>' +
           '<td style="padding: 10px 8px; font-weight: bold; font-family: monospace;">' + tagBadge + '</td>' +
-          '<td style="padding: 10px 8px;">' + it.species + ' (' + it.grade + ')</td>' +
+          '<td style="padding: 10px 8px;">' + it.species + ' (' + (it.grade || 'Unspecified') + ')</td>' +
           '<td style="padding: 10px 8px; font-weight: bold; font-size: 13px; color: #0f172a;">' + targetProf + '</td>' +
           '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
           '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + it.pieces + '</td>' +
@@ -2231,12 +2599,11 @@
       var poHtml = '<div style="font-family: Arial, sans-serif; color: #000; padding: 12px;">' +
         '<div style="display: flex; justify-content: space-between; border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 16px;">' +
           '<div>' +
-            '<h1 style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: #000;">C.I.M. MFG INC</h1>' +
-            '<p style="margin: 4px 0 0; font-size: 12px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Millwork & Lumber Yard Order</p>' +
+            '<h1 style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: #000;">PURCHASE ORDER</h1>' +
+            '<p style="margin: 4px 0 0; font-size: 12px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Millwork & Lumber Yard Work Order</p>' +
           '</div>' +
           '<div style="text-align: right;">' +
-            '<h2 style="margin: 0; font-size: 22px; font-weight: 900; color: #0284c7;">PURCHASE ORDER</h2>' +
-            '<div style="font-size: 14px; font-weight: 800; font-family: monospace; margin-top: 2px;">#' + po.id + '</div>' +
+            '<div style="font-size: 16px; font-weight: 800; font-family: monospace; margin-top: 2px;">#' + po.id + '</div>' +
             '<div style="font-size: 11px; color: #64748b; margin-top: 1px;">Order Date: ' + (po.orderDate || po.date || '—') + '</div>' +
             '<div style="font-size: 13px; font-weight: 900; color: #b45309; margin-top: 3px; border: 1px solid #b45309; padding: 2px 6px; display: inline-block; border-radius: 4px;">DUE DATE: ' + (po.dueDate || '—') + '</div>' +
           '</div>' +
@@ -2294,16 +2661,95 @@
       document.getElementById('poPrintModal').style.display = 'none';
     };
 
-    /* SETTINGS ENGINE */
+    /* 2-PART MATRIX SETTINGS LOGIC */
+    window.switchPricingDryingPart = function(part) {
+      saveCurrentMatrixInputsToState();
+      editPricingDryingPart = part;
+      
+      var btnKD = document.getElementById('pricingPartBtnKD');
+      var btnAD = document.getElementById('pricingPartBtnAD');
+      var ind = document.getElementById('activePricingPartIndicator');
+
+      if (part === "KD") {
+        btnKD.className = "flex-1 py-1.5 text-xs font-black rounded-lg bg-orange-500 text-white shadow flex items-center justify-center gap-1.5";
+        btnAD.className = "flex-1 py-1.5 text-xs font-black rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+        ind.innerText = "Kiln Dried Rates";
+        ind.className = "font-mono font-bold text-orange-700";
+      } else {
+        btnAD.className = "flex-1 py-1.5 text-xs font-black rounded-lg bg-teal-600 text-white shadow flex items-center justify-center gap-1.5";
+        btnKD.className = "flex-1 py-1.5 text-xs font-black rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+        ind.innerText = "Air Dried Rates";
+        ind.className = "font-mono font-bold text-teal-700";
+      }
+
+      loadMatrixInputsFromState();
+    };
+
+    window.switchPricingGradeTab = function(gradeName) {
+      saveCurrentMatrixInputsToState();
+      editPricingGrade = gradeName;
+
+      var gradeKeys = ["1&2 Common", "Clear", "Millrun", "Barn Board", "Low Grade", "Stain"];
+      var tabIds = { 
+        "1&2 Common": "pgTab_12", 
+        "Clear": "pgTab_Clear", 
+        "Millrun": "pgTab_Millrun", 
+        "Barn Board": "pgTab_BarnBoard", 
+        "Low Grade": "pgTab_Low", 
+        "Stain": "pgTab_Stain" 
+      };
+
+      gradeKeys.forEach(function(g) {
+        var el = document.getElementById(tabIds[g]);
+        if (el) {
+          if (g === gradeName) {
+            el.className = "py-1.5 rounded-lg bg-amber-500 text-white font-bold shadow";
+          } else {
+            el.className = "py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 hover:text-slate-900";
+          }
+        }
+      });
+
+      loadMatrixInputsFromState();
+    };
+
+    function saveCurrentMatrixInputsToState() {
+      if (!appConfig.matrixRates) appConfig.matrixRates = JSON.parse(JSON.stringify(DEFAULT_CONFIG.matrixRates));
+      if (!appConfig.matrixRates[editPricingDryingPart]) appConfig.matrixRates[editPricingDryingPart] = {};
+      if (!appConfig.matrixRates[editPricingDryingPart][editPricingGrade]) appConfig.matrixRates[editPricingDryingPart][editPricingGrade] = {};
+
+      var targetMap = appConfig.matrixRates[editPricingDryingPart][editPricingGrade];
+      DEFAULT_WIDTHS.forEach(function(w) {
+        var rInp = document.getElementById('inp_w_' + w + '_r');
+        var mInp = document.getElementById('inp_w_' + w + '_m');
+        if (rInp && mInp) {
+          targetMap[w] = {
+            rough: parseFloat(rInp.value) || 1.65,
+            milled: parseFloat(mInp.value) || 2.00
+          };
+        }
+      });
+    }
+
+    function loadMatrixInputsFromState() {
+      var heading = document.getElementById('matrixSectionHeading');
+      var partLabel = editPricingDryingPart === "KD" ? "Kiln Dried" : "Air Dried";
+      if (heading) heading.innerText = partLabel + " — " + editPricingGrade + " Width Rates";
+
+      var targetMap = (appConfig.matrixRates && appConfig.matrixRates[editPricingDryingPart] && appConfig.matrixRates[editPricingDryingPart][editPricingGrade]) || {};
+
+      DEFAULT_WIDTHS.forEach(function(w) {
+        var ratePair = targetMap[w] || { rough: 1.65, milled: 2.00 };
+        var rInp = document.getElementById('inp_w_' + w + '_r');
+        var mInp = document.getElementById('inp_w_' + w + '_m');
+        if (rInp) rInp.value = ratePair.rough;
+        if (mInp) mInp.value = ratePair.milled;
+      });
+    }
+
     window.openSettingsModal = function() {
-      document.getElementById('cfgRate12CommonRough').value = appConfig.rates["1&2 Common"].rough;
-      document.getElementById('cfgRate12CommonMilled').value = appConfig.rates["1&2 Common"].milled;
-      document.getElementById('cfgRateSelectRough').value = (appConfig.rates["Clear"] || appConfig.rates["Select"]).rough;
-      document.getElementById('cfgRateSelectMilled').value = (appConfig.rates["Clear"] || appConfig.rates["Select"]).milled;
-      document.getElementById('cfgRateLowGradeRough').value = appConfig.rates["Low Grade"].rough;
-      document.getElementById('cfgRateLowGradeMilled').value = appConfig.rates["Low Grade"].milled;
-      document.getElementById('cfgRateStainRough').value = appConfig.rates["Stain"].rough;
-      document.getElementById('cfgRateStainMilled').value = appConfig.rates["Stain"].milled;
+      document.getElementById('cfgDefaultFacilityDrawer').value = (appConfig.defaults && appConfig.defaults.defaultFacilityDrawer) ? appConfig.defaults.defaultFacilityDrawer : "C.I.M. MFG INC";
+      document.getElementById('cfgDefaultHomeView').value = (appConfig.defaults && appConfig.defaults.defaultHomeView) ? appConfig.defaults.defaultHomeView : "C.I.M. MFG INC";
 
       document.getElementById('cfgDefaultSpecies').value = appConfig.defaults.species;
       document.getElementById('cfgDefaultStageFilter').value = appConfig.defaults.stageFilter || "Rough";
@@ -2321,6 +2767,9 @@
       document.getElementById('cfgFirebaseConfig').value = JSON.stringify(appConfig.firebase, null, 2);
 
       switchSettingsTab('pricing');
+      switchPricingDryingPart('KD');
+      switchPricingGradeTab('1&2 Common');
+
       document.getElementById('settingsModal').style.display = 'flex';
     };
 
@@ -2345,18 +2794,10 @@
     };
 
     window.saveAppSettings = function() {
-      appConfig.rates["1&2 Common"].rough = parseFloat(document.getElementById('cfgRate12CommonRough').value) || 1.65;
-      appConfig.rates["1&2 Common"].milled = parseFloat(document.getElementById('cfgRate12CommonMilled').value) || 2.00;
-      
-      var clearRgh = parseFloat(document.getElementById('cfgRateSelectRough').value) || 2.40;
-      var clearMld = parseFloat(document.getElementById('cfgRateSelectMilled').value) || 2.65;
-      appConfig.rates["Clear"] = { rough: clearRgh, milled: clearMld };
-      appConfig.rates["Select"] = { rough: clearRgh, milled: clearMld };
+      saveCurrentMatrixInputsToState();
 
-      appConfig.rates["Low Grade"].rough = parseFloat(document.getElementById('cfgRateLowGradeRough').value) || 1.20;
-      appConfig.rates["Low Grade"].milled = parseFloat(document.getElementById('cfgRateLowGradeMilled').value) || 1.40;
-      appConfig.rates["Stain"].rough = parseFloat(document.getElementById('cfgRateStainRough').value) || 1.20;
-      appConfig.rates["Stain"].milled = parseFloat(document.getElementById('cfgRateStainMilled').value) || 1.40;
+      appConfig.defaults.defaultFacilityDrawer = document.getElementById('cfgDefaultFacilityDrawer').value;
+      appConfig.defaults.defaultHomeView = document.getElementById('cfgDefaultHomeView').value;
 
       appConfig.defaults.species = document.getElementById('cfgDefaultSpecies').value.trim() || "Eastern White Pine";
       appConfig.defaults.stageFilter = document.getElementById('cfgDefaultStageFilter').value;
@@ -2383,7 +2824,7 @@
     };
 
     window.resetSettingsToFactory = function() {
-      if (confirm("Reset all settings and rate tiers to factory defaults?")) {
+      if (confirm("Reset all settings, 2-part drying schedules and rate matrix to factory defaults?")) {
         appConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
         localStorage.setItem('timbertrack_settings', JSON.stringify(appConfig));
         applyFontVariables();
@@ -2401,7 +2842,11 @@
       try {
         var parsed = JSON.parse(str);
         if (Array.isArray(parsed)) {
-          inventory = parsed;
+          inventory = parsed.map(function(item){
+            if (!item.company) item.company = "C.I.M. MFG INC";
+            if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
+            return item;
+          });
           localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
           inventory.forEach(function(item){ syncCloudItem(item); });
           alert("Imported " + inventory.length + " lumber packs successfully.");
@@ -2424,6 +2869,9 @@
 
     window.onload = function() {
       applyFontVariables();
+      if (appConfig.defaults && appConfig.defaults.defaultHomeView) {
+        switchCompanyView(appConfig.defaults.defaultHomeView);
+      }
       initFirebaseDirectCloud();
       renderInventory();
       updatePoBadge();
