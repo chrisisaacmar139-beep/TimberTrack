@@ -1,0 +1,2902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimberTrack - Industrial Lumber Inventory Tracker</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --app-base-font-size: 16px;
+      --table-font-scale: 1.05;
+      --tag-pack-font-size: 52px;
+      --tag-dim-font-size: 42px;
+    }
+    html, body {
+      font-size: var(--app-base-font-size);
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .scale-table { font-size: calc(var(--app-base-font-size) * var(--table-font-scale)); }
+    .tag-pack-heading { font-size: var(--tag-pack-font-size) !important; }
+    .tag-dim-heading { font-size: var(--tag-dim-font-size) !important; }
+
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] { -moz-appearance: textfield; }
+
+    #drawerOverlay, #poDrawerOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.6);
+      z-index: 9999;
+      justify-content: flex-end;
+    }
+    #poListModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background-color: #f1f5f9;
+    }
+    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #tagPreviewModal, #poPrintModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.6);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    @page { size: 8.5in 11in; margin: 0.4in; }
+    @media print {
+      body * { visibility: hidden; }
+      #printableTagContainer, #printableTagContainer *,
+      #printablePoContainer, #printablePoContainer * { visibility: visible; }
+      
+      #printableTagContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 8in;
+        background: #ffffff !important;
+        color: #000000 !important;
+        display: block !important;
+      }
+      .bunk-tag-card {
+        width: 8in;
+        height: 5in;
+        page-break-inside: avoid;
+        margin-bottom: 0.5in;
+        border: 4px solid #000000 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      #printablePoContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 7.7in;
+        background: #ffffff !important;
+        color: #000000 !important;
+        display: block !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-800">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-2.5 py-2 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-1.5 flex-nowrap">
+      
+      <div class="flex items-center space-x-1.5 shrink min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-black text-base">
+          🌲
+        </div>
+        <div class="truncate">
+          <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 leading-none truncate">TimberTrack</h1>
+          <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline" id="activeYardSubheading">C.I.M. MFG INC</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+        <div id="cloudSyncIndicator" class="flex items-center bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-[11px] text-slate-600 font-bold whitespace-nowrap">
+          <span class="w-2 h-2 rounded-full bg-amber-400 mr-1 animate-pulse"></span>
+          <span class="hidden md:inline">Live Cloud Sync</span>
+          <span class="md:hidden">Sync</span>
+        </div>
+
+        <button type="button" onclick="openPoListModal()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
+          <span>📋</span>
+          <span class="hidden sm:inline">Orders</span>
+          <span class="bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded-md text-[10px] font-black" id="openPoBadge">0</span>
+        </button>
+
+        <button type="button" onclick="openSettingsModal()" title="Yard Settings" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
+          <span>⚙️</span>
+          <span class="hidden lg:inline">Settings</span>
+        </button>
+
+        <button type="button" onclick="openPoDrawer()" class="px-2 sm:px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm shadow-sky-600/20 active:scale-95 whitespace-nowrap flex items-center gap-1">
+          <span>+</span>
+          <span>PO</span>
+        </button>
+
+        <button type="button" onclick="openEntryDrawer()" class="px-2 sm:px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-lg text-xs shadow-sm shadow-amber-500/20 active:scale-95 whitespace-nowrap flex items-center gap-1">
+          <span>+</span>
+          <span>Stock</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- DASHBOARD -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-5 space-y-3 sm:space-y-4">
+
+    <!-- PRIMARY COMPANY TABS -->
+    <div class="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-1.5">
+      <button type="button" onclick="switchCompanyView('C.I.M. MFG INC')" id="companyTabCim" class="flex-1 py-2 text-xs sm:text-sm font-black rounded-xl bg-amber-500 text-white shadow transition-all flex items-center justify-center gap-2">
+        <span>🏭</span>
+        <span>C.I.M. MFG INC</span>
+      </button>
+      <button type="button" onclick="switchCompanyView('Crosshill Sawmill')" id="companyTabCrosshill" class="flex-1 py-2 text-xs sm:text-sm font-black rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-2">
+        <span>🪵</span>
+        <span>Crosshill Sawmill</span>
+      </button>
+    </div>
+
+    <!-- METRICS & FILTERS -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3">
+      
+      <!-- Stage Filter -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Milling Profile Stage</span>
+          <span id="activeStageLabel" class="text-xs font-mono font-bold text-amber-700">Rough Stock</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button type="button" onclick="setStageFilter('Rough')" id="filterBtnRough" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">Rough</button>
+          <button type="button" onclick="setStageFilter('MILLED')" id="filterBtnMilled" class="py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900">All Milled</button>
+          <button type="button" onclick="setStageFilter('ALL')" id="filterBtnAll" class="py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900">All Stock</button>
+        </div>
+        <div class="mt-2">
+          <select id="subStageSelector" onchange="setSpecificStageFilter(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-amber-500">
+            <option value="ALL_STAGES">Filter by Specific Profile (Select)...</option>
+            <option value="Rough">Rough (Default)</option>
+            <option value="D4S">D4S</option>
+            <option value="V Match">V Match</option>
+            <option value="Sq Edge T&G">Sq Edge T&G</option>
+            <option value="Shiplap">Shiplap</option>
+            <option value="Channel Lap Shiplap">Channel Lap Shiplap</option>
+            <option value="Cove">Cove</option>
+            <option value="OTHER">Other Custom Milling</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Quick Width & Length Filter Card -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm space-y-2.5">
+        
+        <!-- Width Section -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Width Filter</span>
+            <span id="activeWidthLabel" class="text-xs font-mono font-bold text-amber-700">All Widths</span>
+          </div>
+          <div class="grid grid-cols-7 gap-1" id="widthFilterContainer">
+            <button type="button" onclick="setWidthFilter('ALL')" id="wb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+            <button type="button" onclick="setWidthFilter('4')" id="wb-4" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">4"</button>
+            <button type="button" onclick="setWidthFilter('6')" id="wb-6" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">6"</button>
+            <button type="button" onclick="setWidthFilter('8')" id="wb-8" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">8"</button>
+            <button type="button" onclick="setWidthFilter('10')" id="wb-10" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">10"</button>
+            <button type="button" onclick="setWidthFilter('12')" id="wb-12" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">12"</button>
+            <button type="button" onclick="setWidthFilter('RW')" id="wb-RW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">RW</button>
+          </div>
+        </div>
+
+        <!-- Length Section -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Length Filter</span>
+            <span id="activeLengthLabel" class="text-xs font-mono font-bold text-amber-700">All Lengths</span>
+          </div>
+          <div class="grid grid-cols-8 gap-0.5 sm:gap-1" id="lengthFilterContainer">
+            <button type="button" onclick="setLengthFilter('ALL')" id="lb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+            <button type="button" onclick="setLengthFilter('6')" id="lb-6" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">6'</button>
+            <button type="button" onclick="setLengthFilter('8')" id="lb-8" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">8'</button>
+            <button type="button" onclick="setLengthFilter('10')" id="lb-10" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">10'</button>
+            <button type="button" onclick="setLengthFilter('12')" id="lb-12" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">12'</button>
+            <button type="button" onclick="setLengthFilter('14')" id="lb-14" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">14'</button>
+            <button type="button" onclick="setLengthFilter('16')" id="lb-16" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">16'</button>
+            <button type="button" onclick="setLengthFilter('RL')" id="lb-RL" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">RL</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Volume Totals -->
+      <div class="md:col-span-4 bg-white p-3 rounded-2xl border border-slate-200 flex items-center justify-between shadow-sm">
+        <div>
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Visible Volume</span>
+          <div class="text-2xl sm:text-3xl font-black text-amber-700 font-mono" id="metricTotalBF">0.0 <span class="text-sm font-sans text-slate-500">BF</span></div>
+          <span class="text-xs text-slate-500" id="metricPackCount">0 Packs</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Available Pieces</span>
+          <div class="text-xl sm:text-2xl font-black text-emerald-700 font-mono" id="metricTotalPieces">0 <span class="text-sm font-sans text-slate-500">pcs</span></div>
+          <span class="text-xs text-rose-600 font-medium" id="metricPendingPieces">0 held</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+      <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50">
+        <div class="flex items-center space-x-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+          <h2 class="text-xs sm:text-sm font-bold tracking-wide text-slate-900 uppercase" id="inventoryTableHeading">C.I.M. MFG INC — Rough Stock</h2>
+        </div>
+        <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search packs, grade, stage, drying, notes..." class="w-full sm:w-64 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" />
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse scale-table">
+          <thead>
+            <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
+              <th class="py-2.5 px-3">Pack, Grade & Drying</th>
+              <th class="py-2.5 px-3 whitespace-nowrap">Profile & Milling Stage</th>
+              <th class="py-2.5 px-3">Pieces Count</th>
+              <th class="py-2.5 px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
+              <th class="py-2.5 px-3">Board Feet</th>
+              <th class="py-2.5 px-3 whitespace-nowrap">Pricing (Rough & Milled)</th>
+              <th class="py-2.5 px-3 min-w-[170px]">Stage & Customer Hold</th>
+              <th class="py-2.5 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
+        </table>
+      </div>
+      <div id="emptyInventoryState" class="hidden p-8 text-center text-slate-500 text-sm">No packs found matching current filters.</div>
+    </div>
+
+  </main>
+
+  <!-- ADD / EDIT DRAWER -->
+  <div id="drawerOverlay">
+    <div class="w-full max-w-lg bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl overflow-y-auto">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div>
+          <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider" id="drawerTitle">Add Yard Stock</h3>
+          <p class="text-xs text-slate-500">Sequential Entry Sequence</p>
+        </div>
+        <button type="button" onclick="closeEntryDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
+      </div>
+
+      <form id="lumberEntryForm" onsubmit="handleSaveLumberPack(event)" class="p-4 space-y-3.5 flex-1">
+        <input type="hidden" id="drawerEditId" value="" />
+
+        <!-- COMPANY INVENTORY ASSIGNMENT -->
+        <div class="bg-slate-100 p-3 rounded-xl border border-slate-300">
+          <label class="block text-xs font-black text-slate-700 uppercase mb-1">Inventory List / Facility</label>
+          <select id="drawerCompanySelect" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-amber-800 focus:outline-none focus:border-amber-500">
+            <option value="C.I.M. MFG INC">C.I.M. MFG INC</option>
+            <option value="Crosshill Sawmill">Crosshill Sawmill</option>
+          </select>
+        </div>
+
+        <!-- CUSTOM PACK TAG FIELD -->
+        <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-200">
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-bold text-amber-900 uppercase">Pack / Bundle Tag #</label>
+            <span id="packTagUniqueNotice" class="text-[11px] font-bold text-emerald-700 hidden">✓ Tag Available</span>
+          </div>
+          <input type="text" id="drawerCustomTagId" oninput="checkDuplicateTagRealtime(this.value)" class="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" placeholder="Leave empty for auto-generated tag (e.g. PK-4050)" />
+          <span id="packTagErrorNotice" class="text-[11px] font-bold text-rose-600 mt-1 hidden">⚠️ This pack number already exists in your inventory. Duplicate numbers are not allowed.</span>
+          <span class="text-[11px] text-amber-800/80 mt-1 block">Specify your own tag or leave blank to assign next available sequence.</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Species</label>
+            <input type="text" id="drawerSpecies" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Eastern White Pine" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Grade *</label>
+            <select id="drawerGrade" onchange="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-700 focus:outline-none focus:border-amber-500">
+              <option value="" disabled selected>-- Select Grade --</option>
+              <option value="1&2 Common">1&2 Common (Green)</option>
+              <option value="Clear">Clear / Select (Yellow)</option>
+              <option value="Millrun">Millrun (Purple)</option>
+              <option value="Barn Board">Barn Board (Stone)</option>
+              <option value="Low Grade">Low Grade (Red)</option>
+              <option value="Stain">Stain (Blue)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- DRYING METHOD & CUT DATE SELECTOR -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+          <label class="block text-xs font-bold text-amber-900 uppercase tracking-wider">Drying Method & Seasoning *</label>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-slate-500 mb-0.5">Method</label>
+              <select id="drawerDryingMethod" onchange="handleDryingMethodChange(this.value); recalcDrawerBF();" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
+                <option value="" disabled selected>-- Select Drying Method --</option>
+                <option value="Kiln Dried">Kiln Dried (KD)</option>
+                <option value="Air Dried">Air Dried (AD)</option>
+              </select>
+            </div>
+            <div id="drawerCutDateWrapper" class="hidden">
+              <label class="block text-[10px] uppercase font-bold text-sky-700 mb-0.5">Cut / Stacked Date</label>
+              <input type="date" id="drawerCutDate" class="w-full bg-white border border-sky-300 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none" />
+            </div>
+          </div>
+        </div>
+
+        <!-- MILLING STAGE SELECTOR -->
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+          <label class="block text-xs font-bold text-amber-800 uppercase tracking-wider">Milling Profile Stage</label>
+          <select id="drawerStageSelect" onchange="handleDrawerStageChange(this.value); recalcDrawerBF();" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500">
+            <option value="Rough">Rough (Default)</option>
+            <option value="D4S">D4S</option>
+            <option value="V Match">V Match</option>
+            <option value="Sq Edge T&G">Sq Edge T&G</option>
+            <option value="Shiplap">Shiplap</option>
+            <option value="Channel Lap Shiplap">Channel Lap Shiplap</option>
+            <option value="Cove">Cove</option>
+            <option value="Other">Other (Specify Custom Pattern)...</option>
+          </select>
+
+          <div id="drawerOtherStageWrapper" class="hidden pt-1.5">
+            <label class="block text-[11px] uppercase font-bold text-sky-700 tracking-wider mb-1">Specify Other Milling Pattern:</label>
+            <input type="text" id="drawerStageOtherDetail" class="w-full bg-white border border-sky-400 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" placeholder="e.g. Bullnose Siding..." />
+          </div>
+        </div>
+
+        <!-- MOISTURE CONTENT RANGE & YARD LOCATION -->
+        <div class="grid grid-cols-2 gap-3" id="moistureAndLocationGrid">
+          <div id="drawerMoistureFieldWrapper" class="hidden">
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Moisture Range (%)</label>
+            <div class="flex items-center space-x-1.5">
+              <input type="number" id="drawerMoistureMin" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center text-slate-800" value="10" />
+              <span class="text-xs font-bold text-slate-400">-</span>
+              <input type="number" id="drawerMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center text-slate-800" value="15" />
+              <span class="text-xs font-bold text-slate-500">%</span>
+            </div>
+          </div>
+          <div id="drawerLocationFieldWrapper" class="w-full">
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Yard Location</label>
+            <input type="text" id="drawerLocation" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800" value="Shop" />
+          </div>
+        </div>
+
+        <!-- 1. THICKNESS -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">1. Thickness</div>
+          <input type="number" id="drawerThickness" step="0.125" oninput="setDrawerThickness(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="1" />
+          <div class="grid grid-cols-6 gap-1" id="thickBtnGroup">
+            <button type="button" onclick="setDrawerThickness(1)" data-val="1" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">1"</button>
+            <button type="button" onclick="setDrawerThickness(1.25)" data-val="1.25" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">1¼"</button>
+            <button type="button" onclick="setDrawerThickness(1.5)" data-val="1.5" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">1½"</button>
+            <button type="button" onclick="setDrawerThickness(2)" data-val="2" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">2"</button>
+            <button type="button" onclick="setDrawerThickness(2.5)" data-val="2.5" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">2½"</button>
+            <button type="button" onclick="setDrawerThickness(3)" data-val="3" class="thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">3"</button>
+          </div>
+        </div>
+
+        <!-- 2. WIDTH (WITH RW / RANDOM WIDTH OPTION) -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">
+            <span>2. Width</span>
+            <span id="rwNotice" class="text-[11px] font-mono text-amber-700 hidden">(RW: Estimating @ 6" avg)</span>
+          </div>
+          <input type="number" id="drawerWidth" step="0.125" oninput="setDrawerWidth(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="6" />
+          <div class="grid grid-cols-6 gap-1" id="widthBtnGroup">
+            <button type="button" onclick="setDrawerWidth(4)" data-val="4" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">4"</button>
+            <button type="button" onclick="setDrawerWidth(6)" data-val="6" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">6"</button>
+            <button type="button" onclick="setDrawerWidth(8)" data-val="8" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">8"</button>
+            <button type="button" onclick="setDrawerWidth(10)" data-val="10" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">10"</button>
+            <button type="button" onclick="setDrawerWidth(12)" data-val="12" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">12"</button>
+            <button type="button" onclick="setDrawerWidth(0)" data-val="0" class="width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">RW</button>
+          </div>
+        </div>
+
+        <!-- 3. LENGTH (WITH RL / RANDOM LENGTH OPTION) -->
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">
+            <span>3. Length</span>
+            <span id="rlNotice" class="text-[11px] font-mono text-amber-700 hidden">(RL: Estimating @ 10' avg)</span>
+          </div>
+          <input type="number" id="drawerLength" step="0.5" oninput="setDrawerLength(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="12" />
+          <div class="grid grid-cols-7 gap-1" id="lenBtnGroup">
+            <button type="button" onclick="setDrawerLength(6)" data-val="6" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">6'</button>
+            <button type="button" onclick="setDrawerLength(8)" data-val="8" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">8'</button>
+            <button type="button" onclick="setDrawerLength(10)" data-val="10" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">10'</button>
+            <button type="button" onclick="setDrawerLength(12)" data-val="12" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">12'</button>
+            <button type="button" onclick="setDrawerLength(14)" data-val="14" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">14'</button>
+            <button type="button" onclick="setDrawerLength(16)" data-val="16" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">16'</button>
+            <button type="button" onclick="setDrawerLength(0)" data-val="0" class="len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 transition">RL</button>
+          </div>
+        </div>
+
+        <!-- Pieces & Notes -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">4. Pieces Count</label>
+            <input type="number" id="drawerPieces" oninput="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" placeholder="Number of pieces..." />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
+            <input type="text" id="drawerNotes" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Weathered surface, dark patina" />
+          </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-1">
+          <div class="flex justify-between font-bold">
+            <span class="text-slate-600">Volume:</span>
+            <span id="drawerLiveBF" class="text-amber-800 font-mono">0.0 BF</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-600">Applied Rate:</span>
+            <span id="drawerLiveRate" class="text-slate-700 font-mono">$1.65 / BF</span>
+          </div>
+          <div class="flex justify-between border-t border-amber-200 pt-1">
+            <span class="text-slate-700 font-bold">Estimated Total:</span>
+            <span id="drawerLiveTotal" class="text-emerald-700 font-mono font-bold">$0.00</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <button type="button" onclick="printDrawerTagDirect()" class="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 flex items-center justify-center gap-1 shadow-sm">
+            🏷️ Print Tag
+          </button>
+          <button type="submit" id="savePackSubmitBtn" class="col-span-2 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl text-sm shadow-md shadow-amber-500/20">
+            Save Pack
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CREATE PURCHASE ORDER DRAWER -->
+  <div id="poDrawerOverlay">
+    <div class="w-full max-w-xl bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl overflow-y-auto">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div>
+          <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
+          <p class="text-xs text-slate-500">Allocates stock from active inventory or records custom specs</p>
+        </div>
+        <button type="button" onclick="closePoDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
+      </div>
+
+      <form id="poEntryForm" onsubmit="handleCreatePurchaseOrder(event)" class="p-4 space-y-3.5 flex-1">
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Customer Name *</label>
+            <input type="text" id="poCustomerName" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-sky-500" placeholder="e.g. Highland Millwork" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">PO / Order #</label>
+            <input type="text" id="poOrderNumber" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">Due Date *</label>
+            <input type="date" id="poDueDate" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Order Date</label>
+            <input type="date" id="poOrderDate" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-600" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">PO Notes / Job Site Delivery</label>
+          <input type="text" id="poNotes" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Siding run - Deliver to shop side door" />
+        </div>
+
+        <!-- PO ITEMS SELECTOR -->
+        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Order Line Items</span>
+            <span class="text-[11px] text-slate-500">Picks from active company list or unlinked</span>
+          </div>
+
+          <div id="poLineItemsContainer" class="space-y-2.5"></div>
+
+          <button type="button" onclick="addPoLineItemRow()" class="w-full py-2 bg-white hover:bg-slate-100 text-sky-700 font-bold text-xs rounded-xl border border-sky-300 shadow-sm flex items-center justify-center gap-1">
+            + Add Line Item To Order
+          </button>
+        </div>
+
+        <!-- LIVE PO SUMMARY WITH 13% HST -->
+        <div class="bg-sky-50 border border-sky-200 rounded-xl p-3 text-xs space-y-1">
+          <div class="flex justify-between font-bold"><span class="text-slate-600">Total Pieces:</span><span id="poLivePieces" class="text-slate-900 font-mono">0 pcs</span></div>
+          <div class="flex justify-between font-bold"><span class="text-slate-600">Total Volume:</span><span id="poLiveBF" class="text-sky-800 font-mono">0.0 BF</span></div>
+          <div class="flex justify-between font-bold"><span class="text-slate-600">Subtotal:</span><span id="poLiveSubtotal" class="text-slate-900 font-mono">$0.00</span></div>
+          <div class="flex justify-between font-bold"><span class="text-slate-600">HST (13%):</span><span id="poLiveHst" class="text-amber-800 font-mono">$0.00</span></div>
+          <div class="flex justify-between border-t border-sky-200 pt-1 text-sm font-black"><span class="text-slate-800">Total (Inc. HST):</span><span id="poLiveTotal" class="text-emerald-700 font-mono">$0.00</span></div>
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl text-sm shadow-md shadow-sky-600/20">
+          Create & Save Purchase Order
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- PURCHASE ORDERS REGISTRY (FULL SCREEN) -->
+  <div id="poListModal">
+    <div class="bg-slate-100 w-full h-full flex flex-col">
+      <div class="bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2 shadow-sm shrink-0">
+        <div class="flex items-center space-x-2 min-w-0">
+          <span class="text-sky-600 text-lg">📋</span>
+          <div class="min-w-0">
+            <h4 class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">Purchase Orders</h4>
+            <span class="text-[11px] text-slate-500 font-semibold uppercase" id="poListSummaryLine">0 open • 13% HST included</span>
+          </div>
+        </div>
+        <button type="button" onclick="closePoListModal()" class="shrink-0 text-slate-600 hover:text-slate-900 font-bold text-base px-3 h-9 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 active:scale-95">✕ <span class="text-xs">Close</span></button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-5">
+        <div id="poListCards" class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3"></div>
+        <div id="emptyPoListState" class="hidden p-8 text-center text-slate-500 text-sm">No purchase orders found.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PO DELETE CONFIRMATION MODAL -->
+  <div id="poDeleteConfirmModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+      <h4 class="text-sm font-bold text-slate-900 uppercase">Delete Purchase Order</h4>
+      <p class="text-xs text-slate-600" id="poDeleteModalMessage">Delete this purchase order? All packs and pieces allocated to this order will be fully restored to active inventory.</p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button type="button" onclick="closePoDeleteModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+        <button type="button" onclick="confirmExecutePoDelete()" class="flex-1 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md">Delete & Restore</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRINTABLE PO MODAL -->
+  <div id="poPrintModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-4 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+        <span class="text-xs font-bold text-slate-900 uppercase">Purchase Order Work Order (8.5" × 11")</span>
+        <div class="space-x-2">
+          <button type="button" onclick="window.print()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm">Print Order</button>
+          <button type="button" onclick="closePoPrintModal()" class="text-slate-500 font-bold text-sm">✕</button>
+        </div>
+      </div>
+      <div id="modalPoPreviewArea" class="bg-white p-6 border border-slate-300 rounded font-sans text-slate-900"></div>
+    </div>
+  </div>
+  <div id="printablePoContainer" class="hidden"></div>
+
+  <!-- COMPLETE SETTINGS MODAL -->
+  <div id="settingsModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
+      
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div class="flex items-center space-x-2">
+          <span class="text-amber-600 text-base">⚙️</span>
+          <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Yard Settings & Configuration</h4>
+        </div>
+        <button type="button" onclick="closeSettingsModal()" class="text-slate-500 hover:text-slate-800 font-bold text-lg w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">✕</button>
+      </div>
+
+      <div class="grid grid-cols-5 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold text-center">
+        <button type="button" onclick="switchSettingsTab('pricing')" id="tabBtnPricing" class="py-1.5 rounded-lg bg-amber-500 text-white shadow">Pricing</button>
+        <button type="button" onclick="switchSettingsTab('defaults')" id="tabBtnDefaults" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Defaults</button>
+        <button type="button" onclick="switchSettingsTab('fonts')" id="tabBtnFonts" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Fonts</button>
+        <button type="button" onclick="switchSettingsTab('cloud')" id="tabBtnCloud" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Cloud</button>
+        <button type="button" onclick="switchSettingsTab('backup')" id="tabBtnBackup" class="py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Backup</button>
+      </div>
+
+      <!-- PRICING TAB (2-PART: KILN DRIED VS AIR DRIED + WIDTH MATRIX) -->
+      <div id="settingsTabPricing" class="space-y-3.5">
+        
+        <!-- Part 1 & 2 Selector: Kiln Dried vs Air Dried -->
+        <div class="flex items-center justify-between bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+          <button type="button" onclick="switchPricingDryingPart('KD')" id="pricingPartBtnKD" class="flex-1 py-1.5 text-xs font-black rounded-lg bg-orange-500 text-white shadow flex items-center justify-center gap-1.5">
+            <span>🔥</span> Part 1: Kiln Dried (KD)
+          </button>
+          <button type="button" onclick="switchPricingDryingPart('AD')" id="pricingPartBtnAD" class="flex-1 py-1.5 text-xs font-black rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
+            <span>💨</span> Part 2: Air Dried (AD)
+          </button>
+        </div>
+
+        <!-- Grade Selector Pill Bar -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-600 uppercase">Select Grade to Edit Width Rates:</span>
+            <span id="activePricingPartIndicator" class="font-mono font-bold text-orange-700">Kiln Dried Rates</span>
+          </div>
+          <div class="grid grid-cols-6 gap-1 text-[11px] font-bold" id="pricingGradePillBar">
+            <button type="button" onclick="switchPricingGradeTab('1&2 Common')" id="pgTab_12" class="py-1.5 rounded-lg bg-emerald-600 text-white shadow">1&2 Common</button>
+            <button type="button" onclick="switchPricingGradeTab('Clear')" id="pgTab_Clear" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Clear</button>
+            <button type="button" onclick="switchPricingGradeTab('Millrun')" id="pgTab_Millrun" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Millrun</button>
+            <button type="button" onclick="switchPricingGradeTab('Barn Board')" id="pgTab_BarnBoard" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn Board</button>
+            <button type="button" onclick="switchPricingGradeTab('Low Grade')" id="pgTab_Low" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low Grade</button>
+            <button type="button" onclick="switchPricingGradeTab('Stain')" id="pgTab_Stain" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>
+          </div>
+        </div>
+
+        <!-- Width Matrix Container for the selected Grade & Drying Part -->
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2.5">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+            <div class="text-xs font-black uppercase text-slate-800" id="matrixSectionHeading">1&2 Common Rates by Width</div>
+            <span class="text-[11px] text-slate-500">Board Foot Rates ($/BF)</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+            
+            <!-- 4" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">4" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_4_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_4_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 6" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">6" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_6_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_6_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 8" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">8" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_8_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_8_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 10" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">10" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_10_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_10_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 12" Width -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">12" Width</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_12_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_12_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+            <!-- RW (Random Width) -->
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-700 block">Random Width (RW)</span>
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Rough</span>
+                  <input type="number" step="0.05" id="inp_w_RW_r" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">Milled</span>
+                  <input type="number" step="0.05" id="inp_w_RW_m" class="w-full bg-white border border-slate-300 rounded p-1 font-mono text-slate-800" />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- DEFAULTS TAB -->
+      <div id="settingsTabDefaults" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Yard Operations Defaults</h5>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1 font-bold">Default Facility for Add Stock</label>
+            <select id="cfgDefaultFacilityDrawer" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-bold">
+              <option value="C.I.M. MFG INC">C.I.M. MFG INC</option>
+              <option value="Crosshill Sawmill">Crosshill Sawmill</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1 font-bold">Default Home Screen View</label>
+            <select id="cfgDefaultHomeView" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-bold">
+              <option value="C.I.M. MFG INC">C.I.M. MFG INC</option>
+              <option value="Crosshill Sawmill">Crosshill Sawmill</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Species</label>
+            <input type="text" id="cfgDefaultSpecies" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Starting View Filter</label>
+            <select id="cfgDefaultStageFilter" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="Rough">Rough Stock (Default)</option>
+              <option value="MILLED">All Milled Stock</option>
+              <option value="ALL">Show All Stock</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Thickness (Inches)</label>
+            <input type="number" id="cfgDefaultThickness" step="0.125" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Width (Inches)</label>
+            <input type="number" id="cfgDefaultWidth" step="0.125" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Length (Feet)</label>
+            <input type="number" id="cfgDefaultLength" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Default Moisture Range (%)</label>
+            <div class="flex items-center space-x-1.5">
+              <input type="number" id="cfgDefaultMoistureMin" step="0.5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="10" />
+              <span>-</span>
+              <input type="number" id="cfgDefaultMoistureMax" step="0.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 font-mono text-center" value="15" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FONTS TAB -->
+      <div id="settingsTabFonts" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Typography & Display Scaling</h5>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">App UI Base Text Size</label>
+            <select id="cfgBaseFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="14px">Standard (14px)</option>
+              <option value="16px">Large Clean (16px - Current)</option>
+              <option value="18px">Oversized Yard View (18px)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Inventory Table Font Scale</label>
+            <select id="cfgTableFontScale" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="0.95">Compact (0.95x)</option>
+              <option value="1.05">Enhanced (1.05x - Current)</option>
+              <option value="1.2">Enlarged Text (1.2x)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Tag Pack Number Size</label>
+            <select id="cfgTagPackFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="48px">Large (48px)</option>
+              <option value="52px">Extra Large (52px - Current)</option>
+              <option value="60px">Oversized / Mega (60px)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-wider mb-1">Tag Dimension Size</label>
+            <select id="cfgTagDimFontSize" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800">
+              <option value="38px">Large (38px)</option>
+              <option value="42px">Extra Large (42px - Current)</option>
+              <option value="48px">Oversized (48px)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLOUD TAB -->
+      <div id="settingsTabCloud" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Firebase Cloud Configuration</h5>
+        <textarea id="cfgFirebaseConfig" rows="6" class="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none"></textarea>
+      </div>
+
+      <!-- BACKUP TAB -->
+      <div id="settingsTabBackup" class="space-y-3 hidden">
+        <h5 class="text-xs font-bold text-amber-800 uppercase tracking-wider">Inventory Data Backup</h5>
+        <div class="space-y-2">
+          <textarea id="cfgBackupArea" rows="5" placeholder="JSON export/import data appears here..." class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-[11px] font-mono text-slate-800 focus:outline-none"></textarea>
+          <div class="flex space-x-2">
+            <button type="button" onclick="exportInventoryJSON()" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg border border-slate-300">Export All Data</button>
+            <button type="button" onclick="importInventoryJSON()" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-amber-700 text-xs font-bold rounded-lg border border-slate-300">Import Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+        <button type="button" onclick="resetSettingsToFactory()" class="text-xs text-slate-500 hover:text-rose-600 underline">Reset to Factory</button>
+        <div class="space-x-2">
+          <button type="button" onclick="closeSettingsModal()" class="px-3 py-1.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+          <button type="button" onclick="saveAppSettings()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md">Save Settings</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DELETE PACK MODAL -->
+  <div id="deleteConfirmModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+      <h4 class="text-sm font-bold text-slate-900 uppercase">Confirm Pack Deletion</h4>
+      <p class="text-xs text-slate-600" id="deleteModalMessage">Delete this pack?</p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button type="button" onclick="closeDeleteModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+        <button type="button" onclick="confirmExecuteDelete()" class="flex-1 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUNK TAG MODAL -->
+  <div id="tagPreviewModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-4 space-y-4 max-h-[90vh] overflow-y-auto shadow-xl">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+        <span class="text-xs font-bold text-slate-900 uppercase">Bunk Tag Preview (8" × 5")</span>
+        <div class="space-x-2">
+          <button type="button" onclick="window.print()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs shadow-sm">Print</button>
+          <button type="button" onclick="closeTagModal()" class="text-slate-500 hover:text-slate-800 font-bold text-sm">✕</button>
+        </div>
+      </div>
+      <div id="modalTagPreviewArea" class="bg-white text-black p-6 border-4 border-black rounded font-sans"></div>
+    </div>
+  </div>
+  <div id="printableTagContainer" class="hidden"></div>
+
+  <!-- APP ENGINE SCRIPT -->
+  <script>
+    var DEFAULT_WIDTHS = ["4", "6", "8", "10", "12", "RW"];
+    
+    function makeDefaultWidthMap(baseR, baseM) {
+      var map = {};
+      DEFAULT_WIDTHS.forEach(function(w) {
+        var wBonus = 0;
+        if (w === "8") wBonus = 0.05;
+        if (w === "10") wBonus = 0.15;
+        if (w === "12") wBonus = 0.25;
+        map[w] = { rough: +(baseR + wBonus).toFixed(2), milled: +(baseM + wBonus).toFixed(2) };
+      });
+      return map;
+    }
+
+    var DEFAULT_CONFIG = {
+      matrixRates: {
+        KD: {
+          "1&2 Common": makeDefaultWidthMap(1.65, 2.00),
+          "Clear": makeDefaultWidthMap(2.40, 2.65),
+          "Select": makeDefaultWidthMap(2.40, 2.65),
+          "Millrun": makeDefaultWidthMap(1.50, 1.85),
+          "Barn Board": makeDefaultWidthMap(1.75, 2.10),
+          "Low Grade": makeDefaultWidthMap(1.20, 1.40),
+          "Stain": makeDefaultWidthMap(1.20, 1.40)
+        },
+        AD: {
+          "1&2 Common": makeDefaultWidthMap(1.45, 1.80),
+          "Clear": makeDefaultWidthMap(2.15, 2.40),
+          "Select": makeDefaultWidthMap(2.15, 2.40),
+          "Millrun": makeDefaultWidthMap(1.35, 1.65),
+          "Barn Board": makeDefaultWidthMap(1.60, 1.95),
+          "Low Grade": makeDefaultWidthMap(1.10, 1.30),
+          "Stain": makeDefaultWidthMap(1.10, 1.30)
+        }
+      },
+      defaults: {
+        defaultFacilityDrawer: "C.I.M. MFG INC",
+        defaultHomeView: "C.I.M. MFG INC",
+        species: "Eastern White Pine",
+        stageFilter: "Rough",
+        thickness: 1,
+        width: 6,
+        length: 12,
+        moistureMin: 10,
+        moistureMax: 15,
+        location: "Shop"
+      },
+      fonts: {
+        baseSize: "16px",
+        tableScale: "1.05",
+        tagPackSize: "52px",
+        tagDimSize: "42px"
+      },
+      firebase: {
+        apiKey: "AIzaSyDzLA2Ihnw80A6OIMw7Bs9NbKYl3gEF6GU",
+        authDomain: "timbertrack-6c42d.firebaseapp.com",
+        projectId: "timbertrack-6c42d",
+        storageBucket: "timbertrack-6c42d.firebasestorage.app",
+        messagingSenderId: "876066859760",
+        appId: "1:876066859760:web:839654a3f5e26b9fce3035"
+      }
+    };
+
+    var appConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    try {
+      var savedCfg = localStorage.getItem('timbertrack_settings');
+      if (savedCfg) {
+        var parsed = JSON.parse(savedCfg);
+        appConfig = Object.assign({}, DEFAULT_CONFIG, parsed);
+        if (!appConfig.matrixRates) appConfig.matrixRates = DEFAULT_CONFIG.matrixRates;
+        if (!appConfig.matrixRates.KD) appConfig.matrixRates.KD = DEFAULT_CONFIG.matrixRates.KD;
+        if (!appConfig.matrixRates.AD) appConfig.matrixRates.AD = DEFAULT_CONFIG.matrixRates.AD;
+        if (!appConfig.matrixRates.KD["Barn Board"]) appConfig.matrixRates.KD["Barn Board"] = makeDefaultWidthMap(1.75, 2.10);
+        if (!appConfig.matrixRates.AD["Barn Board"]) appConfig.matrixRates.AD["Barn Board"] = makeDefaultWidthMap(1.60, 1.95);
+        appConfig.firebase = DEFAULT_CONFIG.firebase;
+      }
+    } catch(e) {}
+
+    var inventory = [];
+    try {
+      var savedInv = localStorage.getItem('timbertrack_inventory');
+      if (savedInv) {
+        var parsedList = JSON.parse(savedInv);
+        inventory = parsedList.map(function(item){
+          if (!item.company) item.company = "C.I.M. MFG INC";
+          if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
+          return item;
+        });
+      }
+    } catch(e) {}
+
+    var purchaseOrders = [];
+    try {
+      var savedPos = localStorage.getItem('timbertrack_pos');
+      if (savedPos) purchaseOrders = JSON.parse(savedPos);
+    } catch(e) {}
+
+    var activeCompany = (appConfig.defaults && appConfig.defaults.defaultHomeView) ? appConfig.defaults.defaultHomeView : "C.I.M. MFG INC";
+
+    var currentStageFilter = "Rough";
+    var currentWidthFilter = "ALL";
+    var currentLengthFilter = "ALL";
+    var searchQuery = "";
+    var itemPendingDeletionId = null;
+    var poPendingDeletionId = null;
+
+    var editPricingDryingPart = "KD";
+    var editPricingGrade = "1&2 Common";
+
+    var db = null;
+
+    function initFirebaseDirectCloud() {
+      var ind = document.getElementById('cloudSyncIndicator');
+      if (typeof firebase !== 'undefined' && appConfig.firebase) {
+        try {
+          if (!firebase.apps.length) {
+            firebase.initializeApp(appConfig.firebase);
+          }
+          db = firebase.firestore();
+
+          db.collection('yard_inventory').onSnapshot(function(snap) {
+            if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> <span class="hidden md:inline">Live Cloud Sync</span><span class="md:hidden">Sync</span>';
+            var cloudItems = [];
+            snap.forEach(function(doc){ 
+              var d = doc.data();
+              if ((parseInt(d.pieces) || 0) > 0) {
+                if (!d.company) d.company = "C.I.M. MFG INC";
+                if (!d.dryingMethod) d.dryingMethod = "Kiln Dried";
+                cloudItems.push(d);
+              }
+            });
+            inventory = cloudItems;
+            localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+            renderInventory();
+          }, function(err) {
+            console.error(err);
+            if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500 mr-1"></span> Local';
+          });
+
+          db.collection('yard_pos').onSnapshot(function(snap) {
+            var cloudPos = [];
+            snap.forEach(function(doc){ cloudPos.push(doc.data()); });
+            purchaseOrders = cloudPos;
+            localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+            updatePoBadge();
+            var poModal = document.getElementById('poListModal');
+            if (poModal && poModal.style.display === 'block') openPoListModal();
+          });
+
+        } catch(e) {
+          console.error("Firestore init error:", e);
+        }
+      }
+    }
+
+    function syncCloudItem(item) {
+      if (db) {
+        if (!item.company) item.company = "C.I.M. MFG INC";
+        if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
+        db.collection('yard_inventory').doc(item.id).set(item, { merge: true }).catch(function(){});
+      }
+    }
+
+    function removeCloudItem(id) {
+      if (db) {
+        db.collection('yard_inventory').doc(id).delete().catch(function(){});
+      }
+    }
+
+    function syncCloudPo(po) {
+      if (db) {
+        db.collection('yard_pos').doc(po.id).set(po, { merge: true }).catch(function(){});
+      }
+    }
+
+    function removeCloudPo(poId) {
+      if (db) {
+        db.collection('yard_pos').doc(poId).delete().catch(function(){});
+      }
+    }
+
+    window.switchCompanyView = function(companyName) {
+      activeCompany = companyName;
+      
+      var tabCim = document.getElementById('companyTabCim');
+      var tabCrosshill = document.getElementById('companyTabCrosshill');
+      var yardSub = document.getElementById('activeYardSubheading');
+
+      if (companyName === "C.I.M. MFG INC") {
+        tabCim.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl bg-amber-500 text-white shadow transition-all flex items-center justify-center gap-2";
+        tabCrosshill.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-2";
+        if (yardSub) yardSub.innerText = "C.I.M. MFG INC";
+      } else {
+        tabCrosshill.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl bg-amber-500 text-white shadow transition-all flex items-center justify-center gap-2";
+        tabCim.className = "flex-1 py-2 text-xs sm:text-sm font-black rounded-xl text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-2";
+        if (yardSub) yardSub.innerText = "Crosshill Sawmill";
+      }
+
+      renderInventory();
+    };
+
+    function calculateBF(t, w, l, p) {
+      t = parseFloat(t) || 0;
+      w = parseFloat(w) || 0;
+      l = parseFloat(l) || 0;
+      p = parseInt(p) || 0;
+
+      var effW = (w === 0) ? 6 : w;
+      var effL = (l === 0) ? 10 : l;
+
+      return (t * effW * effL * p) / 12;
+    }
+
+    function getMatrixRates(dryingMethod, grade, width) {
+      var partKey = (dryingMethod === "Air Dried") ? "AD" : "KD";
+      var g = (grade === "Select") ? "Clear" : (grade || "1&2 Common");
+      var wStr = (width === 0 || width === "0" || width === "RW") ? "RW" : String(Math.round(parseFloat(width) || 6));
+
+      var partObj = (appConfig.matrixRates && appConfig.matrixRates[partKey]) || DEFAULT_CONFIG.matrixRates[partKey];
+      var gradeMap = partObj[g] || partObj["1&2 Common"];
+      
+      var ratePair = gradeMap[wStr] || gradeMap["6"] || gradeMap["RW"] || { rough: 1.65, milled: 2.00 };
+      return ratePair;
+    }
+
+    function getGradeBadgeHtml(grade) {
+      var g = (grade || "").toLowerCase();
+      if (g.includes("1&2") || g.includes("common")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("clear") || g.includes("select")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("millrun")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("barn")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-stone-200 text-stone-800 border border-stone-400 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("low")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300 shadow-sm">' + grade + '</span>';
+      } else if (g.includes("stain")) {
+        return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300 shadow-sm">' + grade + '</span>';
+      }
+      return '<span class="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300">' + (grade || 'Unspecified') + '</span>';
+    }
+
+    function getDryingBadgeHtml(item) {
+      var method = item.dryingMethod || "Kiln Dried";
+      if (method === "Air Dried") {
+        var durationText = "";
+        if (item.cutDate) {
+          var cut = new Date(item.cutDate);
+          var now = new Date();
+          var diffTime = now - cut;
+          var diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (isNaN(diffDays) || diffDays < 0) {
+            durationText = "Today";
+          } else if (diffDays < 60) {
+            durationText = diffDays + " days";
+          } else {
+            var months = (diffDays / 30.4).toFixed(1);
+            durationText = months + " mos";
+          }
+        }
+        
+        var titleAttr = item.cutDate ? 'title="Cut Date: ' + item.cutDate + '"' : '';
+        return '<span ' + titleAttr + ' class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-teal-100 text-teal-900 border border-teal-300 shadow-sm">' +
+          '<span>💨 AD</span>' +
+          (durationText ? '<span class="font-mono text-[10px] text-teal-800 bg-teal-200/80 px-1 py-0.2 rounded">' + durationText + '</span>' : '') +
+        '</span>';
+      } else {
+        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-orange-100 text-orange-900 border border-orange-300 shadow-sm" title="Kiln Dried">' +
+          '<span>🔥 KD</span>' +
+        '</span>';
+      }
+    }
+
+    function getDisplayStage(item) {
+      if (item.stage === "Other" && item.stageDetail) {
+        return item.stageDetail;
+      }
+      return item.stage || "Rough";
+    }
+
+    function getGradeRank(grade) {
+      var g = (grade || "").toLowerCase();
+      if (g.includes("1&2") || g.includes("common")) return 1;
+      if (g.includes("clear") || g.includes("select")) return 2;
+      if (g.includes("millrun")) return 3;
+      if (g.includes("barn")) return 4;
+      if (g.includes("low")) return 5;
+      if (g.includes("stain")) return 6;
+      return 99;
+    }
+
+    function sortInventoryPacks(items) {
+      return items.slice().sort(function(a, b) {
+        var wA = parseFloat(a.width) || 0;
+        var wB = parseFloat(b.width) || 0;
+        var effWA = wA === 0 ? 9999 : wA;
+        var effWB = wB === 0 ? 9999 : wB;
+        if (effWA !== effWB) return effWA - effWB;
+
+        var lA = parseFloat(a.length) || 0;
+        var lB = parseFloat(b.length) || 0;
+        var effLA = lA === 0 ? 9999 : lA;
+        var effLB = lB === 0 ? 9999 : lB;
+        if (effLA !== effLB) return effLA - effLB;
+
+        var gA = getGradeRank(a.grade);
+        var gB = getGradeRank(b.grade);
+        if (gA !== gB) return gA - gB;
+
+        var tA = parseFloat(a.thickness) || 0;
+        var tB = parseFloat(b.thickness) || 0;
+        return tA - tB;
+      });
+    }
+
+    function generateUniquePackId() {
+      var candidate;
+      var exists = true;
+      var attempts = 0;
+      while (exists && attempts < 1000) {
+        candidate = "PK-" + Math.floor(1000 + Math.random() * 9000);
+        exists = inventory.some(function(i){ return i.id.toUpperCase() === candidate.toUpperCase(); });
+        attempts++;
+      }
+      return candidate;
+    }
+
+    window.checkDuplicateTagRealtime = function(val) {
+      var inputVal = (val || '').trim().toUpperCase();
+      var editId = (document.getElementById('drawerEditId').value || '').trim().toUpperCase();
+      var errorNotice = document.getElementById('packTagErrorNotice');
+      var uniqueNotice = document.getElementById('packTagUniqueNotice');
+      var submitBtn = document.getElementById('savePackSubmitBtn');
+
+      if (!inputVal) {
+        errorNotice.classList.add('hidden');
+        uniqueNotice.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      var isDuplicate = inventory.some(function(i) {
+        return i.id.toUpperCase() === inputVal && i.id.toUpperCase() !== editId;
+      });
+
+      if (isDuplicate) {
+        errorNotice.classList.remove('hidden');
+        uniqueNotice.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = true;
+      } else {
+        errorNotice.classList.add('hidden');
+        uniqueNotice.classList.remove('hidden');
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
+
+    window.handleDryingMethodChange = function(methodVal) {
+      var dateWrapper = document.getElementById('drawerCutDateWrapper');
+      var moistureWrapper = document.getElementById('drawerMoistureFieldWrapper');
+      var grid = document.getElementById('moistureAndLocationGrid');
+
+      if (methodVal === "Air Dried") {
+        dateWrapper.classList.remove('hidden');
+        if (!document.getElementById('drawerCutDate').value) {
+          document.getElementById('drawerCutDate').value = new Date().toISOString().split('T')[0];
+        }
+        moistureWrapper.classList.add('hidden');
+        grid.className = "grid grid-cols-1 gap-3";
+      } else if (methodVal === "Kiln Dried") {
+        dateWrapper.classList.add('hidden');
+        moistureWrapper.classList.remove('hidden');
+        grid.className = "grid grid-cols-2 gap-3";
+      } else {
+        dateWrapper.classList.add('hidden');
+        moistureWrapper.classList.add('hidden');
+        grid.className = "grid grid-cols-1 gap-3";
+      }
+    };
+
+    function renderInventory() {
+      var tbody = document.getElementById('inventoryTableBody');
+      var empty = document.getElementById('emptyInventoryState');
+      var heading = document.getElementById('inventoryTableHeading');
+      if (!tbody) return;
+
+      if (heading) {
+        var stageTitle = (currentStageFilter === 'Rough' ? 'Rough Lumber Stock' : (currentStageFilter === 'MILLED' ? 'Milled Stock' : 'All Stock'));
+        heading.innerText = activeCompany + " — " + stageTitle;
+      }
+
+      var filtered = inventory.filter(function(item) {
+        var itemCo = item.company || "C.I.M. MFG INC";
+        if (itemCo !== activeCompany) return false;
+
+        var p = parseInt(item.pieces) || 0;
+        if (p <= 0) return false;
+
+        var s = item.stage || "Rough";
+        if (currentStageFilter === "Rough" && s !== "Rough") return false;
+        if (currentStageFilter === "MILLED" && s === "Rough") return false;
+        if (currentStageFilter !== "ALL" && currentStageFilter !== "MILLED" && currentStageFilter !== "Rough") {
+          if (currentStageFilter === "OTHER" && s !== "Other") return false;
+          if (currentStageFilter !== "OTHER" && s !== currentStageFilter) return false;
+        }
+
+        if (currentWidthFilter !== 'ALL') {
+          if (currentWidthFilter === 'RW' && item.width !== 0) return false;
+          if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return false;
+        }
+
+        if (currentLengthFilter !== 'ALL') {
+          if (currentLengthFilter === 'RL' && item.length !== 0) return false;
+          if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return false;
+        }
+
+        if (searchQuery.trim() !== '') {
+          var dryingTag = (item.dryingMethod === 'Air Dried' ? 'air dried ad' : 'kiln dried kd');
+          var match = (item.id + " " + (item.grade||'') + " " + item.species + " " + dryingTag + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
+          if (match.indexOf(searchQuery.toLowerCase()) === -1) return false;
+        }
+        return true;
+      });
+
+      var sorted = sortInventoryPacks(filtered);
+
+      if (sorted.length === 0) {
+        tbody.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+      } else {
+        if (empty) empty.classList.add('hidden');
+        tbody.innerHTML = sorted.map(function(item) {
+          var isPending = item.status === 'PENDING_SALE';
+          var isPartial = item.partialTaken === true;
+
+          var totalPieces = parseInt(item.pieces) || 0;
+          var heldPieces = parseInt(item.pendingPieces) || 0;
+          var leftPieces = Math.max(0, totalPieces - heldPieces);
+
+          var bf = calculateBF(item.thickness, item.width, item.length, totalPieces);
+          var availableBF = calculateBF(item.thickness, item.width, item.length, leftPieces);
+
+          var rateInfo = getMatrixRates(item.dryingMethod, item.grade, item.width);
+          var singlePieceBF = calculateBF(item.thickness, item.width, item.length, 1);
+          var roughPcPrice = singlePieceBF * rateInfo.rough;
+          var milledPcPrice = singlePieceBF * rateInfo.milled;
+
+          var dimString = item.thickness + '" × ' + (item.width === 0 ? 'RW' : item.width + '"') + ' × ' + (item.length === 0 ? 'RL' : item.length + "'");
+          var displayStage = getDisplayStage(item);
+          var isRough = (item.stage === "Rough");
+
+          var isAirDried = (item.dryingMethod === "Air Dried");
+          var moistureDisplay = isAirDried ? "" : (item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%');
+          var subMetaString = isAirDried ? (item.location || 'Shop') : ('MC ' + moistureDisplay + ' • ' + (item.location || 'Shop'));
+
+          var rowClass = "border-b border-slate-200 transition-colors ";
+          if (isPartial) {
+            rowClass += "bg-amber-100/80 border-l-4 border-l-amber-500 ";
+          } else if (isPending) {
+            rowClass += "bg-rose-50/70 border-l-4 border-l-rose-500 ";
+          } else {
+            rowClass += "hover:bg-slate-50 ";
+          }
+
+          return '<tr class="' + rowClass + '">' +
+            '<td class="py-2.5 px-3 align-top">' +
+              '<div class="font-mono font-black text-amber-800 text-sm">' + item.id + '</div>' +
+              '<div class="text-[11px] text-slate-500">' + item.species + '</div>' +
+              '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
+                getGradeBadgeHtml(item.grade) +
+                getDryingBadgeHtml(item) +
+              '</div>' +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top whitespace-nowrap">' +
+              '<div class="font-mono font-black text-slate-900 text-lg tracking-tight">' + dimString + '</div>' +
+              '<div class="mt-1 flex items-center space-x-1.5">' +
+                '<span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
+                  displayStage +
+                '</span>' +
+                '<span class="text-xs text-slate-500 font-mono">' + subMetaString + '</span>' +
+              '</div>' +
+              (isPartial ? 
+                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex items-center justify-between gap-2 shadow-sm">' +
+                  '<span>⚠️ Partial pull: <strong>' + totalPieces + ' pcs left</strong>. Update bundle tag!</span>' +
+                  '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
+                '</div>'
+              : '') +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top">' +
+              '<div class="flex items-center space-x-1.5">' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
+              '</div>' +
+              (isPending ? '<div class="text-[11px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
+              (item.notes ? '<div class="p-2 rounded bg-slate-50 border border-slate-200 leading-snug">' + item.notes + '</div>' : '<span class="text-slate-400">—</span>') +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
+              '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span>' + 
+              ((item.width === 0 || item.length === 0) ? ' <span class="text-[10px] text-amber-600 font-normal">(est)</span>' : '') + '</div>' +
+              (isPending ? '<div class="text-[11px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top font-mono whitespace-nowrap">' +
+              '<div class="text-xs font-bold ' + (isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
+                '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Rgh:</span>' +
+                '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[11px] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
+              '</div>' +
+              '<div class="text-xs font-bold mt-0.5 ' + (!isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
+                '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Mld:</span>' +
+                '$' + milledPcPrice.toFixed(2) + '/pc <span class="text-[11px] font-normal text-slate-400">(@$' + rateInfo.milled.toFixed(2) + ')</span>' +
+              '</div>' +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top min-w-[170px]">' +
+              '<button type="button" onclick="toggleStatus(\'' + item.id + '\')" class="px-2 py-0.5 rounded text-xs font-bold uppercase transition ' + (isPending ? 'bg-rose-600 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300') + '">' +
+                (isPending ? 'Pending Order' : 'In Stock') +
+              '</button>' +
+              (isPending ? 
+                '<div class="mt-2 space-y-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-xs shadow-sm">' +
+                  '<div>' +
+                    '<label class="block text-[10px] uppercase font-bold text-rose-800 tracking-wider">Pending Customer:</label>' +
+                    '<input type="text" value="' + (item.customer || '') + '" oninput="updateCustomer(\'' + item.id + '\', this.value)" placeholder="Customer name..." class="w-full bg-white border border-rose-300 rounded px-2 py-1 text-xs text-slate-900 focus:outline-none focus:border-rose-500" />' +
+                  '</div>' +
+                  '<div>' +
+                    '<label class="block text-[10px] uppercase font-bold text-rose-800 tracking-wider">Pieces On Hold:</label>' +
+                    '<div class="flex items-center space-x-1">' +
+                      '<input type="number" value="' + heldPieces + '" onchange="updatePendingPieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-rose-300 rounded px-2 py-0.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-rose-500" />' +
+                      '<span class="text-xs text-slate-500">pcs</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class="text-xs font-mono pt-1 border-t border-rose-200 flex justify-between">' +
+                    '<span class="text-slate-600">Left for Sale:</span>' +
+                    '<span class="font-bold text-emerald-700">' + leftPieces + ' pcs</span>' +
+                  '</div>' +
+                '</div>'
+              : '') +
+            '</td>' +
+
+            '<td class="py-2.5 px-3 align-top text-right space-x-1 whitespace-nowrap">' +
+              '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded-lg text-xs transition border border-slate-300">🏷️</button>' +
+              '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition border border-slate-300">✏️</button>' +
+              '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded-lg text-xs transition border border-slate-300">🗑️</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      renderMetrics();
+      updatePoBadge();
+    }
+
+    function renderMetrics() {
+      var totalBF = 0;
+      var totalPieces = 0;
+      var pendingCount = 0;
+      var packCount = 0;
+
+      inventory.forEach(function(item) {
+        var itemCo = item.company || "C.I.M. MFG INC";
+        if (itemCo !== activeCompany) return;
+
+        var p = parseInt(item.pieces) || 0;
+        if (p <= 0) return;
+
+        var s = item.stage || "Rough";
+        if (currentStageFilter === "Rough" && s !== "Rough") return;
+        if (currentStageFilter === "MILLED" && s === "Rough") return;
+        if (currentStageFilter !== "ALL" && currentStageFilter !== "MILLED" && currentStageFilter !== "Rough") {
+          if (currentStageFilter === "OTHER" && s !== "Other") return;
+          if (currentStageFilter !== "OTHER" && s !== currentStageFilter) return;
+        }
+
+        if (currentWidthFilter !== 'ALL') {
+          if (currentWidthFilter === 'RW' && item.width !== 0) return;
+          if (currentWidthFilter !== 'RW' && item.width !== parseFloat(currentWidthFilter)) return;
+        }
+
+        if (currentLengthFilter !== 'ALL') {
+          if (currentLengthFilter === 'RL' && item.length !== 0) return;
+          if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return;
+        }
+
+        var h = parseInt(item.pendingPieces) || 0;
+        var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
+
+        totalBF += calculateBF(item.thickness, item.width, item.length, avail);
+        totalPieces += avail;
+        if (item.status === 'PENDING_SALE') pendingCount += h;
+        packCount++;
+      });
+
+      document.getElementById('metricTotalBF').innerHTML = totalBF.toFixed(1) + ' <span class="text-sm font-sans text-slate-500">BF</span>';
+      document.getElementById('metricTotalPieces').innerHTML = totalPieces + ' <span class="text-sm font-sans text-slate-500">pcs</span>';
+      document.getElementById('metricPendingPieces').innerText = pendingCount + ' held';
+      document.getElementById('metricPackCount').innerText = packCount + ' Packs';
+    }
+
+    window.markTagUpdated = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        item.partialTaken = false;
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.setStageFilter = function(s) {
+      currentStageFilter = s;
+      document.getElementById('filterBtnRough').className = s === 'Rough' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnMilled').className = s === 'MILLED' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnAll').className = s === 'ALL' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      
+      document.getElementById('activeStageLabel').innerText = s === 'Rough' ? 'Rough Stock' : (s === 'MILLED' ? 'All Milled Stock' : 'All Yard Stock');
+      renderInventory();
+    };
+
+    window.setSpecificStageFilter = function(profile) {
+      if (profile === "ALL_STAGES") {
+        setStageFilter('ALL');
+        return;
+      }
+      currentStageFilter = profile;
+      document.getElementById('filterBtnRough').className = profile === 'Rough' ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnMilled').className = 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+      document.getElementById('filterBtnAll').className = 'py-1 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900';
+
+      document.getElementById('activeStageLabel').innerText = profile === 'OTHER' ? 'Custom Profiles' : profile;
+      renderInventory();
+    };
+
+    window.setWidthFilter = function(w) {
+      currentWidthFilter = w;
+      document.getElementById('activeWidthLabel').innerText = w === 'ALL' ? 'All Widths' : (w === 'RW' ? 'Random Width' : w + '" Stock');
+      ["ALL", "4", "6", "8", "10", "12", "RW"].forEach(function(val) {
+        var el = document.getElementById('wb-' + val);
+        if (el) {
+          el.className = val === w ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
+        }
+      });
+      renderInventory();
+    };
+
+    window.setLengthFilter = function(l) {
+      currentLengthFilter = l;
+      document.getElementById('activeLengthLabel').innerText = l === 'ALL' ? 'All Lengths' : (l === 'RL' ? 'Random Length' : l + "' Stock");
+      ["ALL", "6", "8", "10", "12", "14", "16", "RL"].forEach(function(val) {
+        var el = document.getElementById('lb-' + val);
+        if (el) {
+          el.className = val === l ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
+        }
+      });
+      renderInventory();
+    };
+
+    window.handleSearch = function(val) {
+      searchQuery = val;
+      renderInventory();
+    };
+
+    window.handleDrawerStageChange = function(stageVal) {
+      var otherField = document.getElementById('drawerOtherStageWrapper');
+      if (stageVal === "Other") {
+        otherField.classList.remove('hidden');
+      } else {
+        otherField.classList.add('hidden');
+      }
+      recalcDrawerBF();
+    };
+
+    function updateDimensionButtonHighlights(thicknessVal, widthVal, lengthVal) {
+      document.querySelectorAll('#thickBtnGroup .thick-btn').forEach(function(btn) {
+        var btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (btnVal === parseFloat(thicknessVal)) {
+          btn.className = "thick-btn py-1 text-xs font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+        } else {
+          btn.className = "thick-btn py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+        }
+      });
+
+      document.querySelectorAll('#widthBtnGroup .width-btn').forEach(function(btn) {
+        var btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (btnVal === parseFloat(widthVal)) {
+          btn.className = "width-btn py-1 text-xs font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+        } else {
+          btn.className = "width-btn py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+        }
+      });
+
+      document.querySelectorAll('#lenBtnGroup .len-btn').forEach(function(btn) {
+        var btnVal = parseFloat(btn.getAttribute('data-val'));
+        if (btnVal === parseFloat(lengthVal)) {
+          btn.className = "len-btn py-1 text-xs font-bold rounded-lg border border-amber-500 bg-amber-500 text-white shadow";
+        } else {
+          btn.className = "len-btn py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100";
+        }
+      });
+    }
+
+    window.setDrawerThickness = function(v) { 
+      document.getElementById('drawerThickness').value = v; 
+      updateDimensionButtonHighlights(v, document.getElementById('drawerWidth').value, document.getElementById('drawerLength').value);
+      recalcDrawerBF(); 
+    };
+
+    window.setDrawerWidth = function(v) { 
+      document.getElementById('drawerWidth').value = v; 
+      updateDimensionButtonHighlights(document.getElementById('drawerThickness').value, v, document.getElementById('drawerLength').value);
+      recalcDrawerBF(); 
+    };
+
+    window.setDrawerLength = function(v) { 
+      document.getElementById('drawerLength').value = v; 
+      updateDimensionButtonHighlights(document.getElementById('drawerThickness').value, document.getElementById('drawerWidth').value, v);
+      recalcDrawerBF(); 
+    };
+
+    window.openEntryDrawer = function() {
+      var d = document.getElementById('drawerOverlay');
+      if (d) d.style.display = 'flex';
+      document.getElementById('drawerEditId').value = "";
+      document.getElementById('drawerTitle').innerText = "Add Yard Stock";
+      
+      var configuredFacility = (appConfig.defaults && appConfig.defaults.defaultFacilityDrawer) ? appConfig.defaults.defaultFacilityDrawer : "C.I.M. MFG INC";
+      document.getElementById('drawerCompanySelect').value = configuredFacility;
+
+      var nextTag = generateUniquePackId();
+      document.getElementById('drawerCustomTagId').value = "";
+      document.getElementById('drawerCustomTagId').placeholder = "e.g. " + nextTag;
+
+      document.getElementById('packTagErrorNotice').classList.add('hidden');
+      document.getElementById('packTagUniqueNotice').classList.add('hidden');
+      document.getElementById('savePackSubmitBtn').disabled = false;
+
+      document.getElementById('drawerSpecies').value = "Eastern White Pine";
+      document.getElementById('drawerGrade').value = "";
+      
+      document.getElementById('drawerDryingMethod').value = "";
+      document.getElementById('drawerCutDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('drawerCutDateWrapper').classList.add('hidden');
+      document.getElementById('drawerMoistureFieldWrapper').classList.add('hidden');
+      document.getElementById('moistureAndLocationGrid').className = "grid grid-cols-1 gap-3";
+
+      document.getElementById('drawerStageSelect').value = "Rough";
+      document.getElementById('drawerStageOtherDetail').value = "";
+      document.getElementById('drawerOtherStageWrapper').classList.add('hidden');
+
+      document.getElementById('drawerMoistureMin').value = 10;
+      document.getElementById('drawerMoistureMax').value = 15;
+      
+      document.getElementById('drawerThickness').value = 1;
+      document.getElementById('drawerWidth').value = 6;
+      document.getElementById('drawerLength').value = 12;
+
+      document.getElementById('drawerLocation').value = "Shop";
+
+      updateDimensionButtonHighlights(1, 6, 12);
+
+      document.getElementById('drawerPieces').value = "";
+      document.getElementById('drawerNotes').value = "";
+      recalcDrawerBF();
+    };
+
+    window.closeEntryDrawer = function() {
+      var d = document.getElementById('drawerOverlay');
+      if (d) d.style.display = 'none';
+    };
+
+    window.recalcDrawerBF = function() {
+      var t = parseFloat(document.getElementById('drawerThickness').value) || 1;
+      var w = parseFloat(document.getElementById('drawerWidth').value);
+      if (isNaN(w)) w = 6;
+      var l = parseFloat(document.getElementById('drawerLength').value);
+      if (isNaN(l)) l = 12;
+
+      var pInput = document.getElementById('drawerPieces').value;
+      var p = (pInput === "" || isNaN(parseInt(pInput))) ? 1 : parseInt(pInput);
+
+      var g = document.getElementById('drawerGrade').value;
+      var s = document.getElementById('drawerStageSelect').value;
+      var dm = document.getElementById('drawerDryingMethod').value || "Kiln Dried";
+
+      var rwNotice = document.getElementById('rwNotice');
+      var rlNotice = document.getElementById('rlNotice');
+
+      if (w === 0) {
+        if (rwNotice) rwNotice.classList.remove('hidden');
+      } else {
+        if (rwNotice) rwNotice.classList.add('hidden');
+      }
+
+      if (l === 0) {
+        if (rlNotice) rlNotice.classList.remove('hidden');
+      } else {
+        if (rlNotice) rlNotice.classList.add('hidden');
+      }
+
+      var bf = calculateBF(t, w, l, p);
+      var rateInfo = getMatrixRates(dm, g, w);
+      var rate = s === 'Rough' ? rateInfo.rough : rateInfo.milled;
+
+      var noteText = "";
+      if (w === 0 && l === 0) noteText = " (est. 6\"×10')";
+      else if (w === 0) noteText = " (est. 6\" width)";
+      else if (l === 0) noteText = " (est. 10' len)";
+
+      document.getElementById('drawerLiveBF').innerText = bf.toFixed(1) + " BF" + noteText;
+      document.getElementById('drawerLiveRate').innerText = g ? ("$" + rate.toFixed(2) + " / BF") : "$0.00 / BF";
+      document.getElementById('drawerLiveTotal').innerText = g ? ("$" + (bf * rate).toFixed(2)) : "$0.00";
+    };
+
+    window.printDrawerTagDirect = function() {
+      var grade = document.getElementById('drawerGrade').value;
+      if (!grade) {
+        alert("Please select a lumber grade before printing tag.");
+        return;
+      }
+
+      var dryingMethod = document.getElementById('drawerDryingMethod').value;
+      if (!dryingMethod) {
+        alert("Please select a drying method before printing tag.");
+        return;
+      }
+
+      var p = parseInt(document.getElementById('drawerPieces').value);
+      if (isNaN(p) || p <= 0) { 
+        alert("Enter piece count before printing tag."); 
+        return; 
+      }
+      var editId = document.getElementById('drawerEditId').value.trim();
+      var customEnteredId = document.getElementById('drawerCustomTagId').value.trim();
+      
+      var finalTagId = editId || customEnteredId;
+      if (!finalTagId) {
+        finalTagId = generateUniquePackId();
+        document.getElementById('drawerCustomTagId').value = finalTagId;
+      }
+
+      var selectedStage = document.getElementById('drawerStageSelect').value;
+      var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
+      var displayStage = (selectedStage === "Other" && otherDetail) ? otherDetail : selectedStage;
+
+      var cutDate = document.getElementById('drawerCutDate').value;
+      var dryingTag = (dryingMethod === "Air Dried") ? ("AD (Cut: " + (cutDate || '—') + ")") : "KD";
+
+      var isAirDried = (dryingMethod === "Air Dried");
+      var mMin = parseFloat(document.getElementById('drawerMoistureMin').value) || 10;
+      var mMax = parseFloat(document.getElementById('drawerMoistureMax').value) || 15;
+      var mStr = isAirDried ? "" : (mMin + "-" + mMax + "%");
+
+      var tempItem = {
+        id: finalTagId,
+        company: document.getElementById('drawerCompanySelect').value || "C.I.M. MFG INC",
+        species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
+        grade: grade,
+        dryingMethod: dryingMethod,
+        cutDate: cutDate,
+        stage: selectedStage,
+        stageDetail: otherDetail,
+        thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
+        width: parseFloat(document.getElementById('drawerWidth').value) || 0,
+        length: parseFloat(document.getElementById('drawerLength').value) || 0,
+        pieces: p,
+        location: document.getElementById('drawerLocation').value.trim() || "Shop",
+        moisture: mStr
+      };
+
+      var bf = calculateBF(tempItem.thickness, tempItem.width, tempItem.length, tempItem.pieces);
+
+      var tagHtml = '<div class="space-y-4">' +
+        '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
+          '<div>' +
+            '<div class="tag-pack-heading font-black font-mono">' + tempItem.id + '</div>' +
+            '<div class="text-2xl font-black">' + tempItem.species + '</div>' +
+            '<div class="text-sm font-bold uppercase tracking-wider text-slate-700">' + tempItem.company + '</div>' +
+          '</div>' +
+          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + tempItem.grade + ' • ' + dryingTag + 
+            (!isAirDried ? ('<div class="text-sm font-mono font-bold mt-1">MC: ' + tempItem.moisture + '</div>') : '') + 
+          '</div>' +
+        '</div>' +
+        '<div class="tag-dim-heading font-black font-mono my-2">' + tempItem.thickness + '" × ' + (tempItem.width===0?'RW':tempItem.width+'"') + ' × ' + (tempItem.length===0?'RL':tempItem.length+"'") + '</div>' +
+        '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + tempItem.pieces + ' PCS</div></div>' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((tempItem.width===0||tempItem.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+        '</div>' +
+        '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
+      '</div>';
+
+      document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
+      document.getElementById('printableTagContainer').innerHTML = '<div class="bunk-tag-card p-6">' + tagHtml + '</div>';
+      document.getElementById('tagPreviewModal').style.display = 'flex';
+    };
+
+    window.handleSaveLumberPack = function(e) {
+      e.preventDefault();
+      
+      var grade = document.getElementById('drawerGrade').value;
+      if (!grade) {
+        alert("Please select a lumber grade for this pack.");
+        document.getElementById('drawerGrade').focus();
+        return;
+      }
+
+      var dryingMethod = document.getElementById('drawerDryingMethod').value;
+      if (!dryingMethod) {
+        alert("Please select a drying method for this pack.");
+        document.getElementById('drawerDryingMethod').focus();
+        return;
+      }
+
+      var p = parseInt(document.getElementById('drawerPieces').value);
+      if (isNaN(p) || p <= 0) { alert("Enter a valid piece count"); return; }
+
+      var selectedStage = document.getElementById('drawerStageSelect').value;
+      var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
+      var selectedCompany = document.getElementById('drawerCompanySelect').value || "C.I.M. MFG INC";
+
+      var cutDate = (dryingMethod === "Air Dried") ? document.getElementById('drawerCutDate').value : "";
+
+      var isAirDried = (dryingMethod === "Air Dried");
+      var mMin = parseFloat(document.getElementById('drawerMoistureMin').value) || 10;
+      var mMax = parseFloat(document.getElementById('drawerMoistureMax').value) || 15;
+      var moistureVal = isAirDried ? "" : (mMin + "-" + mMax);
+
+      var editId = document.getElementById('drawerEditId').value.trim();
+      var customEnteredId = document.getElementById('drawerCustomTagId').value.trim();
+      var existing = editId ? inventory.find(function(i){ return i.id === editId; }) : null;
+
+      var finalId = editId || (customEnteredId ? customEnteredId : generateUniquePackId());
+
+      var duplicateExists = inventory.some(function(i) {
+        return i.id.toUpperCase() === finalId.toUpperCase() && (!editId || i.id.toUpperCase() !== editId.toUpperCase());
+      });
+
+      if (duplicateExists) {
+        alert("⚠️ Pack number '" + finalId + "' is already in use by another bundle in your inventory.\n\nPlease assign a unique pack tag number.");
+        document.getElementById('packTagErrorNotice').classList.remove('hidden');
+        document.getElementById('drawerCustomTagId').focus();
+        return;
+      }
+
+      var pack = {
+        id: finalId,
+        company: selectedCompany,
+        species: document.getElementById('drawerSpecies').value.trim() || "Eastern White Pine",
+        grade: grade,
+        dryingMethod: dryingMethod,
+        cutDate: cutDate,
+        stage: selectedStage,
+        stageDetail: selectedStage === "Other" ? otherDetail : "",
+        thickness: parseFloat(document.getElementById('drawerThickness').value) || 1,
+        width: parseFloat(document.getElementById('drawerWidth').value) || 0,
+        length: parseFloat(document.getElementById('drawerLength').value) || 0,
+        pieces: p,
+        originalPieces: existing ? (existing.originalPieces || p) : p,
+        location: document.getElementById('drawerLocation').value.trim() || "Shop",
+        notes: document.getElementById('drawerNotes').value.trim(),
+        moisture: moistureVal,
+        status: existing ? existing.status : "IN_STOCK",
+        customer: existing ? existing.customer : "",
+        pendingPieces: existing ? existing.pendingPieces : 0,
+        partialTaken: existing ? existing.partialTaken : false
+      };
+
+      if (editId) {
+        var idx = inventory.findIndex(function(i){ return i.id === editId; });
+        if (idx !== -1) inventory[idx] = pack;
+      } else {
+        inventory.unshift(pack);
+      }
+
+      localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      syncCloudItem(pack);
+      closeEntryDrawer();
+
+      if (activeCompany !== selectedCompany) {
+        switchCompanyView(selectedCompany);
+      } else {
+        renderInventory();
+      }
+    };
+
+    window.updatePieces = function(id, val) {
+      var newPcs = Math.max(0, parseInt(val) || 0);
+      var itemIdx = inventory.findIndex(function(i){ return i.id === id; });
+      if (itemIdx === -1) return;
+
+      if (newPcs <= 0) {
+        var removed = inventory.splice(itemIdx, 1)[0];
+        removeCloudItem(id);
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        renderInventory();
+      } else {
+        var item = inventory[itemIdx];
+        item.pieces = newPcs;
+        if (item.pendingPieces > item.pieces) item.pendingPieces = item.pieces;
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.toggleStatus = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        if (item.status === 'IN_STOCK') {
+          item.status = 'PENDING_SALE';
+          item.pendingPieces = item.pieces;
+        } else {
+          item.status = 'IN_STOCK';
+          item.customer = "";
+          item.pendingPieces = 0;
+        }
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.updateCustomer = function(id, name) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        item.customer = name;
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+      }
+    };
+
+    window.updatePendingPieces = function(id, val) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (item) {
+        var hold = Math.max(0, parseInt(val) || 0);
+        item.pendingPieces = Math.min(hold, item.pieces);
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+        syncCloudItem(item);
+        renderInventory();
+      }
+    };
+
+    window.openEditDrawer = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (!item) return;
+      var d = document.getElementById('drawerOverlay');
+      if (d) d.style.display = 'flex';
+      document.getElementById('drawerEditId').value = item.id;
+      document.getElementById('drawerCustomTagId').value = item.id;
+      document.getElementById('drawerCompanySelect').value = item.company || "C.I.M. MFG INC";
+      document.getElementById('drawerTitle').innerText = "Edit Pack " + item.id;
+      document.getElementById('drawerSpecies').value = item.species;
+      document.getElementById('drawerGrade').value = item.grade || "";
+      
+      var dryingMethod = item.dryingMethod || "";
+      document.getElementById('drawerDryingMethod').value = dryingMethod;
+      handleDryingMethodChange(dryingMethod);
+
+      if (dryingMethod === "Air Dried") {
+        document.getElementById('drawerCutDate').value = item.cutDate || new Date().toISOString().split('T')[0];
+      } else if (dryingMethod === "Kiln Dried") {
+        document.getElementById('drawerCutDate').value = "";
+        var mParts = String(item.moisture || "10-15").replace('%','').split('-');
+        document.getElementById('drawerMoistureMin').value = parseFloat(mParts[0]) || 10;
+        document.getElementById('drawerMoistureMax').value = parseFloat(mParts[1]) || 15;
+      }
+
+      var stageSelector = document.getElementById('drawerStageSelect');
+      stageSelector.value = item.stage || "Rough";
+      if (item.stage === "Other") {
+        document.getElementById('drawerOtherStageWrapper').classList.remove('hidden');
+        document.getElementById('drawerStageOtherDetail').value = item.stageDetail || "";
+      } else {
+        document.getElementById('drawerOtherStageWrapper').classList.add('hidden');
+        document.getElementById('drawerStageOtherDetail').value = "";
+      }
+
+      document.getElementById('drawerThickness').value = item.thickness;
+      document.getElementById('drawerWidth').value = item.width;
+      document.getElementById('drawerLength').value = item.length;
+      updateDimensionButtonHighlights(item.thickness, item.width, item.length);
+
+      document.getElementById('drawerPieces').value = item.pieces;
+      document.getElementById('drawerLocation').value = item.location || "Shop";
+      document.getElementById('drawerNotes').value = item.notes || "";
+      
+      document.getElementById('packTagErrorNotice').classList.add('hidden');
+      document.getElementById('packTagUniqueNotice').classList.add('hidden');
+      document.getElementById('savePackSubmitBtn').disabled = false;
+
+      recalcDrawerBF();
+    };
+
+    window.promptDelete = function(id) {
+      itemPendingDeletionId = id;
+      document.getElementById('deleteModalMessage').innerText = "Delete pack " + id + "?";
+      document.getElementById('deleteConfirmModal').style.display = 'flex';
+    };
+    window.closeDeleteModal = function() {
+      itemPendingDeletionId = null;
+      document.getElementById('deleteConfirmModal').style.display = 'none';
+    };
+    window.confirmExecuteDelete = function() {
+      if (!itemPendingDeletionId) return;
+      inventory = inventory.filter(function(i){ return i.id !== itemPendingDeletionId; });
+      removeCloudItem(itemPendingDeletionId);
+      localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      closeDeleteModal();
+      renderInventory();
+    };
+
+    window.previewTag = function(id) {
+      var item = inventory.find(function(i){ return i.id === id; });
+      if (!item) return;
+      var bf = calculateBF(item.thickness, item.width, item.length, item.pieces);
+      var displayStage = getDisplayStage(item);
+      var isAirDried = (item.dryingMethod === "Air Dried");
+      var moistureDisplay = isAirDried ? "" : (item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%');
+      var dryingTag = isAirDried ? ("AD (Cut: " + (item.cutDate || '—') + ")") : "KD";
+
+      var tagHtml = '<div class="space-y-4">' +
+        '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
+          '<div>' +
+            '<div class="tag-pack-heading font-black font-mono">' + item.id + '</div>' +
+            '<div class="text-2xl font-black">' + item.species + '</div>' +
+            '<div class="text-sm font-bold uppercase tracking-wider text-slate-700">' + (item.company || "C.I.M. MFG INC") + '</div>' +
+          '</div>' +
+          '<div class="text-right font-black border-2 border-black px-3 py-1.5 uppercase">' + displayStage + ' • ' + (item.grade || 'Unspecified') + ' • ' + dryingTag + 
+            (!isAirDried ? ('<div class="text-sm font-mono font-bold mt-1">MC: ' + moistureDisplay + '</div>') : '') + 
+          '</div>' +
+        '</div>' +
+        '<div class="tag-dim-heading font-black font-mono my-2">' + item.thickness + '" × ' + (item.width===0?'RW':item.width+'"') + ' × ' + (item.length===0?'RL':item.length+"'") + '</div>' +
+        '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((item.width===0||item.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+        '</div>' +
+        '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
+      '</div>';
+
+      document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
+      document.getElementById('printableTagContainer').innerHTML = '<div class="bunk-tag-card p-6">' + tagHtml + '</div>';
+      document.getElementById('tagPreviewModal').style.display = 'flex';
+    };
+    window.closeTagModal = function() {
+      document.getElementById('tagPreviewModal').style.display = 'none';
+    };
+
+    /* PO CREATION SYSTEM */
+    window.openPoDrawer = function() {
+      var today = new Date().toISOString().split('T')[0];
+      var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+      document.getElementById('poCustomerName').value = "";
+      document.getElementById('poOrderNumber').value = "PO-" + Math.floor(10000 + Math.random() * 90000);
+      document.getElementById('poOrderDate').value = today;
+      document.getElementById('poDueDate').value = nextWeek;
+      document.getElementById('poNotes').value = "";
+      document.getElementById('poLineItemsContainer').innerHTML = "";
+      addPoLineItemRow();
+      document.getElementById('poDrawerOverlay').style.display = 'flex';
+    };
+
+    window.closePoDrawer = function() {
+      document.getElementById('poDrawerOverlay').style.display = 'none';
+    };
+
+    window.addPoLineItemRow = function() {
+      var container = document.getElementById('poLineItemsContainer');
+      var rowId = "poRow_" + Date.now() + "_" + Math.floor(Math.random()*1000);
+
+      var options = inventory.filter(function(i){ 
+        return (parseInt(i.pieces)||0) > 0; 
+      }).map(function(item) {
+        var dim = item.thickness + '"×' + (item.width===0?'RW':item.width+'"') + '×' + (item.length===0?'RL':item.length+"'");
+        var displayStage = getDisplayStage(item);
+        var coBadge = item.company === "Crosshill Sawmill" ? "[Crosshill] " : "[CIM] ";
+        var dryingPill = item.dryingMethod === "Air Dried" ? "[AD] " : "[KD] ";
+        return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' pcs avail]</option>';
+      }).join('');
+
+      var rowHtml = '<div id="' + rowId + '" class="po-line-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">' +
+        '<div class="flex items-center gap-2">' +
+          '<div class="flex-1">' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Pick Stock Pack or Custom:</label>' +
+            '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
+              '<option value="">Select stock pack...</option>' +
+              '<option value="CUSTOM_UNLINKED" class="font-bold text-sky-700 bg-sky-50">✨ -- Custom / Unlinked Stock (No Inventory Deduction) --</option>' +
+              options +
+            '</select>' +
+          '</div>' +
+          '<button type="button" onclick="removePoLineItemRow(\'' + rowId + '\')" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1 mt-4">✕</button>' +
+        '</div>' +
+
+        '<div class="po-custom-stock-fields hidden bg-sky-50/80 border border-sky-200 rounded-lg p-2.5 space-y-2">' +
+          '<div class="flex justify-between items-center text-[11px] font-bold text-sky-900 uppercase tracking-wider">' +
+            '<span>Unlinked / Non-Inventory Lumber Specs</span>' +
+            '<span class="text-sky-600 font-normal">Will NOT deduct stock</span>' +
+          '</div>' +
+          '<div class="grid grid-cols-3 gap-2">' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Drying</label>' +
+              '<select class="po-cust-drying w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
+                '<option value="Kiln Dried">Kiln Dried</option>' +
+                '<option value="Air Dried">Air Dried</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Grade</label>' +
+              '<select class="po-cust-grade w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
+                '<option value="1&2 Common">1&2 Common</option>' +
+                '<option value="Clear">Clear / Select</option>' +
+                '<option value="Millrun">Millrun</option>' +
+                '<option value="Barn Board">Barn Board</option>' +
+                '<option value="Low Grade">Low Grade</option>' +
+                '<option value="Stain">Stain</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Species</label>' +
+              '<input type="text" class="po-cust-species w-full bg-white border border-slate-300 rounded p-1 text-xs" value="Eastern White Pine" />' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-3 gap-2">' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Thick (")</label>' +
+              '<input type="number" step="0.125" class="po-cust-thick w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="1" oninput="recalcPoLiveSummary()" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Width (")</label>' +
+              '<input type="number" step="0.125" class="po-cust-width w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="6" oninput="recalcPoLiveSummary()" />' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[10px] uppercase font-bold text-slate-500">Length (\')</label>' +
+              '<input type="number" step="0.5" class="po-cust-len w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="12" oninput="recalcPoLiveSummary()" />' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="bg-amber-50/70 border border-amber-200 rounded-lg p-2 space-y-1.5">' +
+          '<label class="block text-[11px] uppercase font-bold text-amber-900 tracking-wider">Target Profile to Mill Into:</label>' +
+          '<select class="po-target-profile-select w-full bg-white border border-amber-300 rounded-lg p-2 text-xs font-bold text-amber-800" onchange="handlePoTargetProfileChange(\'' + rowId + '\', this.value)">' +
+            '<option value="Rough">Rough (Leave Rough)</option>' +
+            '<option value="D4S">D4S</option>' +
+            '<option value="V Match">V Match</option>' +
+            '<option value="Sq Edge T&G">Sq Edge T&G</option>' +
+            '<option value="Shiplap">Shiplap</option>' +
+            '<option value="Channel Lap Shiplap">Channel Lap Shiplap</option>' +
+            '<option value="Cove">Cove</option>' +
+            '<option value="Other">Other (Specify Custom Profile)...</option>' +
+          '</select>' +
+          '<div class="po-target-other-wrapper hidden pt-1">' +
+            '<input type="text" placeholder="Specify custom pattern..." class="po-target-other-input w-full bg-white border border-sky-400 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none" />' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="grid grid-cols-3 gap-2">' +
+          '<div>' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Pcs Needed:</label>' +
+            '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
+            '<input type="number" step="0.05" class="po-rate-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-[11px] uppercase font-bold text-slate-500">Line BF / Total:</label>' +
+            '<div class="po-line-preview text-xs font-mono font-bold text-emerald-700 pt-2">0 BF • $0</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+      container.insertAdjacentHTML('beforeend', rowHtml);
+    };
+
+    window.removePoLineItemRow = function(rowId) {
+      var row = document.getElementById(rowId);
+      if (row) row.remove();
+      recalcPoLiveSummary();
+    };
+
+    window.handlePoTargetProfileChange = function(rowId, val) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      var otherWrapper = row.querySelector('.po-target-other-wrapper');
+      if (val === 'Other') {
+        otherWrapper.classList.remove('hidden');
+      } else {
+        otherWrapper.classList.add('hidden');
+      }
+      recalcPoLiveSummary();
+    };
+
+    window.handlePoPackSelectChange = function(rowId) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      var select = row.querySelector('.po-pack-select');
+      var pcsInput = row.querySelector('.po-pcs-input');
+      var rateInput = row.querySelector('.po-rate-input');
+      var customFields = row.querySelector('.po-custom-stock-fields');
+
+      var packId = select.value;
+      if (packId === "CUSTOM_UNLINKED") {
+        customFields.classList.remove('hidden');
+        if (!pcsInput.value) pcsInput.value = "100";
+        var custDrying = row.querySelector('.po-cust-drying').value;
+        var custGrade = row.querySelector('.po-cust-grade').value;
+        var custW = row.querySelector('.po-cust-width').value;
+        var rateInfo = getMatrixRates(custDrying, custGrade, custW);
+        rateInput.value = rateInfo.milled;
+      } else {
+        customFields.classList.add('hidden');
+        var pack = inventory.find(function(i){ return i.id === packId; });
+        if (pack) {
+          pcsInput.value = pack.pieces;
+          var rateInfo = getMatrixRates(pack.dryingMethod, pack.grade, pack.width);
+          rateInput.value = (pack.stage === 'Rough') ? rateInfo.rough : rateInfo.milled;
+        } else {
+          pcsInput.value = "";
+          rateInput.value = "";
+        }
+      }
+      recalcPoLiveSummary();
+    };
+
+    window.recalcPoLiveSummary = function() {
+      var rows = document.querySelectorAll('.po-line-row');
+      var grandPieces = 0;
+      var grandBF = 0;
+      var grandSubtotal = 0;
+
+      rows.forEach(function(row) {
+        var packId = row.querySelector('.po-pack-select').value;
+        var pcs = parseInt(row.querySelector('.po-pcs-input').value) || 0;
+        var rate = parseFloat(row.querySelector('.po-rate-input').value) || 0;
+        var preview = row.querySelector('.po-line-preview');
+
+        if (packId === "CUSTOM_UNLINKED") {
+          var t = parseFloat(row.querySelector('.po-cust-thick').value) || 1;
+          var w = parseFloat(row.querySelector('.po-cust-width').value) || 6;
+          var l = parseFloat(row.querySelector('.po-cust-len').value) || 12;
+
+          var lineBF = calculateBF(t, w, l, pcs);
+          var lineCost = lineBF * rate;
+          grandPieces += pcs;
+          grandBF += lineBF;
+          grandSubtotal += lineCost;
+          preview.innerText = lineBF.toFixed(1) + " BF • $" + lineCost.toFixed(2);
+        } else {
+          var pack = inventory.find(function(i){ return i.id === packId; });
+          if (pack && pcs > 0) {
+            var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcs);
+            var lineCost = lineBF * rate;
+            grandPieces += pcs;
+            grandBF += lineBF;
+            grandSubtotal += lineCost;
+            preview.innerText = lineBF.toFixed(1) + " BF • $" + lineCost.toFixed(2);
+          } else {
+            preview.innerText = "0 BF • $0";
+          }
+        }
+      });
+
+      var hst = grandSubtotal * 0.13;
+      var grandTotal = grandSubtotal + hst;
+
+      document.getElementById('poLivePieces').innerText = grandPieces + " pcs";
+      document.getElementById('poLiveBF').innerText = grandBF.toFixed(1) + " BF";
+      document.getElementById('poLiveSubtotal').innerText = "$" + grandSubtotal.toFixed(2);
+      document.getElementById('poLiveHst').innerText = "$" + hst.toFixed(2);
+      document.getElementById('poLiveTotal').innerText = "$" + grandTotal.toFixed(2);
+    };
+
+    window.handleCreatePurchaseOrder = function(e) {
+      e.preventDefault();
+      var cust = document.getElementById('poCustomerName').value.trim();
+      var poNum = document.getElementById('poOrderNumber').value.trim() || ("PO-" + Date.now());
+      var orderDate = document.getElementById('poOrderDate').value || new Date().toISOString().split('T')[0];
+      var dueDate = document.getElementById('poDueDate').value;
+      var notes = document.getElementById('poNotes').value.trim();
+
+      if (!dueDate) {
+        alert("Please set a valid Due Date for this purchase order.");
+        return;
+      }
+
+      var rows = document.querySelectorAll('.po-line-row');
+      if (rows.length === 0) { alert("Please add at least one line item to this purchase order."); return; }
+
+      var lineItems = [];
+      var packsToRemoveCompletely = [];
+      var partialBundlesCreated = [];
+
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var packId = r.querySelector('.po-pack-select').value;
+        var targetProfile = r.querySelector('.po-target-profile-select').value;
+        var targetOther = r.querySelector('.po-target-other-input').value.trim();
+        var pcsNeeded = parseInt(r.querySelector('.po-pcs-input').value) || 0;
+        var rate = parseFloat(r.querySelector('.po-rate-input').value) || 0;
+
+        if (!packId || pcsNeeded <= 0) {
+          alert("All rows must have a selected pack or custom specification and a positive piece count.");
+          return;
+        }
+
+        var effectiveTargetProfile = (targetProfile === 'Other' && targetOther) ? targetOther : targetProfile;
+
+        if (packId === "CUSTOM_UNLINKED") {
+          var specSpecies = r.querySelector('.po-cust-species').value.trim() || "Eastern White Pine";
+          var specGrade = r.querySelector('.po-cust-grade').value;
+          var specDrying = r.querySelector('.po-cust-drying').value;
+          var specThick = parseFloat(r.querySelector('.po-cust-thick').value) || 1;
+          var specWidth = parseFloat(r.querySelector('.po-cust-width').value) || 6;
+          var specLen = parseFloat(r.querySelector('.po-cust-len').value) || 12;
+
+          var lineBF = calculateBF(specThick, specWidth, specLen, pcsNeeded);
+          var lineCost = lineBF * rate;
+
+          lineItems.push({
+            packId: "CUSTOM",
+            species: specSpecies,
+            grade: specGrade,
+            dryingMethod: specDrying,
+            sourceStage: "Special Order / Incoming Run",
+            targetProfile: effectiveTargetProfile,
+            thickness: specThick,
+            width: specWidth,
+            length: specLen,
+            pieces: pcsNeeded,
+            rate: rate,
+            bf: lineBF,
+            total: lineCost,
+            isUnlinked: true
+          });
+        } else {
+          var pack = inventory.find(function(item){ return item.id === packId; });
+          if (!pack) continue;
+
+          if (pcsNeeded > pack.pieces) {
+            alert("Error: Pack " + pack.id + " only has " + pack.pieces + " pcs available.");
+            return;
+          }
+
+          var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcsNeeded);
+          var lineCost = lineBF * rate;
+          var packSnapshot = JSON.parse(JSON.stringify(pack));
+
+          lineItems.push({
+            packId: pack.id,
+            species: pack.species,
+            grade: pack.grade,
+            dryingMethod: pack.dryingMethod || "Kiln Dried",
+            sourceStage: getDisplayStage(pack),
+            targetProfile: effectiveTargetProfile,
+            thickness: pack.thickness,
+            width: pack.width,
+            length: pack.length,
+            pieces: pcsNeeded,
+            rate: rate,
+            bf: lineBF,
+            total: lineCost,
+            isUnlinked: false,
+            originalPackData: packSnapshot
+          });
+
+          if (pcsNeeded === pack.pieces) {
+            packsToRemoveCompletely.push(pack.id);
+          } else {
+            pack.pieces = pack.pieces - pcsNeeded;
+            pack.partialTaken = true;
+            partialBundlesCreated.push(pack.id + " (" + pack.pieces + " pcs remaining)");
+            syncCloudItem(pack);
+          }
+        }
+      }
+
+      if (packsToRemoveCompletely.length > 0) {
+        inventory = inventory.filter(function(i){ return !packsToRemoveCompletely.includes(i.id); });
+        packsToRemoveCompletely.forEach(function(pid){
+          removeCloudItem(pid);
+        });
+      }
+
+      var subtotal = lineItems.reduce(function(acc, item){ return acc + item.total; }, 0);
+      var hstAmount = subtotal * 0.13;
+      var totalAmount = subtotal + hstAmount;
+
+      var poOrder = {
+        id: poNum,
+        customer: cust,
+        orderDate: orderDate,
+        dueDate: dueDate,
+        notes: notes,
+        status: "OPEN",
+        items: lineItems,
+        totalPieces: lineItems.reduce(function(acc, item){ return acc + item.pieces; }, 0),
+        totalBF: lineItems.reduce(function(acc, item){ return acc + item.bf; }, 0),
+        subtotal: subtotal,
+        hstAmount: hstAmount,
+        totalAmount: totalAmount
+      };
+
+      purchaseOrders.unshift(poOrder);
+      localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+      localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      syncCloudPo(poOrder);
+
+      closePoDrawer();
+      renderInventory();
+      updatePoBadge();
+
+      var sendEmailConfirm = confirm("Purchase Order " + poNum + " created successfully!\n\nDo you want to send an email notification to chris@cimmfg.ca?");
+      if (sendEmailConfirm) {
+        var emailSubject = encodeURIComponent("New Lumber Purchase Order Created: " + poNum + " (" + cust + ")");
+        var emailBodyText = "NEW PURCHASE ORDER ALERT%0D%0A%0D%0A" +
+          "PO Number: " + poNum + "%0D%0A" +
+          "Customer: " + cust + "%0D%0A" +
+          "Order Date: " + orderDate + "%0D%0A" +
+          "Due Date: " + dueDate + "%0D%0A" +
+          "Total Pieces: " + poOrder.totalPieces + " pcs%0D%0A" +
+          "Total Board Footage: " + poOrder.totalBF.toFixed(1) + " BF%0D%0A" +
+          "Subtotal: $" + subtotal.toFixed(2) + "%0D%0A" +
+          "HST (13%): $" + hstAmount.toFixed(2) + "%0D%0A" +
+          "Total Amount: $" + totalAmount.toFixed(2) + "%0D%0A" +
+          "Notes: " + (notes || "None") + "%0D%0A%0D%0A" +
+          "Line Items:%0D%0A";
+        
+        lineItems.forEach(function(it, idx){
+          var tagLabel = it.isUnlinked ? "CUSTOM ORDER" : it.packId;
+          emailBodyText += (idx+1) + ". [" + tagLabel + "] - " + it.pieces + " pcs " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
+        });
+
+        window.location.href = "mailto:chris@cimmfg.ca?subject=" + emailSubject + "&body=" + emailBodyText;
+      }
+
+      if (partialBundlesCreated.length > 0) {
+        alert("⚠️ Notice: Partial bundles were pulled:\n" + partialBundlesCreated.join('\n') + "\n\nThese packs are highlighted in yellow on your inventory list as a reminder to update bundle tags.");
+      }
+    };
+
+    window.updatePoBadge = function() {
+      var openCount = purchaseOrders.filter(function(po){ return po.status === "OPEN"; }).length;
+      var badge = document.getElementById('openPoBadge');
+      if (badge) badge.innerText = openCount;
+    };
+
+    window.openPoListModal = function() {
+      var list = document.getElementById('poListCards');
+      var empty = document.getElementById('emptyPoListState');
+      if (!list) return;
+
+      var openCount = purchaseOrders.filter(function(po){ return po.status === "OPEN"; }).length;
+      var summary = document.getElementById('poListSummaryLine');
+      if (summary) summary.innerText = openCount + " open • " + purchaseOrders.length + " total • 13% HST included";
+
+      if (purchaseOrders.length === 0) {
+        list.innerHTML = "";
+        empty.classList.remove('hidden');
+      } else {
+        empty.classList.add('hidden');
+        list.innerHTML = purchaseOrders.map(function(po) {
+          var isOpen = po.status === "OPEN";
+          var items = po.items || [];
+
+          var itemsHtml = items.map(function(it){
+            var dim = it.thickness + '"×' + (it.width===0?'RW':it.width+'"') + '×' + (it.length===0?'RL':it.length+"'");
+            var source = it.isUnlinked ? '<span class="text-sky-700 font-bold">Custom</span>' : '<span class="font-mono text-slate-500">' + it.packId + '</span>';
+            return '<li class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
+              '<div class="min-w-0">' +
+                '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' pcs ' + dim + '</div>' +
+                '<div class="text-[11px] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + it.grade + ' • ' + source + '</div>' +
+              '</div>' +
+              '<div class="text-right font-mono text-[11px] text-slate-600 shrink-0">' + (parseFloat(it.bf)||0).toFixed(1) + ' BF</div>' +
+            '</li>';
+          }).join('');
+
+          var tot = parseFloat(po.totalAmount) || 0;
+          var sub = po.subtotal !== undefined ? po.subtotal : (tot / 1.13);
+          var hst = po.hstAmount !== undefined ? po.hstAmount : (sub * 0.13);
+          var bf = parseFloat(po.totalBF) || 0;
+
+          return '<div class="bg-white rounded-2xl border ' + (isOpen ? 'border-amber-300 border-l-4 border-l-amber-500' : 'border-slate-200 border-l-4 border-l-emerald-500') + ' shadow-sm p-3 flex flex-col gap-2 min-w-0">' +
+            '<div class="flex items-start justify-between gap-2">' +
+              '<div class="min-w-0">' +
+                '<div class="text-base font-black text-slate-900 break-words leading-tight">' + po.customer + '</div>' +
+                '<div class="font-mono text-xs font-bold text-sky-800">' + po.id + '</div>' +
+              '</div>' +
+              '<span class="shrink-0 px-2 py-0.5 rounded text-[11px] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
+                (isOpen ? 'Open' : 'Completed') +
+              '</span>' +
+            '</div>' +
+
+            '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">' +
+              '<span class="font-bold text-amber-800 font-mono">DUE ' + (po.dueDate || '—') + '</span>' +
+              '<span class="text-slate-500">Ordered ' + (po.orderDate || po.date || '—') + '</span>' +
+            '</div>' +
+
+            (po.notes ? '<div class="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 break-words">' + po.notes + '</div>' : '') +
+
+            '<ul class="text-xs bg-slate-50/60 border border-slate-200 rounded-lg px-2">' + itemsHtml + '</ul>' +
+
+            '<div class="flex items-end justify-between gap-2 text-xs">' +
+              '<div class="font-mono">' +
+                '<div class="font-bold text-slate-800">' + (po.totalPieces || 0) + ' pcs • ' + bf.toFixed(1) + ' BF</div>' +
+                '<div class="text-slate-500 text-[11px]">Sub $' + sub.toFixed(2) + ' + HST $' + hst.toFixed(2) + '</div>' +
+              '</div>' +
+              '<div class="text-right font-mono font-black text-emerald-700 text-base">$' + tot.toFixed(2) + '</div>' +
+            '</div>' +
+
+            '<div class="grid ' + (isOpen ? 'grid-cols-3' : 'grid-cols-2') + ' gap-1.5 pt-1 border-t border-slate-100">' +
+              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🖨️ Print</button>' +
+              (isOpen ?
+                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95">✓ Done</button>'
+              : '') +
+              '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs font-bold transition active:scale-95" title="Delete PO & Restore Stock">🗑️ Delete</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+
+      document.getElementById('poListModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    };
+
+    window.closePoListModal = function() {
+      document.getElementById('poListModal').style.display = 'none';
+      document.body.style.overflow = '';
+    };
+
+    window.completePurchaseOrder = function(poId) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (po) {
+        po.status = "COMPLETED";
+        localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+        syncCloudPo(po);
+        openPoListModal();
+        updatePoBadge();
+      }
+    };
+
+    window.promptDeletePo = function(poId) {
+      poPendingDeletionId = poId;
+      document.getElementById('poDeleteModalMessage').innerText = "Delete purchase order " + poId + "? All packs and pieces allocated to this order will be fully restored to active inventory.";
+      document.getElementById('poDeleteConfirmModal').style.display = 'flex';
+    };
+
+    window.closePoDeleteModal = function() {
+      poPendingDeletionId = null;
+      document.getElementById('poDeleteConfirmModal').style.display = 'none';
+    };
+
+    window.confirmExecutePoDelete = function() {
+      if (!poPendingDeletionId) return;
+
+      var targetPo = purchaseOrders.find(function(p){ return p.id === poPendingDeletionId; });
+      if (targetPo && targetPo.items) {
+        
+        targetPo.items.forEach(function(lineItem) {
+          if (lineItem.isUnlinked) return;
+
+          var packId = lineItem.packId;
+          var existingPack = inventory.find(function(i){ return i.id === packId; });
+
+          if (existingPack) {
+            existingPack.pieces = (parseInt(existingPack.pieces) || 0) + (parseInt(lineItem.pieces) || 0);
+            existingPack.partialTaken = false;
+            syncCloudItem(existingPack);
+          } else if (lineItem.originalPackData) {
+            var restoredPack = JSON.parse(JSON.stringify(lineItem.originalPackData));
+            restoredPack.pieces = parseInt(lineItem.pieces) || restoredPack.originalPieces || 1;
+            restoredPack.partialTaken = false;
+            inventory.unshift(restoredPack);
+            syncCloudItem(restoredPack);
+          }
+        });
+
+        purchaseOrders = purchaseOrders.filter(function(p){ return p.id !== poPendingDeletionId; });
+        removeCloudPo(poPendingDeletionId);
+
+        localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+        localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      }
+
+      closePoDeleteModal();
+      renderInventory();
+      openPoListModal();
+      updatePoBadge();
+    };
+
+    window.previewPrintPo = function(poId) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (!po) return;
+
+      var itemsRows = po.items.map(function(it, idx) {
+        var dimStr = it.thickness + '" × ' + (it.width===0?'RW':it.width+'"') + ' × ' + (it.length===0?'RL':it.length+"'");
+        var targetProf = it.targetProfile || it.sourceStage || 'Rough';
+        var tagBadge = it.isUnlinked ? '<span style="color:#0284c7;font-weight:bold;">Custom Order</span>' : it.packId;
+
+        return '<tr style="border-bottom: 1px solid #cbd5e1;">' +
+          '<td style="padding: 10px 8px; text-align: center; font-weight: bold;">' + (idx+1) + '</td>' +
+          '<td style="padding: 10px 8px; font-weight: bold; font-family: monospace;">' + tagBadge + '</td>' +
+          '<td style="padding: 10px 8px;">' + it.species + ' (' + (it.grade || 'Unspecified') + ')</td>' +
+          '<td style="padding: 10px 8px; font-weight: bold; font-size: 13px; color: #0f172a;">' + targetProf + '</td>' +
+          '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
+          '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + it.pieces + '</td>' +
+          '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + it.bf.toFixed(1) + '</td>' +
+        '</tr>';
+      }).join('');
+
+      var poHtml = '<div style="font-family: Arial, sans-serif; color: #000; padding: 12px;">' +
+        '<div style="display: flex; justify-content: space-between; border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 16px;">' +
+          '<div>' +
+            '<h1 style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: #000;">PURCHASE ORDER</h1>' +
+            '<p style="margin: 4px 0 0; font-size: 12px; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Millwork & Lumber Yard Work Order</p>' +
+          '</div>' +
+          '<div style="text-align: right;">' +
+            '<div style="font-size: 16px; font-weight: 800; font-family: monospace; margin-top: 2px;">#' + po.id + '</div>' +
+            '<div style="font-size: 11px; color: #64748b; margin-top: 1px;">Order Date: ' + (po.orderDate || po.date || '—') + '</div>' +
+            '<div style="font-size: 13px; font-weight: 900; color: #b45309; margin-top: 3px; border: 1px solid #b45309; padding: 2px 6px; display: inline-block; border-radius: 4px;">DUE DATE: ' + (po.dueDate || '—') + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 12px;">' +
+          '<div>' +
+            '<span style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block;">Customer / Job:</span>' +
+            '<strong style="font-size: 16px; color: #0f172a;">' + po.customer + '</strong>' +
+          '</div>' +
+          '<div>' +
+            '<span style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block;">Status:</span>' +
+            '<strong style="font-size: 13px; color: ' + (po.status==="OPEN"?"#b45309":"#15803d") + ';">' + po.status + '</strong>' +
+          '</div>' +
+          '<div style="max-width: 280px;">' +
+            '<span style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block;">Yard / Delivery Notes:</span>' +
+            '<span style="font-size: 12px;">' + (po.notes || 'None') + '</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">' +
+          '<thead>' +
+            '<tr style="background: #f1f5f9; border-bottom: 2px solid #000; text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;">' +
+              '<th style="padding: 8px; text-align: center; width: 30px;">#</th>' +
+              '<th style="padding: 8px; text-align: left;">Source Pack</th>' +
+              '<th style="padding: 8px; text-align: left;">Species & Grade</th>' +
+              '<th style="padding: 8px; text-align: left;">Target Mill Profile</th>' +
+              '<th style="padding: 8px; text-align: left;">Profile (T×W×L)</th>' +
+              '<th style="padding: 8px; text-align: right;">Pieces</th>' +
+              '<th style="padding: 8px; text-align: right;">Volume (BF)</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' + itemsRows + '</tbody>' +
+        '</table>' +
+
+        '<div style="display: flex; justify-content: flex-end; margin-top: 10px;">' +
+          '<div style="width: 280px; border-top: 2px solid #000; padding-top: 10px; font-size: 13px;">' +
+            '<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span>Total Quantity:</span><strong style="font-family: monospace; font-size: 15px;">' + po.totalPieces + ' pcs</strong></div>' +
+            '<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span>Total Board Footage:</span><strong style="font-family: monospace; font-size: 15px;">' + po.totalBF.toFixed(1) + ' BF</strong></div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="margin-top: 60px; border-top: 1px dashed #94a3b8; padding-top: 18px; font-size: 11px; display: flex; justify-content: space-between;">' +
+          '<div>Milled / Pulled By: ____________________________</div>' +
+          '<div>Customer / Driver Received By: ____________________________</div>' +
+        '</div>' +
+      '</div>';
+
+      document.getElementById('modalPoPreviewArea').innerHTML = poHtml;
+      document.getElementById('printablePoContainer').innerHTML = poHtml;
+      document.getElementById('poPrintModal').style.display = 'flex';
+    };
+
+    window.closePoPrintModal = function() {
+      document.getElementById('poPrintModal').style.display = 'none';
+    };
+
+    /* 2-PART MATRIX SETTINGS LOGIC */
+    window.switchPricingDryingPart = function(part) {
+      saveCurrentMatrixInputsToState();
+      editPricingDryingPart = part;
+      
+      var btnKD = document.getElementById('pricingPartBtnKD');
+      var btnAD = document.getElementById('pricingPartBtnAD');
+      var ind = document.getElementById('activePricingPartIndicator');
+
+      if (part === "KD") {
+        btnKD.className = "flex-1 py-1.5 text-xs font-black rounded-lg bg-orange-500 text-white shadow flex items-center justify-center gap-1.5";
+        btnAD.className = "flex-1 py-1.5 text-xs font-black rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+        ind.innerText = "Kiln Dried Rates";
+        ind.className = "font-mono font-bold text-orange-700";
+      } else {
+        btnAD.className = "flex-1 py-1.5 text-xs font-black rounded-lg bg-teal-600 text-white shadow flex items-center justify-center gap-1.5";
+        btnKD.className = "flex-1 py-1.5 text-xs font-black rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+        ind.innerText = "Air Dried Rates";
+        ind.className = "font-mono font-bold text-teal-700";
+      }
+
+      loadMatrixInputsFromState();
+    };
+
+    window.switchPricingGradeTab = function(gradeName) {
+      saveCurrentMatrixInputsToState();
+      editPricingGrade = gradeName;
+
+      var gradeKeys = ["1&2 Common", "Clear", "Millrun", "Barn Board", "Low Grade", "Stain"];
+      var tabIds = { 
+        "1&2 Common": "pgTab_12", 
+        "Clear": "pgTab_Clear", 
+        "Millrun": "pgTab_Millrun", 
+        "Barn Board": "pgTab_BarnBoard", 
+        "Low Grade": "pgTab_Low", 
+        "Stain": "pgTab_Stain" 
+      };
+
+      gradeKeys.forEach(function(g) {
+        var el = document.getElementById(tabIds[g]);
+        if (el) {
+          if (g === gradeName) {
+            el.className = "py-1.5 rounded-lg bg-amber-500 text-white font-bold shadow";
+          } else {
+            el.className = "py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 hover:text-slate-900";
+          }
+        }
+      });
+
+      loadMatrixInputsFromState();
+    };
+
+    function saveCurrentMatrixInputsToState() {
+      if (!appConfig.matrixRates) appConfig.matrixRates = JSON.parse(JSON.stringify(DEFAULT_CONFIG.matrixRates));
+      if (!appConfig.matrixRates[editPricingDryingPart]) appConfig.matrixRates[editPricingDryingPart] = {};
+      if (!appConfig.matrixRates[editPricingDryingPart][editPricingGrade]) appConfig.matrixRates[editPricingDryingPart][editPricingGrade] = {};
+
+      var targetMap = appConfig.matrixRates[editPricingDryingPart][editPricingGrade];
+      DEFAULT_WIDTHS.forEach(function(w) {
+        var rInp = document.getElementById('inp_w_' + w + '_r');
+        var mInp = document.getElementById('inp_w_' + w + '_m');
+        if (rInp && mInp) {
+          targetMap[w] = {
+            rough: parseFloat(rInp.value) || 1.65,
+            milled: parseFloat(mInp.value) || 2.00
+          };
+        }
+      });
+    }
+
+    function loadMatrixInputsFromState() {
+      var heading = document.getElementById('matrixSectionHeading');
+      var partLabel = editPricingDryingPart === "KD" ? "Kiln Dried" : "Air Dried";
+      if (heading) heading.innerText = partLabel + " — " + editPricingGrade + " Width Rates";
+
+      var targetMap = (appConfig.matrixRates && appConfig.matrixRates[editPricingDryingPart] && appConfig.matrixRates[editPricingDryingPart][editPricingGrade]) || {};
+
+      DEFAULT_WIDTHS.forEach(function(w) {
+        var ratePair = targetMap[w] || { rough: 1.65, milled: 2.00 };
+        var rInp = document.getElementById('inp_w_' + w + '_r');
+        var mInp = document.getElementById('inp_w_' + w + '_m');
+        if (rInp) rInp.value = ratePair.rough;
+        if (mInp) mInp.value = ratePair.milled;
+      });
+    }
+
+    window.openSettingsModal = function() {
+      document.getElementById('cfgDefaultFacilityDrawer').value = (appConfig.defaults && appConfig.defaults.defaultFacilityDrawer) ? appConfig.defaults.defaultFacilityDrawer : "C.I.M. MFG INC";
+      document.getElementById('cfgDefaultHomeView').value = (appConfig.defaults && appConfig.defaults.defaultHomeView) ? appConfig.defaults.defaultHomeView : "C.I.M. MFG INC";
+
+      document.getElementById('cfgDefaultSpecies').value = appConfig.defaults.species;
+      document.getElementById('cfgDefaultStageFilter').value = appConfig.defaults.stageFilter || "Rough";
+      document.getElementById('cfgDefaultThickness').value = appConfig.defaults.thickness;
+      document.getElementById('cfgDefaultWidth').value = appConfig.defaults.width;
+      document.getElementById('cfgDefaultLength').value = appConfig.defaults.length;
+      document.getElementById('cfgDefaultMoistureMin').value = appConfig.defaults.moistureMin || 10;
+      document.getElementById('cfgDefaultMoistureMax').value = appConfig.defaults.moistureMax || 15;
+
+      document.getElementById('cfgBaseFontSize').value = appConfig.fonts.baseSize || "16px";
+      document.getElementById('cfgTableFontScale').value = appConfig.fonts.tableScale || "1.05";
+      document.getElementById('cfgTagPackFontSize').value = appConfig.fonts.tagPackSize || "52px";
+      document.getElementById('cfgTagDimFontSize').value = appConfig.fonts.tagDimSize || "42px";
+
+      document.getElementById('cfgFirebaseConfig').value = JSON.stringify(appConfig.firebase, null, 2);
+
+      switchSettingsTab('pricing');
+      switchPricingDryingPart('KD');
+      switchPricingGradeTab('1&2 Common');
+
+      document.getElementById('settingsModal').style.display = 'flex';
+    };
+
+    window.closeSettingsModal = function() {
+      document.getElementById('settingsModal').style.display = 'none';
+    };
+
+    window.switchSettingsTab = function(tab) {
+      ['pricing', 'defaults', 'fonts', 'cloud', 'backup'].forEach(function(t) {
+        var content = document.getElementById('settingsTab' + t.charAt(0).toUpperCase() + t.slice(1));
+        var btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (content && btn) {
+          if (t === tab) {
+            content.classList.remove('hidden');
+            btn.className = "py-1.5 rounded-lg bg-amber-500 text-white font-bold shadow";
+          } else {
+            content.classList.add('hidden');
+            btn.className = "py-1.5 rounded-lg text-slate-600 hover:text-slate-900";
+          }
+        }
+      });
+    };
+
+    window.saveAppSettings = function() {
+      saveCurrentMatrixInputsToState();
+
+      appConfig.defaults.defaultFacilityDrawer = document.getElementById('cfgDefaultFacilityDrawer').value;
+      appConfig.defaults.defaultHomeView = document.getElementById('cfgDefaultHomeView').value;
+
+      appConfig.defaults.species = document.getElementById('cfgDefaultSpecies').value.trim() || "Eastern White Pine";
+      appConfig.defaults.stageFilter = document.getElementById('cfgDefaultStageFilter').value;
+      appConfig.defaults.thickness = parseFloat(document.getElementById('cfgDefaultThickness').value) || 1;
+      appConfig.defaults.width = parseFloat(document.getElementById('cfgDefaultWidth').value) || 6;
+      appConfig.defaults.length = parseFloat(document.getElementById('cfgDefaultLength').value) || 12;
+      appConfig.defaults.moistureMin = parseFloat(document.getElementById('cfgDefaultMoistureMin').value) || 10;
+      appConfig.defaults.moistureMax = parseFloat(document.getElementById('cfgDefaultMoistureMax').value) || 15;
+
+      appConfig.fonts.baseSize = document.getElementById('cfgBaseFontSize').value;
+      appConfig.fonts.tableScale = document.getElementById('cfgTableFontScale').value;
+      appConfig.fonts.tagPackSize = document.getElementById('cfgTagPackFontSize').value;
+      appConfig.fonts.tagDimSize = document.getElementById('cfgTagDimFontSize').value;
+
+      var fbStr = document.getElementById('cfgFirebaseConfig').value.trim();
+      if (fbStr) {
+        try { appConfig.firebase = JSON.parse(fbStr); } catch(e) {}
+      }
+
+      localStorage.setItem('timbertrack_settings', JSON.stringify(appConfig));
+      applyFontVariables();
+      closeSettingsModal();
+      renderInventory();
+    };
+
+    window.resetSettingsToFactory = function() {
+      if (confirm("Reset all settings, 2-part drying schedules and rate matrix to factory defaults?")) {
+        appConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        localStorage.setItem('timbertrack_settings', JSON.stringify(appConfig));
+        applyFontVariables();
+        openSettingsModal();
+      }
+    };
+
+    window.exportInventoryJSON = function() {
+      document.getElementById('cfgBackupArea').value = JSON.stringify(inventory, null, 2);
+    };
+
+    window.importInventoryJSON = function() {
+      var str = document.getElementById('cfgBackupArea').value.trim();
+      if (!str) { alert("Paste JSON data into the box first."); return; }
+      try {
+        var parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) {
+          inventory = parsed.map(function(item){
+            if (!item.company) item.company = "C.I.M. MFG INC";
+            if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
+            return item;
+          });
+          localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+          inventory.forEach(function(item){ syncCloudItem(item); });
+          alert("Imported " + inventory.length + " lumber packs successfully.");
+          renderInventory();
+        } else {
+          alert("Data must be an array of lumber pack objects.");
+        }
+      } catch(e) {
+        alert("Invalid JSON format: " + e.message);
+      }
+    };
+
+    function applyFontVariables() {
+      if (!appConfig.fonts) return;
+      document.documentElement.style.setProperty('--app-base-font-size', appConfig.fonts.baseSize || '16px');
+      document.documentElement.style.setProperty('--table-font-scale', appConfig.fonts.tableScale || '1.05');
+      document.documentElement.style.setProperty('--tag-pack-font-size', appConfig.fonts.tagPackSize || '52px');
+      document.documentElement.style.setProperty('--tag-dim-font-size', appConfig.fonts.tagDimSize || '42px');
+    }
+
+    window.onload = function() {
+      applyFontVariables();
+      if (appConfig.defaults && appConfig.defaults.defaultHomeView) {
+        switchCompanyView(appConfig.defaults.defaultHomeView);
+      }
+      initFirebaseDirectCloud();
+      renderInventory();
+      updatePoBadge();
+    };
+  </script>
+</body>
+</html>
