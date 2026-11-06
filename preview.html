@@ -1369,6 +1369,7 @@
         if (empty) empty.classList.add('hidden');
         tbody.innerHTML = sorted.map(function(item) {
           var isPending = item.status === 'PENDING_SALE';
+          var isPartial = item.partialTaken === true;
 
           var totalPieces = parseInt(item.pieces) || 0;
           var heldPieces = parseInt(item.pendingPieces) || 0;
@@ -1391,7 +1392,9 @@
           var subMetaString = isAirDried ? (item.location || 'Shop') : ('MC ' + moistureDisplay + ' • ' + (item.location || 'Shop'));
 
           var rowClass = "border-b border-slate-200 transition-colors ";
-          if (isPending) {
+          if (isPartial) {
+            rowClass += "bg-amber-100/80 border-l-4 border-l-amber-500 ";
+          } else if (isPending) {
             rowClass += "bg-rose-50/70 border-l-4 border-l-rose-500 ";
           } else {
             rowClass += "hover:bg-slate-50 ";
@@ -1415,6 +1418,12 @@
                 '</span>' +
                 '<span class="text-xs text-slate-500 font-mono whitespace-nowrap">' + subMetaString + '</span>' +
               '</div>' +
+              (isPartial ? 
+                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-sm max-w-[13rem]">' +
+                  '<span>⚠️ Partial pull: <strong>' + totalPieces + ' pcs left</strong>. Update bundle tag!</span>' +
+                  '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
+                '</div>'
+              : '') +
             '</td>' +
 
             '<td class="py-2.5 px-2 sm:px-3 align-top">' +
@@ -2478,6 +2487,10 @@
         });
 
         window.location.href = "mailto:chris@cimmfg.ca?subject=" + emailSubject + "&body=" + emailBodyText;
+      }
+
+      if (partialBundlesCreated.length > 0) {
+        alert("⚠️ Notice: Partial bundles were pulled:\n" + partialBundlesCreated.join('\n') + "\n\nThese packs are highlighted in yellow on your inventory list as a reminder to update bundle tags.");
       }
     };
 
