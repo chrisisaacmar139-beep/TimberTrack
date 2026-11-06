@@ -1410,16 +1410,16 @@
               '</div>' +
             '</td>' +
 
-            '<td class="py-2.5 px-2 sm:px-3 align-top whitespace-nowrap">' +
-              '<div class="font-mono font-black text-slate-900 text-lg tracking-tight">' + dimString + '</div>' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top">' +
+              '<div class="font-mono font-black text-slate-900 text-lg tracking-tight whitespace-nowrap">' + dimString + '</div>' +
               '<div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">' +
                 '<span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
                   displayStage +
                 '</span>' +
-                '<span class="text-xs text-slate-500 font-mono">' + subMetaString + '</span>' +
+                '<span class="text-xs text-slate-500 font-mono whitespace-nowrap">' + subMetaString + '</span>' +
               '</div>' +
               (isPartial ? 
-                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex items-center justify-between gap-2 shadow-sm">' +
+                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-sm max-w-[13rem]">' +
                   '<span>⚠️ Partial pull: <strong>' + totalPieces + ' pcs left</strong>. Update bundle tag!</span>' +
                   '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
                 '</div>'
