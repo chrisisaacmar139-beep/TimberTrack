@@ -281,14 +281,14 @@
         <table class="w-full text-left border-collapse scale-table">
           <thead>
             <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
-              <th class="py-2.5 px-3">Pack, Grade & Drying</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Profile & Milling Stage</th>
-              <th class="py-2.5 px-3">Pieces Count</th>
-              <th class="py-2.5 px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
-              <th class="py-2.5 px-3">Board Feet</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Pricing (Rough & Milled)</th>
-              <th class="py-2.5 px-3 min-w-[170px]">Stage & Customer Hold</th>
-              <th class="py-2.5 px-3 text-right">Actions</th>
+              <th class="py-2.5 px-2 sm:px-3">Pack, Grade & Drying</th>
+              <th class="py-2.5 px-2 sm:px-3 whitespace-nowrap">Profile & Milling Stage</th>
+              <th class="py-2.5 px-2 sm:px-3">Qty</th>
+              <th class="py-2.5 px-2 sm:px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
+              <th class="py-2.5 px-2 sm:px-3">Board Feet</th>
+              <th class="py-2.5 px-2 sm:px-3 whitespace-nowrap">Pricing (Rough & Milled)</th>
+              <th class="py-2.5 px-2 sm:px-3 min-w-[170px]">Stage & Customer Hold</th>
+              <th class="py-2.5 px-2 sm:px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="inventoryTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -1401,7 +1401,7 @@
           }
 
           return '<tr class="' + rowClass + '">' +
-            '<td class="py-2.5 px-3 align-top">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top">' +
               '<div class="font-mono font-black text-amber-800 text-sm">' + item.id + '</div>' +
               '<div class="text-[11px] text-slate-500">' + item.species + '</div>' +
               '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
@@ -1410,9 +1410,9 @@
               '</div>' +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top whitespace-nowrap">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top whitespace-nowrap">' +
               '<div class="font-mono font-black text-slate-900 text-lg tracking-tight">' + dimString + '</div>' +
-              '<div class="mt-1 flex items-center space-x-1.5">' +
+              '<div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">' +
                 '<span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
                   displayStage +
                 '</span>' +
@@ -1426,25 +1426,25 @@
               : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top">' +
               '<div class="flex items-center space-x-1.5">' +
-                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
-                '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" inputmode="numeric" class="w-12 bg-white border border-slate-300 rounded-lg px-1 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<span class="hidden sm:inline text-xs text-slate-500 font-mono">pcs</span>' +
               '</div>' +
               (isPending ? '<div class="text-[11px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
               (item.notes ? '<div class="p-2 rounded bg-slate-50 border border-slate-200 leading-snug">' + item.notes + '</div>' : '<span class="text-slate-400">—</span>') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
               '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span>' + 
               ((item.width === 0 || item.length === 0) ? ' <span class="text-[10px] text-amber-600 font-normal">(est)</span>' : '') + '</div>' +
               (isPending ? '<div class="text-[11px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top font-mono whitespace-nowrap">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top font-mono whitespace-nowrap">' +
               '<div class="text-xs font-bold ' + (isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
                 '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Rgh:</span>' +
                 '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[11px] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
@@ -1455,7 +1455,7 @@
               '</div>' +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top min-w-[170px]">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top min-w-[170px]">' +
               '<button type="button" onclick="toggleStatus(\'' + item.id + '\')" class="px-2 py-0.5 rounded text-xs font-bold uppercase transition ' + (isPending ? 'bg-rose-600 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300') + '">' +
                 (isPending ? 'Pending Order' : 'In Stock') +
               '</button>' +
@@ -1480,7 +1480,7 @@
               : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top text-right space-x-1 whitespace-nowrap">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top text-right space-x-1 whitespace-nowrap">' +
               '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded-lg text-xs transition border border-slate-300">🏷️</button>' +
               '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition border border-slate-300">✏️</button>' +
               '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded-lg text-xs transition border border-slate-300">🗑️</button>' +
