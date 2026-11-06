@@ -2120,12 +2120,25 @@
       document.getElementById('poDrawerOverlay').style.display = 'none';
     };
 
-    window.addPoLineItemRow = function() {
-      var container = document.getElementById('poLineItemsContainer');
-      var rowId = "poRow_" + Date.now() + "_" + Math.floor(Math.random()*1000);
+    function packMatchesPoFilter(item, f) {
+      if (f.width !== 'ALL') {
+        if (f.width === 'RW' && item.width !== 0) return false;
+        if (f.width !== 'RW' && item.width !== parseFloat(f.width)) return false;
+      }
+      if (f.length !== 'ALL') {
+        if (f.length === 'RL' && item.length !== 0) return false;
+        if (f.length !== 'RL' && item.length !== parseFloat(f.length)) return false;
+      }
+      if (f.grade !== 'ALL' && getGradeKey(item.grade) !== f.grade) return false;
+      return true;
+    }
 
-      var options = inventory.filter(function(i){ 
-        return (parseInt(i.pieces)||0) > 0; 
+    function buildPoPackOptions(f, keepId) {
+      var count = 0;
+      var html = inventory.filter(function(item) {
+        if ((parseInt(item.pieces)||0) <= 0) return false;
+        if (packMatchesPoFilter(item, f)) { count++; return true; }
+        return item.id === keepId;
       }).map(function(item) {
         var dim = item.thickness + '"×' + (item.width===0?'RW':item.width+'"') + '×' + (item.length===0?'RL':item.length+"'");
         var displayStage = getDisplayStage(item);
@@ -2133,11 +2146,72 @@
         var dryingPill = item.dryingMethod === "Air Dried" ? "[AD] " : "[KD] ";
         return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' pcs avail]</option>';
       }).join('');
+      buildPoPackOptions.lastCount = count;
+      return html;
+    }
+
+    window.setPoPackFilter = function(rowId, kind, val) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      row.dataset['f' + kind.charAt(0).toUpperCase() + kind.slice(1)] = val;
+      row.querySelectorAll('.po-filter-' + kind + ' button').forEach(function(btn) {
+        btn.className = btn.getAttribute('data-val') === val ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200';
+      });
+      filterPoPackOptions(rowId);
+    };
+
+    window.filterPoPackOptions = function(rowId) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      var select = row.querySelector('.po-pack-select');
+      var current = select.value;
+      var f = {
+        width: row.dataset.fWidth || 'ALL',
+        length: row.dataset.fLength || 'ALL',
+        grade: row.dataset.fGrade || 'ALL'
+      };
+      var keepId = (current && current !== 'CUSTOM_UNLINKED') ? current : '';
+      var options = buildPoPackOptions(f, keepId);
+      var n = buildPoPackOptions.lastCount;
+      var filtering = f.width !== 'ALL' || f.length !== 'ALL' || f.grade !== 'ALL';
+      select.innerHTML =
+        '<option value="">' + (filtering ? (n === 0 ? 'No packs match these filters' : 'Select from ' + n + ' matching pack' + (n === 1 ? '' : 's') + '...') : 'Select stock pack...') + '</option>' +
+        '<option value="CUSTOM_UNLINKED" class="font-bold text-sky-700 bg-sky-50">✨ -- Custom / Unlinked Stock (No Inventory Deduction) --</option>' +
+        options;
+      select.value = current;
+      var countEl = row.querySelector('.po-filter-count');
+      if (countEl) countEl.innerText = filtering ? n + (n === 1 ? ' pack matches' : ' packs match') : '';
+    };
+
+    window.addPoLineItemRow = function() {
+      var container = document.getElementById('poLineItemsContainer');
+      var rowId = "poRow_" + Date.now() + "_" + Math.floor(Math.random()*1000);
+
+      var options = buildPoPackOptions({ width: 'ALL', length: 'ALL', grade: 'ALL' }, '');
 
       var rowHtml = '<div id="' + rowId + '" class="po-line-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">' +
         '<div class="flex items-center gap-2">' +
           '<div class="flex-1">' +
             '<label class="block text-[11px] uppercase font-bold text-slate-500">Pick Stock Pack or Custom:</label>' +
+            '<div class="mb-1.5">' +
+              '<div class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Width</div>' +
+              '<div class="po-filter-width grid grid-cols-7 gap-0.5">' +
+                '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="4" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'4\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">4"</button><button type="button" data-val="6" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'6\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">6"</button><button type="button" data-val="8" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'8\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">8"</button><button type="button" data-val="10" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'10\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">10"</button><button type="button" data-val="12" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'12\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">12"</button><button type="button" data-val="RW" onclick="setPoPackFilter(\'' + rowId + '\', \'width\', \'RW\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">RW</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="mb-1.5">' +
+              '<div class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Length</div>' +
+              '<div class="po-filter-length grid grid-cols-8 gap-0.5">' +
+                '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="6" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'6\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">6&#39;</button><button type="button" data-val="8" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'8\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">8&#39;</button><button type="button" data-val="10" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'10\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">10&#39;</button><button type="button" data-val="12" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'12\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">12&#39;</button><button type="button" data-val="14" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'14\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">14&#39;</button><button type="button" data-val="16" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'16\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">16&#39;</button><button type="button" data-val="RL" onclick="setPoPackFilter(\'' + rowId + '\', \'length\', \'RL\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">RL</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="mb-1.5">' +
+              '<div class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Grade</div>' +
+              '<div class="po-filter-grade grid grid-cols-7 [&>button]:text-[11px] gap-0.5">' +
+                '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="COMMON" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'COMMON\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">1&2</button><button type="button" data-val="CLEAR" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'CLEAR\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Clear</button><button type="button" data-val="MILLRUN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'MILLRUN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Mill</button><button type="button" data-val="BARN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'BARN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn</button><button type="button" data-val="LOW" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'LOW\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low</button><button type="button" data-val="STAIN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'STAIN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="po-filter-count text-[11px] font-bold text-amber-700 mb-1"></div>' +
             '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
               '<option value="">Select stock pack...</option>' +
               '<option value="CUSTOM_UNLINKED" class="font-bold text-sky-700 bg-sky-50">✨ -- Custom / Unlinked Stock (No Inventory Deduction) --</option>' +
