@@ -232,6 +232,23 @@
           </div>
         </div>
 
+        <!-- Grade Section -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Grade Filter</span>
+            <span id="activeGradeLabel" class="text-xs font-mono font-bold text-amber-700">All Grades</span>
+          </div>
+          <div class="grid grid-cols-7 gap-0.5 sm:gap-1 [&>button]:px-0 [&>button]:text-[11px] sm:[&>button]:text-xs" id="gradeFilterContainer">
+            <button type="button" onclick="setGradeFilter('ALL')" id="gb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+            <button type="button" onclick="setGradeFilter('COMMON')" id="gb-COMMON" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">1&amp;2</button>
+            <button type="button" onclick="setGradeFilter('CLEAR')" id="gb-CLEAR" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Clear</button>
+            <button type="button" onclick="setGradeFilter('MILLRUN')" id="gb-MILLRUN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Millrun</button>
+            <button type="button" onclick="setGradeFilter('BARN')" id="gb-BARN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Barn</button>
+            <button type="button" onclick="setGradeFilter('LOW')" id="gb-LOW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Low</button>
+            <button type="button" onclick="setGradeFilter('STAIN')" id="gb-STAIN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Stain</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Live Volume Totals -->
@@ -1006,6 +1023,18 @@
     var currentStageFilter = "Rough";
     var currentWidthFilter = "ALL";
     var currentLengthFilter = "ALL";
+    var currentGradeFilter = "ALL";
+
+    function getGradeKey(grade) {
+      var g = (grade || "").toLowerCase();
+      if (g.includes("1&2") || g.includes("common")) return "COMMON";
+      if (g.includes("clear") || g.includes("select")) return "CLEAR";
+      if (g.includes("millrun")) return "MILLRUN";
+      if (g.includes("barn")) return "BARN";
+      if (g.includes("low")) return "LOW";
+      if (g.includes("stain")) return "STAIN";
+      return "OTHER";
+    }
     var searchQuery = "";
     var itemPendingDeletionId = null;
     var poPendingDeletionId = null;
@@ -1321,6 +1350,8 @@
           if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return false;
         }
 
+        if (currentGradeFilter !== 'ALL' && getGradeKey(item.grade) !== currentGradeFilter) return false;
+
         if (searchQuery.trim() !== '') {
           var dryingTag = (item.dryingMethod === 'Air Dried' ? 'air dried ad' : 'kiln dried kd');
           var match = (item.id + " " + (item.grade||'') + " " + item.species + " " + dryingTag + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
@@ -1493,6 +1524,8 @@
           if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return;
         }
 
+        if (currentGradeFilter !== 'ALL' && getGradeKey(item.grade) !== currentGradeFilter) return;
+
         var h = parseInt(item.pendingPieces) || 0;
         var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
 
@@ -1561,6 +1594,19 @@
         var el = document.getElementById('lb-' + val);
         if (el) {
           el.className = val === l ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
+        }
+      });
+      renderInventory();
+    };
+
+    window.setGradeFilter = function(g) {
+      currentGradeFilter = g;
+      var names = { ALL: 'All Grades', COMMON: '1&2 Common', CLEAR: 'Clear / Select', MILLRUN: 'Millrun', BARN: 'Barn Board', LOW: 'Low Grade', STAIN: 'Stain' };
+      document.getElementById('activeGradeLabel').innerText = names[g] || g;
+      ["ALL", "COMMON", "CLEAR", "MILLRUN", "BARN", "LOW", "STAIN"].forEach(function(val) {
+        var el = document.getElementById('gb-' + val);
+        if (el) {
+          el.className = val === g ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
         }
       });
       renderInventory();
