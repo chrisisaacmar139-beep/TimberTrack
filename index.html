@@ -501,8 +501,8 @@
     <div class="w-full max-w-xl bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl overflow-y-auto">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
         <div>
-          <h3 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
-          <p class="text-xs text-slate-500">Allocates stock from active inventory or records custom specs</p>
+          <h3 id="poDrawerTitle" class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Create Purchase Order</h3>
+          <p id="poDrawerSubtitle" class="text-xs text-slate-500">Allocates stock from active inventory or records custom specs</p>
         </div>
         <button type="button" onclick="closePoDrawer()" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold">✕</button>
       </div>
@@ -559,7 +559,7 @@
           <div class="flex justify-between border-t border-sky-200 pt-1 text-sm font-black"><span class="text-slate-800">Total (Inc. HST):</span><span id="poLiveTotal" class="text-emerald-700 font-mono">$0.00</span></div>
         </div>
 
-        <button type="submit" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl text-sm shadow-md shadow-sky-600/20">
+        <button type="submit" id="poSubmitBtn" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-black rounded-xl text-sm shadow-md shadow-sky-600/20">
           Create & Save Purchase Order
         </button>
       </form>
@@ -2102,7 +2102,94 @@
     };
 
     /* PO CREATION SYSTEM */
+    var editingPoId = null;
+    var poEditStock = null;
+
+    // Stock the PO form picks from. While editing, the PO's own pieces count as available.
+    function poStock() {
+      return poEditStock || inventory;
+    }
+
+    // Puts a PO's linked pieces back into a stock list. Returns the packs it touched.
+    function returnPoPiecesToStock(po, stockList) {
+      var touched = [];
+      (po.items || []).forEach(function(lineItem) {
+        if (lineItem.isUnlinked) return;
+        var existingPack = stockList.find(function(i){ return i.id === lineItem.packId; });
+        if (existingPack) {
+          existingPack.pieces = (parseInt(existingPack.pieces) || 0) + (parseInt(lineItem.pieces) || 0);
+          existingPack.partialTaken = false;
+          if (touched.indexOf(existingPack) === -1) touched.push(existingPack);
+        } else if (lineItem.originalPackData) {
+          var restoredPack = JSON.parse(JSON.stringify(lineItem.originalPackData));
+          restoredPack.pieces = parseInt(lineItem.pieces) || 1;
+          restoredPack.partialTaken = false;
+          stockList.unshift(restoredPack);
+          touched.push(restoredPack);
+        }
+      });
+      return touched;
+    }
+
+    function setPoDrawerMode(isEdit) {
+      document.getElementById('poDrawerTitle').innerText = isEdit ? 'Edit Purchase Order' : 'Create Purchase Order';
+      document.getElementById('poDrawerSubtitle').innerText = isEdit ? 'Changes put back or pull stock to match the new order' : 'Allocates stock from active inventory or records custom specs';
+      document.getElementById('poSubmitBtn').innerText = isEdit ? 'Save Changes' : 'Create & Save Purchase Order';
+    }
+
+    window.openEditPo = function(poId) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (!po) return;
+      editingPoId = po.id;
+      poEditStock = JSON.parse(JSON.stringify(inventory));
+      returnPoPiecesToStock(po, poEditStock);
+      setPoDrawerMode(true);
+
+      document.getElementById('poCustomerName').value = po.customer || "";
+      document.getElementById('poOrderNumber').value = po.id;
+      document.getElementById('poOrderDate').value = po.orderDate || po.date || "";
+      document.getElementById('poDueDate').value = po.dueDate || "";
+      document.getElementById('poNotes').value = po.notes || "";
+      var container = document.getElementById('poLineItemsContainer');
+      container.innerHTML = "";
+
+      (po.items || []).forEach(function(it) {
+        addPoLineItemRow();
+        var row = container.lastElementChild;
+        var select = row.querySelector('.po-pack-select');
+        if (it.isUnlinked) {
+          select.value = "CUSTOM_UNLINKED";
+          row.querySelector('.po-custom-stock-fields').classList.remove('hidden');
+          row.querySelector('.po-cust-drying').value = it.dryingMethod || "Kiln Dried";
+          row.querySelector('.po-cust-grade').value = it.grade || "1&2 Common";
+          row.querySelector('.po-cust-species').value = it.species || "Eastern White Pine";
+          row.querySelector('.po-cust-thick').value = it.thickness;
+          row.querySelector('.po-cust-width').value = it.width;
+          row.querySelector('.po-cust-len').value = it.length;
+        } else {
+          select.value = it.packId;
+        }
+        var profileSelect = row.querySelector('.po-target-profile-select');
+        profileSelect.value = it.targetProfile || "Rough";
+        if (profileSelect.value !== (it.targetProfile || "Rough")) {
+          profileSelect.value = "Other";
+          row.querySelector('.po-target-other-input').value = it.targetProfile;
+          row.querySelector('.po-target-other-wrapper').classList.remove('hidden');
+        }
+        row.querySelector('.po-pcs-input').value = it.pieces;
+        row.querySelector('.po-rate-input').value = it.rate;
+      });
+      if (!po.items || po.items.length === 0) addPoLineItemRow();
+
+      closePoListModal();
+      recalcPoLiveSummary();
+      document.getElementById('poDrawerOverlay').style.display = 'flex';
+    };
+
     window.openPoDrawer = function() {
+      editingPoId = null;
+      poEditStock = null;
+      setPoDrawerMode(false);
       var today = new Date().toISOString().split('T')[0];
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
@@ -2118,6 +2205,10 @@
 
     window.closePoDrawer = function() {
       document.getElementById('poDrawerOverlay').style.display = 'none';
+      var wasEditing = editingPoId !== null;
+      editingPoId = null;
+      poEditStock = null;
+      if (wasEditing) openPoListModal();
     };
 
     function packMatchesPoFilter(item, f) {
@@ -2135,7 +2226,7 @@
 
     function buildPoPackOptions(f, keepId) {
       var count = 0;
-      var html = inventory.filter(function(item) {
+      var html = poStock().filter(function(item) {
         if ((parseInt(item.pieces)||0) <= 0) return false;
         if (packMatchesPoFilter(item, f)) { count++; return true; }
         return item.id === keepId;
@@ -2339,7 +2430,7 @@
         rateInput.value = rateInfo.milled;
       } else {
         customFields.classList.add('hidden');
-        var pack = inventory.find(function(i){ return i.id === packId; });
+        var pack = poStock().find(function(i){ return i.id === packId; });
         if (pack) {
           pcsInput.value = pack.pieces;
           var rateInfo = getMatrixRates(pack.dryingMethod, pack.grade, pack.width);
@@ -2376,7 +2467,7 @@
           grandSubtotal += lineCost;
           preview.innerText = lineBF.toFixed(1) + " BF • $" + lineCost.toFixed(2);
         } else {
-          var pack = inventory.find(function(i){ return i.id === packId; });
+          var pack = poStock().find(function(i){ return i.id === packId; });
           if (pack && pcs > 0) {
             var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcs);
             var lineCost = lineBF * rate;
@@ -2415,6 +2506,39 @@
 
       var rows = document.querySelectorAll('.po-line-row');
       if (rows.length === 0) { alert("Please add at least one line item to this purchase order."); return; }
+
+      var isEdit = editingPoId !== null;
+      var oldPo = isEdit ? purchaseOrders.find(function(p){ return p.id === editingPoId; }) : null;
+      if (isEdit && !oldPo) { alert("This purchase order no longer exists."); closePoDrawer(); return; }
+      if (purchaseOrders.some(function(p){ return p.id === poNum && (!isEdit || p.id !== editingPoId); })) {
+        alert("PO number " + poNum + " is already used by another order.");
+        return;
+      }
+
+      // Check every row against available stock before changing anything
+      var wantedByPack = {};
+      for (var v = 0; v < rows.length; v++) {
+        var vId = rows[v].querySelector('.po-pack-select').value;
+        var vPcs = parseInt(rows[v].querySelector('.po-pcs-input').value) || 0;
+        if (!vId || vPcs <= 0) {
+          alert("All rows must have a selected pack or custom specification and a positive piece count.");
+          return;
+        }
+        if (vId !== "CUSTOM_UNLINKED") wantedByPack[vId] = (wantedByPack[vId] || 0) + vPcs;
+      }
+      for (var wId in wantedByPack) {
+        var wPack = poStock().find(function(i){ return i.id === wId; });
+        if (!wPack) { alert("Pack " + wId + " is no longer in stock."); return; }
+        if (wantedByPack[wId] > (parseInt(wPack.pieces) || 0)) {
+          alert("Error: Pack " + wId + " only has " + wPack.pieces + " pcs available.");
+          return;
+        }
+      }
+
+      if (isEdit) {
+        returnPoPiecesToStock(oldPo, inventory).forEach(function(pk){ syncCloudItem(pk); });
+        poEditStock = null;
+      }
 
       var lineItems = [];
       var packsToRemoveCompletely = [];
@@ -2521,7 +2645,7 @@
         orderDate: orderDate,
         dueDate: dueDate,
         notes: notes,
-        status: "OPEN",
+        status: isEdit ? (oldPo.status || "OPEN") : "OPEN",
         items: lineItems,
         totalPieces: lineItems.reduce(function(acc, item){ return acc + item.pieces; }, 0),
         totalBF: lineItems.reduce(function(acc, item){ return acc + item.bf; }, 0),
@@ -2530,7 +2654,13 @@
         totalAmount: totalAmount
       };
 
-      purchaseOrders.unshift(poOrder);
+      if (isEdit) {
+        var oldIndex = purchaseOrders.indexOf(oldPo);
+        purchaseOrders[oldIndex] = poOrder;
+        if (oldPo.id !== poOrder.id) removeCloudPo(oldPo.id);
+      } else {
+        purchaseOrders.unshift(poOrder);
+      }
       localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
       localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
       syncCloudPo(poOrder);
@@ -2538,6 +2668,13 @@
       closePoDrawer();
       renderInventory();
       updatePoBadge();
+
+      if (isEdit) {
+        if (partialBundlesCreated.length > 0) {
+          alert("⚠️ Notice: Partial bundles were pulled:\n" + partialBundlesCreated.join('\n') + "\n\nThese packs are highlighted in yellow on your inventory list as a reminder to update bundle tags.");
+        }
+        return;
+      }
 
       var sendEmailConfirm = confirm("Purchase Order " + poNum + " created successfully!\n\nDo you want to send an email notification to chris@cimmfg.ca?");
       if (sendEmailConfirm) {
@@ -2637,8 +2774,9 @@
               '<div class="text-right font-mono font-black text-emerald-700 text-base">$' + tot.toFixed(2) + '</div>' +
             '</div>' +
 
-            '<div class="grid ' + (isOpen ? 'grid-cols-3' : 'grid-cols-2') + ' gap-1.5 pt-1 border-t border-slate-100">' +
+            '<div class="grid ' + (isOpen ? 'grid-cols-4' : 'grid-cols-3') + ' gap-1.5 pt-1 border-t border-slate-100">' +
               '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🖨️ Print</button>' +
+              '<button type="button" onclick="openEditPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-amber-500 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">✏️ Edit</button>' +
               (isOpen ?
                 '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95">✓ Done</button>'
               : '') +
