@@ -46,7 +46,14 @@
       z-index: 9999;
       justify-content: flex-end;
     }
-    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #tagPreviewModal, #poListModal, #poPrintModal {
+    #poListModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background-color: #f1f5f9;
+    }
+    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #tagPreviewModal, #poPrintModal {
       display: none;
       position: fixed;
       inset: 0;
@@ -225,6 +232,23 @@
           </div>
         </div>
 
+        <!-- Grade Section -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Grade Filter</span>
+            <span id="activeGradeLabel" class="text-xs font-mono font-bold text-amber-700">All Grades</span>
+          </div>
+          <div class="grid grid-cols-7 gap-0.5 sm:gap-1 [&>button]:px-0 [&>button]:text-[11px] sm:[&>button]:text-xs" id="gradeFilterContainer">
+            <button type="button" onclick="setGradeFilter('ALL')" id="gb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
+            <button type="button" onclick="setGradeFilter('COMMON')" id="gb-COMMON" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">1&amp;2</button>
+            <button type="button" onclick="setGradeFilter('CLEAR')" id="gb-CLEAR" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Clear</button>
+            <button type="button" onclick="setGradeFilter('MILLRUN')" id="gb-MILLRUN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Millrun</button>
+            <button type="button" onclick="setGradeFilter('BARN')" id="gb-BARN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Barn</button>
+            <button type="button" onclick="setGradeFilter('LOW')" id="gb-LOW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Low</button>
+            <button type="button" onclick="setGradeFilter('STAIN')" id="gb-STAIN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Stain</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Live Volume Totals -->
@@ -257,14 +281,14 @@
         <table class="w-full text-left border-collapse scale-table">
           <thead>
             <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
-              <th class="py-2.5 px-3">Pack, Grade & Drying</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Profile & Milling Stage</th>
-              <th class="py-2.5 px-3">Pieces Count</th>
-              <th class="py-2.5 px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
-              <th class="py-2.5 px-3">Board Feet</th>
-              <th class="py-2.5 px-3 whitespace-nowrap">Pricing (Rough & Milled)</th>
-              <th class="py-2.5 px-3 min-w-[170px]">Stage & Customer Hold</th>
-              <th class="py-2.5 px-3 text-right">Actions</th>
+              <th class="py-2.5 px-2 sm:px-3">Pack, Grade & Drying</th>
+              <th class="py-2.5 px-2 sm:px-3 whitespace-nowrap">Profile & Milling Stage</th>
+              <th class="py-2.5 px-2 sm:px-3">Qty</th>
+              <th class="py-2.5 px-2 sm:px-3 min-w-[160px] max-w-[240px]">Yard Notes</th>
+              <th class="py-2.5 px-2 sm:px-3">Board Feet</th>
+              <th class="py-2.5 px-2 sm:px-3 whitespace-nowrap">Pricing (Rough & Milled)</th>
+              <th class="py-2.5 px-2 sm:px-3 min-w-[170px]">Stage & Customer Hold</th>
+              <th class="py-2.5 px-2 sm:px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="inventoryTableBody" class="divide-y divide-slate-200 bg-white"></tbody>
@@ -542,37 +566,24 @@
     </div>
   </div>
 
-  <!-- PURCHASE ORDERS REGISTRY MODAL -->
+  <!-- PURCHASE ORDERS REGISTRY (FULL SCREEN) -->
   <div id="poListModal">
-    <div class="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
-        <div class="flex items-center space-x-2">
+    <div class="bg-slate-100 w-full h-full flex flex-col">
+      <div class="bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2 shadow-sm shrink-0">
+        <div class="flex items-center space-x-2 min-w-0">
           <span class="text-sky-600 text-lg">📋</span>
-          <div>
-            <h4 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wider">Purchase Orders Registry</h4>
-            <span class="text-[11px] text-slate-500 font-semibold uppercase">TimberTrack Orders • 13% HST Included</span>
+          <div class="min-w-0">
+            <h4 class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">Purchase Orders</h4>
+            <span class="text-[11px] text-slate-500 font-semibold uppercase" id="poListSummaryLine">0 open • 13% HST included</span>
           </div>
         </div>
-        <button type="button" onclick="closePoListModal()" class="text-slate-500 hover:text-slate-800 font-bold text-lg w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">✕</button>
+        <button type="button" onclick="closePoListModal()" class="shrink-0 text-slate-600 hover:text-slate-900 font-bold text-base px-3 h-9 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 active:scale-95">✕ <span class="text-xs">Close</span></button>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 uppercase font-mono">
-              <th class="py-2.5 px-3">PO #</th>
-              <th class="py-2.5 px-3">Customer & Dates</th>
-              <th class="py-2.5 px-3">Milling Schedule</th>
-              <th class="py-2.5 px-3">Volume (BF)</th>
-              <th class="py-2.5 px-3">Pricing (Subtotal / HST / Total)</th>
-              <th class="py-2.5 px-3">Status</th>
-              <th class="py-2.5 px-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="poListTableBody" class="divide-y divide-slate-200"></tbody>
-        </table>
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-5">
+        <div id="poListCards" class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3"></div>
+        <div id="emptyPoListState" class="hidden p-8 text-center text-slate-500 text-sm">No purchase orders found.</div>
       </div>
-      <div id="emptyPoListState" class="hidden p-6 text-center text-slate-500 text-xs">No purchase orders found.</div>
     </div>
   </div>
 
@@ -1012,6 +1023,18 @@
     var currentStageFilter = "Rough";
     var currentWidthFilter = "ALL";
     var currentLengthFilter = "ALL";
+    var currentGradeFilter = "ALL";
+
+    function getGradeKey(grade) {
+      var g = (grade || "").toLowerCase();
+      if (g.includes("1&2") || g.includes("common")) return "COMMON";
+      if (g.includes("clear") || g.includes("select")) return "CLEAR";
+      if (g.includes("millrun")) return "MILLRUN";
+      if (g.includes("barn")) return "BARN";
+      if (g.includes("low")) return "LOW";
+      if (g.includes("stain")) return "STAIN";
+      return "OTHER";
+    }
     var searchQuery = "";
     var itemPendingDeletionId = null;
     var poPendingDeletionId = null;
@@ -1055,6 +1078,8 @@
             purchaseOrders = cloudPos;
             localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
             updatePoBadge();
+            var poModal = document.getElementById('poListModal');
+            if (poModal && poModal.style.display === 'block') openPoListModal();
           });
 
         } catch(e) {
@@ -1325,6 +1350,8 @@
           if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return false;
         }
 
+        if (currentGradeFilter !== 'ALL' && getGradeKey(item.grade) !== currentGradeFilter) return false;
+
         if (searchQuery.trim() !== '') {
           var dryingTag = (item.dryingMethod === 'Air Dried' ? 'air dried ad' : 'kiln dried kd');
           var match = (item.id + " " + (item.grade||'') + " " + item.species + " " + dryingTag + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
@@ -1374,7 +1401,7 @@
           }
 
           return '<tr class="' + rowClass + '">' +
-            '<td class="py-2.5 px-3 align-top">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top">' +
               '<div class="font-mono font-black text-amber-800 text-sm">' + item.id + '</div>' +
               '<div class="text-[11px] text-slate-500">' + item.species + '</div>' +
               '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
@@ -1383,41 +1410,41 @@
               '</div>' +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top whitespace-nowrap">' +
-              '<div class="font-mono font-black text-slate-900 text-lg tracking-tight">' + dimString + '</div>' +
-              '<div class="mt-1 flex items-center space-x-1.5">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top">' +
+              '<div class="font-mono font-black text-slate-900 text-lg tracking-tight whitespace-nowrap">' + dimString + '</div>' +
+              '<div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">' +
                 '<span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ' + (isRough ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-amber-100 text-amber-800 border border-amber-300') + '">' +
                   displayStage +
                 '</span>' +
-                '<span class="text-xs text-slate-500 font-mono">' + subMetaString + '</span>' +
+                '<span class="text-xs text-slate-500 font-mono whitespace-nowrap">' + subMetaString + '</span>' +
               '</div>' +
               (isPartial ? 
-                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex items-center justify-between gap-2 shadow-sm">' +
+                '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-sm max-w-[13rem]">' +
                   '<span>⚠️ Partial pull: <strong>' + totalPieces + ' pcs left</strong>. Update bundle tag!</span>' +
                   '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
                 '</div>'
               : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top">' +
               '<div class="flex items-center space-x-1.5">' +
-                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
-                '<span class="text-xs text-slate-500 font-mono">pcs</span>' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" inputmode="numeric" class="w-12 bg-white border border-slate-300 rounded-lg px-1 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                '<span class="hidden sm:inline text-xs text-slate-500 font-mono">pcs</span>' +
               '</div>' +
               (isPending ? '<div class="text-[11px] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
               (item.notes ? '<div class="p-2 rounded bg-slate-50 border border-slate-200 leading-snug">' + item.notes + '</div>' : '<span class="text-slate-400">—</span>') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
               '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span>' + 
               ((item.width === 0 || item.length === 0) ? ' <span class="text-[10px] text-amber-600 font-normal">(est)</span>' : '') + '</div>' +
               (isPending ? '<div class="text-[11px] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top font-mono whitespace-nowrap">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top font-mono whitespace-nowrap">' +
               '<div class="text-xs font-bold ' + (isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
                 '<span class="text-[10px] font-sans font-semibold text-slate-500 uppercase mr-1">Rgh:</span>' +
                 '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[11px] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
@@ -1428,7 +1455,7 @@
               '</div>' +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top min-w-[170px]">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top min-w-[170px]">' +
               '<button type="button" onclick="toggleStatus(\'' + item.id + '\')" class="px-2 py-0.5 rounded text-xs font-bold uppercase transition ' + (isPending ? 'bg-rose-600 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300') + '">' +
                 (isPending ? 'Pending Order' : 'In Stock') +
               '</button>' +
@@ -1453,7 +1480,7 @@
               : '') +
             '</td>' +
 
-            '<td class="py-2.5 px-3 align-top text-right space-x-1 whitespace-nowrap">' +
+            '<td class="py-2.5 px-2 sm:px-3 align-top text-right space-x-1 whitespace-nowrap">' +
               '<button type="button" onclick="previewTag(\'' + item.id + '\')" title="Print Tag" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-600 rounded-lg text-xs transition border border-slate-300">🏷️</button>' +
               '<button type="button" onclick="openEditDrawer(\'' + item.id + '\')" title="Edit" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition border border-slate-300">✏️</button>' +
               '<button type="button" onclick="promptDelete(\'' + item.id + '\')" title="Delete" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-600 text-slate-500 hover:text-white rounded-lg text-xs transition border border-slate-300">🗑️</button>' +
@@ -1496,6 +1523,8 @@
           if (currentLengthFilter === 'RL' && item.length !== 0) return;
           if (currentLengthFilter !== 'RL' && item.length !== parseFloat(currentLengthFilter)) return;
         }
+
+        if (currentGradeFilter !== 'ALL' && getGradeKey(item.grade) !== currentGradeFilter) return;
 
         var h = parseInt(item.pendingPieces) || 0;
         var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
@@ -1565,6 +1594,19 @@
         var el = document.getElementById('lb-' + val);
         if (el) {
           el.className = val === l ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
+        }
+      });
+      renderInventory();
+    };
+
+    window.setGradeFilter = function(g) {
+      currentGradeFilter = g;
+      var names = { ALL: 'All Grades', COMMON: '1&2 Common', CLEAR: 'Clear / Select', MILLRUN: 'Millrun', BARN: 'Barn Board', LOW: 'Low Grade', STAIN: 'Stain' };
+      document.getElementById('activeGradeLabel').innerText = names[g] || g;
+      ["ALL", "COMMON", "CLEAR", "MILLRUN", "BARN", "LOW", "STAIN"].forEach(function(val) {
+        var el = document.getElementById('gb-' + val);
+        if (el) {
+          el.className = val === g ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200';
         }
       });
       renderInventory();
@@ -2459,61 +2501,86 @@
     };
 
     window.openPoListModal = function() {
-      var tbody = document.getElementById('poListTableBody');
+      var list = document.getElementById('poListCards');
       var empty = document.getElementById('emptyPoListState');
-      if (!tbody) return;
+      if (!list) return;
+
+      var openCount = purchaseOrders.filter(function(po){ return po.status === "OPEN"; }).length;
+      var summary = document.getElementById('poListSummaryLine');
+      if (summary) summary.innerText = openCount + " open • " + purchaseOrders.length + " total • 13% HST included";
 
       if (purchaseOrders.length === 0) {
-        tbody.innerHTML = "";
+        list.innerHTML = "";
         empty.classList.remove('hidden');
       } else {
         empty.classList.add('hidden');
-        tbody.innerHTML = purchaseOrders.map(function(po) {
+        list.innerHTML = purchaseOrders.map(function(po) {
           var isOpen = po.status === "OPEN";
-          var itemsSummary = po.items.map(function(it){
-            var prefix = it.isUnlinked ? "[Custom] " : "";
-            return prefix + it.pieces + " pcs " + it.thickness + '×' + (it.width===0?'RW':it.width+'"') + ' ➔ ' + (it.targetProfile || it.sourceStage);
-          }).join(', ');
+          var items = po.items || [];
 
-          var sub = po.subtotal !== undefined ? po.subtotal : (po.totalAmount / 1.13);
+          var itemsHtml = items.map(function(it){
+            var dim = it.thickness + '"×' + (it.width===0?'RW':it.width+'"') + '×' + (it.length===0?'RL':it.length+"'");
+            var source = it.isUnlinked ? '<span class="text-sky-700 font-bold">Custom</span>' : '<span class="font-mono text-slate-500">' + it.packId + '</span>';
+            return '<li class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
+              '<div class="min-w-0">' +
+                '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' pcs ' + dim + '</div>' +
+                '<div class="text-[11px] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + it.grade + ' • ' + source + '</div>' +
+              '</div>' +
+              '<div class="text-right font-mono text-[11px] text-slate-600 shrink-0">' + (parseFloat(it.bf)||0).toFixed(1) + ' BF</div>' +
+            '</li>';
+          }).join('');
+
+          var tot = parseFloat(po.totalAmount) || 0;
+          var sub = po.subtotal !== undefined ? po.subtotal : (tot / 1.13);
           var hst = po.hstAmount !== undefined ? po.hstAmount : (sub * 0.13);
-          var tot = po.totalAmount;
+          var bf = parseFloat(po.totalBF) || 0;
 
-          return '<tr class="border-b border-slate-200 hover:bg-slate-50">' +
-            '<td class="py-2.5 px-3 font-mono font-bold text-sky-800">' + po.id + '</td>' +
-            '<td class="py-2.5 px-3">' +
-              '<strong>' + po.customer + '</strong>' +
-              '<div class="text-[11px] text-slate-500">Ordered: ' + (po.orderDate || po.date || '—') + '</div>' +
-              '<div class="text-[11px] font-bold text-amber-800 font-mono">DUE: ' + (po.dueDate || '—') + '</div>' +
-            '</td>' +
-            '<td class="py-2.5 px-3 max-w-[200px] truncate text-xs text-slate-700">' + itemsSummary + '</td>' +
-            '<td class="py-2.5 px-3 font-mono font-bold">' + po.totalBF.toFixed(1) + ' BF</td>' +
-            '<td class="py-2.5 px-3 font-mono">' +
-              '<div class="text-slate-600 text-[11px]">Sub: $' + sub.toFixed(2) + '</div>' +
-              '<div class="text-amber-800 text-[11px]">HST: $' + hst.toFixed(2) + '</div>' +
-              '<div class="font-bold text-emerald-700 text-xs">Total: $' + tot.toFixed(2) + '</div>' +
-            '</td>' +
-            '<td class="py-2.5 px-3">' +
-              '<span class="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
-                (isOpen ? 'Open Order' : 'Completed') +
+          return '<div class="bg-white rounded-2xl border ' + (isOpen ? 'border-amber-300 border-l-4 border-l-amber-500' : 'border-slate-200 border-l-4 border-l-emerald-500') + ' shadow-sm p-3 flex flex-col gap-2 min-w-0">' +
+            '<div class="flex items-start justify-between gap-2">' +
+              '<div class="min-w-0">' +
+                '<div class="text-base font-black text-slate-900 break-words leading-tight">' + po.customer + '</div>' +
+                '<div class="font-mono text-xs font-bold text-sky-800">' + po.id + '</div>' +
+              '</div>' +
+              '<span class="shrink-0 px-2 py-0.5 rounded text-[11px] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
+                (isOpen ? 'Open' : 'Completed') +
               '</span>' +
-            '</td>' +
-            '<td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">' +
-              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="px-2.5 py-1 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs transition">🖨️</button>' +
-              (isOpen ? 
-                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">✓ Done</button>'
+            '</div>' +
+
+            '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">' +
+              '<span class="font-bold text-amber-800 font-mono">DUE ' + (po.dueDate || '—') + '</span>' +
+              '<span class="text-slate-500">Ordered ' + (po.orderDate || po.date || '—') + '</span>' +
+            '</div>' +
+
+            (po.notes ? '<div class="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 break-words">' + po.notes + '</div>' : '') +
+
+            '<ul class="text-xs bg-slate-50/60 border border-slate-200 rounded-lg px-2">' + itemsHtml + '</ul>' +
+
+            '<div class="flex items-end justify-between gap-2 text-xs">' +
+              '<div class="font-mono">' +
+                '<div class="font-bold text-slate-800">' + (po.totalPieces || 0) + ' pcs • ' + bf.toFixed(1) + ' BF</div>' +
+                '<div class="text-slate-500 text-[11px]">Sub $' + sub.toFixed(2) + ' + HST $' + hst.toFixed(2) + '</div>' +
+              '</div>' +
+              '<div class="text-right font-mono font-black text-emerald-700 text-base">$' + tot.toFixed(2) + '</div>' +
+            '</div>' +
+
+            '<div class="grid ' + (isOpen ? 'grid-cols-3' : 'grid-cols-2') + ' gap-1.5 pt-1 border-t border-slate-100">' +
+              '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🖨️ Print</button>' +
+              (isOpen ?
+                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95">✓ Done</button>'
               : '') +
-              '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="px-2.5 py-1 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs transition font-bold" title="Delete PO & Restore Stock">🗑️</button>' +
-            '</td>' +
-          '</tr>';
+              '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs font-bold transition active:scale-95" title="Delete PO & Restore Stock">🗑️ Delete</button>' +
+            '</div>' +
+          '</div>';
         }).join('');
       }
 
-      document.getElementById('poListModal').style.display = 'flex';
+      document.getElementById('poListModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
     };
 
     window.closePoListModal = function() {
       document.getElementById('poListModal').style.display = 'none';
+      document.body.style.overflow = '';
     };
 
     window.completePurchaseOrder = function(poId) {
