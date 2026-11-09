@@ -2781,7 +2781,9 @@
         empty.classList.remove('hidden');
       } else {
         empty.classList.add('hidden');
-        list.innerHTML = purchaseOrders.map(function(po) {
+        var sortedPos = purchaseOrders.filter(function(po){ return po.status === "OPEN"; })
+          .concat(purchaseOrders.filter(function(po){ return po.status !== "OPEN"; }));
+        list.innerHTML = sortedPos.map(function(po) {
           var isOpen = po.status === "OPEN";
           var items = po.items || [];
 
