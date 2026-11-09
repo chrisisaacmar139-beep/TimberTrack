@@ -433,7 +433,7 @@
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
           <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">
             <span>2. Width</span>
-            <span id="rwNotice" class="text-[0.6875rem] font-mono text-amber-700 hidden">(RW: Estimating @ 6" avg)</span>
+            <span id="rwNotice" class="text-[0.6875rem] font-mono text-amber-700 hidden">(RW: enter board feet below)</span>
           </div>
           <input type="number" id="drawerWidth" step="0.125" oninput="setDrawerWidth(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="6" />
           <div class="grid grid-cols-6 gap-1" id="widthBtnGroup">
@@ -450,7 +450,7 @@
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
           <div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase">
             <span>3. Length</span>
-            <span id="rlNotice" class="text-[0.6875rem] font-mono text-amber-700 hidden">(RL: Estimating @ 10' avg)</span>
+            <span id="rlNotice" class="text-[0.6875rem] font-mono text-amber-700 hidden">(RL: enter board feet below)</span>
           </div>
           <input type="number" id="drawerLength" step="0.5" oninput="setDrawerLength(this.value)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" value="12" />
           <div class="grid grid-cols-7 gap-1" id="lenBtnGroup">
@@ -467,8 +467,9 @@
         <!-- Pieces & Notes -->
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-bold text-amber-800 uppercase mb-1">4. Pieces Count</label>
+            <label id="drawerPiecesLabel" class="block text-xs font-bold text-amber-800 uppercase mb-1">4. Pieces Count</label>
             <input type="number" id="drawerPieces" oninput="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" placeholder="Number of pieces..." />
+            <p id="drawerBfOnlyNote" class="hidden text-[0.6875rem] text-slate-500 mt-1">Random width or length: this pack is tracked by board feet, not pieces.</p>
           </div>
           <div>
             <label class="block text-xs font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
@@ -1153,6 +1154,19 @@
       return (t * effW * effL * p) / 12;
     }
 
+    // Packs with RW or RL are tracked by board feet only (no piece count).
+    // For those packs the "pieces" field holds whole board feet.
+    function isBfOnly(item) {
+      return !!(item && item.bfOnly);
+    }
+    function qtyUnit(item) {
+      return isBfOnly(item) ? 'BF' : 'pcs';
+    }
+    function getPackBF(item, qty) {
+      if (isBfOnly(item)) return parseFloat(qty) || 0;
+      return calculateBF(item.thickness, item.width, item.length, qty);
+    }
+
     function getMatrixRates(dryingMethod, grade, width) {
       var partKey = (dryingMethod === "Air Dried") ? "AD" : "KD";
       var g = (grade === "Select") ? "Clear" : (grade || "1&2 Common");
@@ -1382,11 +1396,13 @@
           var heldPieces = parseInt(item.pendingPieces) || 0;
           var leftPieces = Math.max(0, totalPieces - heldPieces);
 
-          var bf = calculateBF(item.thickness, item.width, item.length, totalPieces);
-          var availableBF = calculateBF(item.thickness, item.width, item.length, leftPieces);
+          var bf = getPackBF(item, totalPieces);
+          var availableBF = getPackBF(item, leftPieces);
+          var unit = qtyUnit(item);
+          var priceUnit = isBfOnly(item) ? '/BF' : '/pc';
 
           var rateInfo = getMatrixRates(item.dryingMethod, item.grade, item.width);
-          var singlePieceBF = calculateBF(item.thickness, item.width, item.length, 1);
+          var singlePieceBF = getPackBF(item, 1);
           var roughPcPrice = singlePieceBF * rateInfo.rough;
           var milledPcPrice = singlePieceBF * rateInfo.milled;
 
@@ -1427,18 +1443,18 @@
               '</div>' +
               (isPartial ? 
                 '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-sm max-w-[13rem]">' +
-                  '<span>⚠️ Partial pull: <strong>' + totalPieces + ' pcs left</strong>. Update bundle tag!</span>' +
+                  '<span>⚠️ Partial pull: <strong>' + totalPieces + ' ' + unit + ' left</strong>. Update bundle tag!</span>' +
                   '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[0.6875rem] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
                 '</div>'
               : '') +
             '</td>' +
 
             '<td class="py-2.5 px-2 sm:px-3 align-top">' +
-              '<div class="flex items-center space-x-1.5">' +
-                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" inputmode="numeric" class="w-12 bg-white border border-slate-300 rounded-lg px-1 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
-                '<span class="hidden sm:inline text-xs text-slate-500 font-mono">pcs</span>' +
+              '<div class="' + (isBfOnly(item) ? 'flex flex-col items-start' : 'flex items-center space-x-1.5') + '">' +
+                '<input type="number" value="' + totalPieces + '" onchange="updatePieces(\'' + item.id + '\', this.value)" inputmode="numeric" class="' + (isBfOnly(item) ? 'w-14' : 'w-12') + ' bg-white border border-slate-300 rounded-lg px-1 py-1 text-center font-mono font-bold text-slate-900 text-xs shadow-sm focus:border-amber-500 focus:outline-none" />' +
+                (isBfOnly(item) ? '<span class="text-[0.6875rem] text-amber-700 font-mono font-bold mt-0.5">BF</span>' : '<span class="hidden sm:inline text-xs text-slate-500 font-mono">pcs</span>') +
               '</div>' +
-              (isPending ? '<div class="text-[0.6875rem] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' pcs available</div>' : '') +
+              (isPending ? '<div class="text-[0.6875rem] text-emerald-700 font-mono font-bold mt-1">' + leftPieces + ' ' + unit + ' available</div>' : '') +
             '</td>' +
 
             '<td class="py-2.5 px-2 sm:px-3 align-top text-xs text-slate-700 max-w-[240px] break-words">' +
@@ -1447,18 +1463,18 @@
 
             '<td class="py-2.5 px-2 sm:px-3 align-top font-mono font-bold text-slate-800 text-sm">' +
               '<div>' + bf.toFixed(1) + ' <span class="text-xs text-slate-500 font-normal">BF</span>' + 
-              ((item.width === 0 || item.length === 0) ? ' <span class="text-[0.625rem] text-amber-600 font-normal">(est)</span>' : '') + '</div>' +
+              ((!isBfOnly(item) && (item.width === 0 || item.length === 0)) ? ' <span class="text-[0.625rem] text-amber-600 font-normal">(est)</span>' : '') + '</div>' +
               (isPending ? '<div class="text-[0.6875rem] text-rose-600 font-normal">' + availableBF.toFixed(1) + ' BF avail</div>' : '') +
             '</td>' +
 
             '<td class="py-2.5 px-2 sm:px-3 align-top font-mono whitespace-nowrap">' +
               '<div class="text-xs font-bold ' + (isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
                 '<span class="text-[0.625rem] font-sans font-semibold text-slate-500 uppercase mr-1">Rgh:</span>' +
-                '$' + roughPcPrice.toFixed(2) + '/pc <span class="text-[0.6875rem] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
+                '$' + roughPcPrice.toFixed(2) + priceUnit + ' <span class="text-[0.6875rem] font-normal text-slate-400">(@$' + rateInfo.rough.toFixed(2) + ')</span>' +
               '</div>' +
               '<div class="text-xs font-bold mt-0.5 ' + (!isRough ? 'text-amber-800' : 'text-slate-500') + '">' +
                 '<span class="text-[0.625rem] font-sans font-semibold text-slate-500 uppercase mr-1">Mld:</span>' +
-                '$' + milledPcPrice.toFixed(2) + '/pc <span class="text-[0.6875rem] font-normal text-slate-400">(@$' + rateInfo.milled.toFixed(2) + ')</span>' +
+                '$' + milledPcPrice.toFixed(2) + priceUnit + ' <span class="text-[0.6875rem] font-normal text-slate-400">(@$' + rateInfo.milled.toFixed(2) + ')</span>' +
               '</div>' +
             '</td>' +
 
@@ -1473,15 +1489,15 @@
                     '<input type="text" value="' + (item.customer || '') + '" oninput="updateCustomer(\'' + item.id + '\', this.value)" placeholder="Customer name..." class="w-full bg-white border border-rose-300 rounded px-2 py-1 text-xs text-slate-900 focus:outline-none focus:border-rose-500" />' +
                   '</div>' +
                   '<div>' +
-                    '<label class="block text-[0.625rem] uppercase font-bold text-rose-800 tracking-wider">Pieces On Hold:</label>' +
+                    '<label class="block text-[0.625rem] uppercase font-bold text-rose-800 tracking-wider">' + (isBfOnly(item) ? 'BF On Hold:' : 'Pieces On Hold:') + '</label>' +
                     '<div class="flex items-center space-x-1">' +
                       '<input type="number" value="' + heldPieces + '" onchange="updatePendingPieces(\'' + item.id + '\', this.value)" class="w-18 bg-white border border-rose-300 rounded px-2 py-0.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-rose-500" />' +
-                      '<span class="text-xs text-slate-500">pcs</span>' +
+                      '<span class="text-xs text-slate-500">' + unit + '</span>' +
                     '</div>' +
                   '</div>' +
                   '<div class="text-xs font-mono pt-1 border-t border-rose-200 flex justify-between">' +
                     '<span class="text-slate-600">Left for Sale:</span>' +
-                    '<span class="font-bold text-emerald-700">' + leftPieces + ' pcs</span>' +
+                    '<span class="font-bold text-emerald-700">' + leftPieces + ' ' + unit + '</span>' +
                   '</div>' +
                 '</div>'
               : '') +
@@ -1536,9 +1552,11 @@
         var h = parseInt(item.pendingPieces) || 0;
         var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - h) : p;
 
-        totalBF += calculateBF(item.thickness, item.width, item.length, avail);
-        totalPieces += avail;
-        if (item.status === 'PENDING_SALE') pendingCount += h;
+        totalBF += getPackBF(item, avail);
+        if (!isBfOnly(item)) {
+          totalPieces += avail;
+          if (item.status === 'PENDING_SALE') pendingCount += h;
+        }
         packCount++;
       });
 
@@ -1761,14 +1779,17 @@
         if (rlNotice) rlNotice.classList.add('hidden');
       }
 
-      var bf = calculateBF(t, w, l, p);
+      var bfOnlyEntry = (w === 0 || l === 0);
+      var pcsInputEl = document.getElementById('drawerPieces');
+      document.getElementById('drawerPiecesLabel').innerText = bfOnlyEntry ? "4. Pack Board Feet" : "4. Pieces Count";
+      pcsInputEl.placeholder = bfOnlyEntry ? "Board feet in this pack..." : "Number of pieces...";
+      document.getElementById('drawerBfOnlyNote').classList.toggle('hidden', !bfOnlyEntry);
+
+      var bf = bfOnlyEntry ? ((pInput === "" || isNaN(parseInt(pInput))) ? 0 : parseInt(pInput)) : calculateBF(t, w, l, p);
       var rateInfo = getMatrixRates(dm, g, w);
       var rate = s === 'Rough' ? rateInfo.rough : rateInfo.milled;
 
       var noteText = "";
-      if (w === 0 && l === 0) noteText = " (est. 6\"×10')";
-      else if (w === 0) noteText = " (est. 6\" width)";
-      else if (l === 0) noteText = " (est. 10' len)";
 
       document.getElementById('drawerLiveBF').innerText = bf.toFixed(1) + " BF" + noteText;
       document.getElementById('drawerLiveRate').innerText = g ? ("$" + rate.toFixed(2) + " / BF") : "$0.00 / BF";
@@ -1789,8 +1810,9 @@
       }
 
       var p = parseInt(document.getElementById('drawerPieces').value);
+      var drawerBfOnly = (parseFloat(document.getElementById('drawerWidth').value) === 0 || parseFloat(document.getElementById('drawerLength').value) === 0);
       if (isNaN(p) || p <= 0) { 
-        alert("Enter piece count before printing tag."); 
+        alert(drawerBfOnly ? "Enter the pack's board feet before printing tag." : "Enter piece count before printing tag."); 
         return; 
       }
       var editId = document.getElementById('drawerEditId').value.trim();
@@ -1827,11 +1849,12 @@
         width: parseFloat(document.getElementById('drawerWidth').value) || 0,
         length: parseFloat(document.getElementById('drawerLength').value) || 0,
         pieces: p,
+        bfOnly: drawerBfOnly,
         location: document.getElementById('drawerLocation').value.trim() || "Shop",
         moisture: mStr
       };
 
-      var bf = calculateBF(tempItem.thickness, tempItem.width, tempItem.length, tempItem.pieces);
+      var bf = getPackBF(tempItem, tempItem.pieces);
 
       var tagHtml = '<div class="space-y-4">' +
         '<div class="flex justify-between items-start border-b-4 border-black pb-2">' +
@@ -1846,8 +1869,8 @@
         '</div>' +
         '<div class="tag-dim-heading font-black font-mono my-2">' + tempItem.thickness + '" × ' + (tempItem.width===0?'RW':tempItem.width+'"') + ' × ' + (tempItem.length===0?'RL':tempItem.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
-          '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + tempItem.pieces + ' PCS</div></div>' +
-          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((tempItem.width===0||tempItem.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+          (isBfOnly(tempItem) ? '<div><div class="text-xs uppercase font-bold text-gray-600">Pieces</div><div class="text-3xl font-black font-mono">—</div></div>' : '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + tempItem.pieces + ' PCS</div></div>') +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((!isBfOnly(tempItem) && (tempItem.width===0||tempItem.length===0))?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
         '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
       '</div>';
@@ -1875,7 +1898,8 @@
       }
 
       var p = parseInt(document.getElementById('drawerPieces').value);
-      if (isNaN(p) || p <= 0) { alert("Enter a valid piece count"); return; }
+      var saveBfOnly = (parseFloat(document.getElementById('drawerWidth').value) === 0 || parseFloat(document.getElementById('drawerLength').value) === 0);
+      if (isNaN(p) || p <= 0) { alert(saveBfOnly ? "Enter the pack's board feet (whole number)." : "Enter a valid piece count"); return; }
 
       var selectedStage = document.getElementById('drawerStageSelect').value;
       var otherDetail = document.getElementById('drawerStageOtherDetail').value.trim();
@@ -1918,7 +1942,8 @@
         width: parseFloat(document.getElementById('drawerWidth').value) || 0,
         length: parseFloat(document.getElementById('drawerLength').value) || 0,
         pieces: p,
-        originalPieces: existing ? (existing.originalPieces || p) : p,
+        bfOnly: saveBfOnly,
+        originalPieces: (existing && !!existing.bfOnly === saveBfOnly) ? (existing.originalPieces || p) : p,
         location: document.getElementById('drawerLocation').value.trim() || "Shop",
         notes: document.getElementById('drawerNotes').value.trim(),
         moisture: moistureVal,
@@ -2043,7 +2068,12 @@
       document.getElementById('drawerLength').value = item.length;
       updateDimensionButtonHighlights(item.thickness, item.width, item.length);
 
-      document.getElementById('drawerPieces').value = item.pieces;
+      if ((item.width === 0 || item.length === 0) && !isBfOnly(item)) {
+        // Older random width/length pack saved by pieces: start from its estimated board feet
+        document.getElementById('drawerPieces').value = Math.round(calculateBF(item.thickness, item.width, item.length, item.pieces));
+      } else {
+        document.getElementById('drawerPieces').value = item.pieces;
+      }
       document.getElementById('drawerLocation').value = item.location || "Shop";
       document.getElementById('drawerNotes').value = item.notes || "";
       
@@ -2075,7 +2105,7 @@
     window.previewTag = function(id) {
       var item = inventory.find(function(i){ return i.id === id; });
       if (!item) return;
-      var bf = calculateBF(item.thickness, item.width, item.length, item.pieces);
+      var bf = getPackBF(item, item.pieces);
       var displayStage = getDisplayStage(item);
       var isAirDried = (item.dryingMethod === "Air Dried");
       var moistureDisplay = isAirDried ? "" : (item.moisture ? (String(item.moisture).includes('%') ? item.moisture : item.moisture + '%') : '10-15%');
@@ -2094,8 +2124,8 @@
         '</div>' +
         '<div class="tag-dim-heading font-black font-mono my-2">' + item.thickness + '" × ' + (item.width===0?'RW':item.width+'"') + ' × ' + (item.length===0?'RL':item.length+"'") + '</div>' +
         '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
-          '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>' +
-          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((item.width===0||item.length===0)?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
+          (isBfOnly(item) ? '<div><div class="text-xs uppercase font-bold text-gray-600">Pieces</div><div class="text-3xl font-black font-mono">—</div></div>' : '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>') +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((!isBfOnly(item) && (item.width===0||item.length===0))?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
         '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
       '</div>';
@@ -2175,6 +2205,7 @@
           row.querySelector('.po-cust-len').value = it.length;
         } else {
           select.value = it.packId;
+          if (it.bfOnly) row.querySelector('.po-qty-label').innerText = 'BF Needed:';
         }
         var profileSelect = row.querySelector('.po-target-profile-select');
         profileSelect.value = it.targetProfile || "Rough";
@@ -2182,6 +2213,10 @@
           profileSelect.value = "Other";
           row.querySelector('.po-target-other-input').value = it.targetProfile;
           row.querySelector('.po-target-other-wrapper').classList.remove('hidden');
+        }
+        if (!it.isUnlinked) {
+          var gKey = getGradeKey(it.priceGrade || it.grade);
+          if (gKey !== 'OTHER') setPoPackFilter(row.id, 'grade', gKey);
         }
         row.querySelector('.po-pcs-input').value = it.pieces;
         row.querySelector('.po-rate-input').value = it.rate;
@@ -2242,11 +2277,54 @@
         var displayStage = getDisplayStage(item);
         var coBadge = item.company === "Crosshill Sawmill" ? "[Crosshill] " : "[CIM] ";
         var dryingPill = item.dryingMethod === "Air Dried" ? "[AD] " : "[KD] ";
-        return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' pcs avail]</option>';
+        return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' ' + qtyUnit(item) + ' avail]</option>';
       }).join('');
       buildPoPackOptions.lastCount = count;
       return html;
     }
+
+    var PO_GRADE_NAMES = { COMMON: "1&2 Common", CLEAR: "Clear", MILLRUN: "Millrun", BARN: "Barn Board", LOW: "Low Grade", STAIN: "Stain" };
+
+    // Sets a PO line's $/BF from its grade, drying, width and target profile.
+    // Rough target = rough price; any other profile = milled price.
+    // Stock packs are priced by the Grade button picked above the pack list.
+    window.updatePoRowRate = function(rowId) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      var rateInput = row.querySelector('.po-rate-input');
+      var note = row.querySelector('.po-rate-note');
+      var warning = row.querySelector('.po-grade-warning');
+      var packId = row.querySelector('.po-pack-select').value;
+      var isMilled = row.querySelector('.po-target-profile-select').value !== 'Rough';
+      var priceKind = isMilled ? 'Milled' : 'Rough';
+      warning.classList.add('hidden');
+
+      if (packId === "CUSTOM_UNLINKED") {
+        var cGrade = row.querySelector('.po-cust-grade').value;
+        var cRates = getMatrixRates(row.querySelector('.po-cust-drying').value, cGrade, row.querySelector('.po-cust-width').value);
+        rateInput.value = isMilled ? cRates.milled : cRates.rough;
+        note.innerText = priceKind + ' price • ' + cGrade;
+      } else {
+        var pack = poStock().find(function(i){ return i.id === packId; });
+        if (!pack) {
+          rateInput.value = "";
+          note.innerText = "";
+        } else {
+          var gKey = row.dataset.fGrade || 'ALL';
+          if (gKey === 'ALL') {
+            rateInput.value = "";
+            note.innerText = "";
+            warning.classList.remove('hidden');
+          } else {
+            var gName = PO_GRADE_NAMES[gKey];
+            var pRates = getMatrixRates(pack.dryingMethod, gName, pack.width);
+            rateInput.value = isMilled ? pRates.milled : pRates.rough;
+            note.innerText = priceKind + ' price • ' + gName + ' • ' + (pack.dryingMethod === 'Air Dried' ? 'AD' : 'KD');
+          }
+        }
+      }
+      recalcPoLiveSummary();
+    };
 
     window.setPoPackFilter = function(rowId, kind, val) {
       var row = document.getElementById(rowId);
@@ -2256,6 +2334,7 @@
         btn.className = btn.getAttribute('data-val') === val ? 'py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow' : 'py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200';
       });
       filterPoPackOptions(rowId);
+      if (kind === 'grade') updatePoRowRate(rowId);
     };
 
     window.filterPoPackOptions = function(rowId) {
@@ -2308,6 +2387,7 @@
               '<div class="po-filter-grade grid grid-cols-7 [&>button]:text-[0.6875rem] gap-0.5">' +
                 '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="COMMON" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'COMMON\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">1&2</button><button type="button" data-val="CLEAR" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'CLEAR\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Clear</button><button type="button" data-val="MILLRUN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'MILLRUN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Mill</button><button type="button" data-val="BARN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'BARN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn</button><button type="button" data-val="LOW" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'LOW\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low</button><button type="button" data-val="STAIN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'STAIN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>' +
               '</div>' +
+            '<div class="po-grade-warning hidden mb-1.5 px-2 py-1.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold">⚠️ Pick a Grade above so the price can be set.</div>' +
             '</div>' +
             '<div class="po-filter-count text-[0.6875rem] font-bold text-amber-700 mb-1"></div>' +
             '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
@@ -2327,14 +2407,14 @@
           '<div class="grid grid-cols-3 gap-2">' +
             '<div>' +
               '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Drying</label>' +
-              '<select class="po-cust-drying w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
+              '<select class="po-cust-drying w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="updatePoRowRate(\'' + rowId + '\')">' +
                 '<option value="Kiln Dried">Kiln Dried</option>' +
                 '<option value="Air Dried">Air Dried</option>' +
               '</select>' +
             '</div>' +
             '<div>' +
               '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Grade</label>' +
-              '<select class="po-cust-grade w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="recalcPoLiveSummary()">' +
+              '<select class="po-cust-grade w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="updatePoRowRate(\'' + rowId + '\')">' +
                 '<option value="1&2 Common">1&2 Common</option>' +
                 '<option value="Clear">Clear / Select</option>' +
                 '<option value="Millrun">Millrun</option>' +
@@ -2355,7 +2435,7 @@
             '</div>' +
             '<div>' +
               '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Width (")</label>' +
-              '<input type="number" step="0.125" class="po-cust-width w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="6" oninput="recalcPoLiveSummary()" />' +
+              '<input type="number" step="0.125" class="po-cust-width w-full bg-white border border-slate-300 rounded p-1 text-xs font-mono font-bold" value="6" oninput="updatePoRowRate(\'' + rowId + '\')" />' +
             '</div>' +
             '<div>' +
               '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Length (\')</label>' +
@@ -2384,12 +2464,13 @@
 
         '<div class="grid grid-cols-3 gap-2">' +
           '<div>' +
-            '<label class="block text-[0.6875rem] uppercase font-bold text-slate-500">Pcs Needed:</label>' +
+            '<label class="po-qty-label block text-[0.6875rem] uppercase font-bold text-slate-500">Pcs Needed:</label>' +
             '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
           '</div>' +
           '<div>' +
             '<label class="block text-[0.6875rem] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
             '<input type="number" step="0.05" class="po-rate-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
+            '<div class="po-rate-note text-[0.625rem] font-bold text-sky-700 mt-0.5"></div>' +
           '</div>' +
           '<div>' +
             '<label class="block text-[0.6875rem] uppercase font-bold text-slate-500">Line BF / Total:</label>' +
@@ -2416,7 +2497,7 @@
       } else {
         otherWrapper.classList.add('hidden');
       }
-      recalcPoLiveSummary();
+      updatePoRowRate(rowId);
     };
 
     window.handlePoPackSelectChange = function(rowId) {
@@ -2430,25 +2511,18 @@
       var packId = select.value;
       if (packId === "CUSTOM_UNLINKED") {
         customFields.classList.remove('hidden');
+        row.querySelector('.po-qty-label').innerText = 'Pcs Needed:';
         if (!pcsInput.value) pcsInput.value = "100";
-        var custDrying = row.querySelector('.po-cust-drying').value;
-        var custGrade = row.querySelector('.po-cust-grade').value;
-        var custW = row.querySelector('.po-cust-width').value;
-        var rateInfo = getMatrixRates(custDrying, custGrade, custW);
-        rateInput.value = rateInfo.milled;
       } else {
         customFields.classList.add('hidden');
         var pack = poStock().find(function(i){ return i.id === packId; });
-        if (pack) {
-          pcsInput.value = pack.pieces;
-          var rateInfo = getMatrixRates(pack.dryingMethod, pack.grade, pack.width);
-          rateInput.value = (pack.stage === 'Rough') ? rateInfo.rough : rateInfo.milled;
-        } else {
-          pcsInput.value = "";
-          rateInput.value = "";
+        pcsInput.value = pack ? pack.pieces : "";
+        row.querySelector('.po-qty-label').innerText = isBfOnly(pack) ? 'BF Needed:' : 'Pcs Needed:';
+        if (pack && (row.dataset.fGrade || 'ALL') === 'ALL') {
+          alert("Pick a Grade for this line (1&2, Clear, Millrun, Barn, Low or Stain) so the price can be set.");
         }
       }
-      recalcPoLiveSummary();
+      updatePoRowRate(rowId);
     };
 
     window.recalcPoLiveSummary = function() {
@@ -2477,9 +2551,9 @@
         } else {
           var pack = poStock().find(function(i){ return i.id === packId; });
           if (pack && pcs > 0) {
-            var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcs);
+            var lineBF = getPackBF(pack, pcs);
             var lineCost = lineBF * rate;
-            grandPieces += pcs;
+            if (!isBfOnly(pack)) grandPieces += pcs;
             grandBF += lineBF;
             grandSubtotal += lineCost;
             preview.innerText = lineBF.toFixed(1) + " BF • $" + lineCost.toFixed(2);
@@ -2529,16 +2603,22 @@
         var vId = rows[v].querySelector('.po-pack-select').value;
         var vPcs = parseInt(rows[v].querySelector('.po-pcs-input').value) || 0;
         if (!vId || vPcs <= 0) {
-          alert("All rows must have a selected pack or custom specification and a positive piece count.");
+          alert("All rows must have a selected pack or custom specification and a positive piece count (or board feet).");
           return;
         }
-        if (vId !== "CUSTOM_UNLINKED") wantedByPack[vId] = (wantedByPack[vId] || 0) + vPcs;
+        if (vId !== "CUSTOM_UNLINKED") {
+          if ((rows[v].dataset.fGrade || 'ALL') === 'ALL') {
+            alert("Line " + (v + 1) + ": pick a Grade (1&2, Clear, Millrun, Barn, Low or Stain) so the price is right.");
+            return;
+          }
+          wantedByPack[vId] = (wantedByPack[vId] || 0) + vPcs;
+        }
       }
       for (var wId in wantedByPack) {
         var wPack = poStock().find(function(i){ return i.id === wId; });
         if (!wPack) { alert("Pack " + wId + " is no longer in stock."); return; }
         if (wantedByPack[wId] > (parseInt(wPack.pieces) || 0)) {
-          alert("Error: Pack " + wId + " only has " + wPack.pieces + " pcs available.");
+          alert("Error: Pack " + wId + " only has " + wPack.pieces + " " + qtyUnit(wPack) + " available.");
           return;
         }
       }
@@ -2561,7 +2641,7 @@
         var rate = parseFloat(r.querySelector('.po-rate-input').value) || 0;
 
         if (!packId || pcsNeeded <= 0) {
-          alert("All rows must have a selected pack or custom specification and a positive piece count.");
+          alert("All rows must have a selected pack or custom specification and a positive piece count (or board feet).");
           return;
         }
 
@@ -2599,16 +2679,17 @@
           if (!pack) continue;
 
           if (pcsNeeded > pack.pieces) {
-            alert("Error: Pack " + pack.id + " only has " + pack.pieces + " pcs available.");
+            alert("Error: Pack " + pack.id + " only has " + pack.pieces + " " + qtyUnit(pack) + " available.");
             return;
           }
 
-          var lineBF = calculateBF(pack.thickness, pack.width, pack.length, pcsNeeded);
+          var lineBF = getPackBF(pack, pcsNeeded);
           var lineCost = lineBF * rate;
           var packSnapshot = JSON.parse(JSON.stringify(pack));
 
           lineItems.push({
             packId: pack.id,
+            priceGrade: PO_GRADE_NAMES[r.dataset.fGrade] || pack.grade,
             species: pack.species,
             grade: pack.grade,
             dryingMethod: pack.dryingMethod || "Kiln Dried",
@@ -2618,6 +2699,7 @@
             width: pack.width,
             length: pack.length,
             pieces: pcsNeeded,
+            bfOnly: isBfOnly(pack),
             rate: rate,
             bf: lineBF,
             total: lineCost,
@@ -2630,7 +2712,7 @@
           } else {
             pack.pieces = pack.pieces - pcsNeeded;
             pack.partialTaken = true;
-            partialBundlesCreated.push(pack.id + " (" + pack.pieces + " pcs remaining)");
+            partialBundlesCreated.push(pack.id + " (" + pack.pieces + " " + qtyUnit(pack) + " remaining)");
             syncCloudItem(pack);
           }
         }
@@ -2655,7 +2737,7 @@
         notes: notes,
         status: isEdit ? (oldPo.status || "OPEN") : "OPEN",
         items: lineItems,
-        totalPieces: lineItems.reduce(function(acc, item){ return acc + item.pieces; }, 0),
+        totalPieces: lineItems.reduce(function(acc, item){ return acc + (isBfOnly(item) ? 0 : item.pieces); }, 0),
         totalBF: lineItems.reduce(function(acc, item){ return acc + item.bf; }, 0),
         subtotal: subtotal,
         hstAmount: hstAmount,
@@ -2702,7 +2784,7 @@
         
         lineItems.forEach(function(it, idx){
           var tagLabel = it.isUnlinked ? "CUSTOM ORDER" : it.packId;
-          emailBodyText += (idx+1) + ". [" + tagLabel + "] - " + it.pieces + " pcs " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
+          emailBodyText += (idx+1) + ". [" + tagLabel + "] - " + it.pieces + " " + qtyUnit(it) + " " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
         });
 
         window.location.href = "mailto:chris@cimmfg.ca?subject=" + emailSubject + "&body=" + emailBodyText;
@@ -2733,7 +2815,9 @@
         empty.classList.remove('hidden');
       } else {
         empty.classList.add('hidden');
-        list.innerHTML = purchaseOrders.map(function(po) {
+        var sortedPos = purchaseOrders.filter(function(po){ return po.status === "OPEN"; })
+          .concat(purchaseOrders.filter(function(po){ return po.status !== "OPEN"; }));
+        list.innerHTML = sortedPos.map(function(po) {
           var isOpen = po.status === "OPEN";
           var items = po.items || [];
 
@@ -2742,7 +2826,7 @@
             var source = it.isUnlinked ? '<span class="text-sky-700 font-bold">Custom</span>' : '<span class="font-mono text-slate-500">' + it.packId + '</span>';
             return '<li class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
               '<div class="min-w-0">' +
-                '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' pcs ' + dim + '</div>' +
+                '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' ' + qtyUnit(it) + ' ' + dim + '</div>' +
                 '<div class="text-[0.6875rem] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + it.grade + ' • ' + source + '</div>' +
               '</div>' +
               '<div class="text-right font-mono text-[0.6875rem] text-slate-600 shrink-0">' + (parseFloat(it.bf)||0).toFixed(1) + ' BF</div>' +
@@ -2878,7 +2962,7 @@
           '<td style="padding: 10px 8px;">' + it.species + ' (' + (it.grade || 'Unspecified') + ')</td>' +
           '<td style="padding: 10px 8px; font-weight: bold; font-size: 13px; color: #0f172a;">' + targetProf + '</td>' +
           '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
-          '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + it.pieces + '</td>' +
+          '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + (isBfOnly(it) ? '—' : it.pieces) + '</td>' +
           '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + it.bf.toFixed(1) + '</td>' +
         '</tr>';
       }).join('');
