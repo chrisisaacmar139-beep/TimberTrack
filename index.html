@@ -588,6 +588,12 @@
         <button type="button" onclick="closePoListModal()" class="shrink-0 text-slate-600 hover:text-slate-900 font-bold text-base px-3 h-9 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 active:scale-95">✕ <span class="text-xs">Close</span></button>
       </div>
 
+      <div class="bg-white border-b border-slate-200 px-3 sm:px-5 py-2 shrink-0">
+        <div class="max-w-7xl mx-auto relative">
+          <input type="search" id="poSearchInput" oninput="openPoListModal()" placeholder="🔍 Search by profile (Shiplap, D4S…)" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-3 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white" />
+        </div>
+      </div>
+
       <div class="flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-5">
         <div id="poListCards" class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3"></div>
         <div id="emptyPoListState" class="hidden p-8 text-center text-slate-500 text-sm">No purchase orders found.</div>
@@ -2810,13 +2816,33 @@
       var summary = document.getElementById('poListSummaryLine');
       if (summary) summary.innerText = openCount + " open • " + purchaseOrders.length + " total • 13% HST included";
 
-      if (purchaseOrders.length === 0) {
+      // Search by milling profile
+      var searchEl = document.getElementById('poSearchInput');
+      var query = searchEl ? searchEl.value.trim().toLowerCase() : "";
+      var shownPos = purchaseOrders.filter(function(po) {
+        if (!query) return true;
+        return (po.items || []).some(function(it) {
+          return ((it.targetProfile || it.sourceStage || "") + "").toLowerCase().indexOf(query) !== -1;
+        });
+      });
+
+      // Open POs first; within each group, closest due date first (no due date goes last)
+      function byDueDate(a, b) {
+        var da = a.dueDate || "", db = b.dueDate || "";
+        if (da === db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return da < db ? -1 : 1;
+      }
+
+      if (shownPos.length === 0) {
         list.innerHTML = "";
+        empty.innerText = query ? 'No purchase orders with a "' + searchEl.value.trim() + '" profile.' : "No purchase orders found.";
         empty.classList.remove('hidden');
       } else {
         empty.classList.add('hidden');
-        var sortedPos = purchaseOrders.filter(function(po){ return po.status === "OPEN"; })
-          .concat(purchaseOrders.filter(function(po){ return po.status !== "OPEN"; }));
+        var sortedPos = shownPos.filter(function(po){ return po.status === "OPEN"; }).sort(byDueDate)
+          .concat(shownPos.filter(function(po){ return po.status !== "OPEN"; }).sort(byDueDate));
         list.innerHTML = sortedPos.map(function(po) {
           var isOpen = po.status === "OPEN";
           var items = po.items || [];
@@ -2883,6 +2909,8 @@
     };
 
     window.closePoListModal = function() {
+      var searchEl = document.getElementById('poSearchInput');
+      if (searchEl) searchEl.value = "";
       document.getElementById('poListModal').style.display = 'none';
       document.body.style.overflow = '';
     };
