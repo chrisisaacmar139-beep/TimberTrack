@@ -531,6 +531,10 @@
             <label class="block text-xs font-bold text-slate-600 uppercase mb-1">PO / Order #</label>
             <input type="text" id="poOrderNumber" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800" />
           </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Customer Phone</label>
+            <input type="tel" id="poCustomerPhone" inputmode="tel" autocomplete="off" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-sky-500" placeholder="e.g. 519-555-0123" />
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -2479,6 +2483,7 @@
       setPoDrawerMode(true);
 
       document.getElementById('poCustomerName').value = po.customer || "";
+      document.getElementById('poCustomerPhone').value = po.phone || "";
       document.getElementById('poOrderNumber').value = po.id;
       document.getElementById('poOrderDate').value = po.orderDate || po.date || "";
       document.getElementById('poDueDate').value = po.dueDate || "";
@@ -2532,6 +2537,7 @@
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
       document.getElementById('poCustomerName').value = "";
+      document.getElementById('poCustomerPhone').value = "";
       document.getElementById('poOrderNumber').value = "PO-" + Math.floor(10000 + Math.random() * 90000);
       document.getElementById('poOrderDate').value = today;
       document.getElementById('poDueDate').value = nextWeek;
@@ -2872,6 +2878,7 @@
     window.handleCreatePurchaseOrder = function(e) {
       e.preventDefault();
       var cust = document.getElementById('poCustomerName').value.trim();
+      var phone = document.getElementById('poCustomerPhone').value.trim();
       var poNum = document.getElementById('poOrderNumber').value.trim() || ("PO-" + Date.now());
       var orderDate = document.getElementById('poOrderDate').value || new Date().toISOString().split('T')[0];
       var dueDate = document.getElementById('poDueDate').value;
@@ -3028,6 +3035,7 @@
       var poOrder = {
         id: poNum,
         customer: cust,
+        phone: phone,
         orderDate: orderDate,
         dueDate: dueDate,
         notes: notes,
@@ -3068,6 +3076,7 @@
         var emailBodyText = "NEW PURCHASE ORDER ALERT%0D%0A%0D%0A" +
           "PO Number: " + poNum + "%0D%0A" +
           "Customer: " + cust + "%0D%0A" +
+          (phone ? "Phone: " + encodeURIComponent(phone) + "%0D%0A" : "") +
           "Order Date: " + orderDate + "%0D%0A" +
           "Due Date: " + dueDate + "%0D%0A" +
           "Total Pieces: " + poOrder.totalPieces + " pcs%0D%0A" +
@@ -3158,6 +3167,7 @@
             '<div class="flex items-start justify-between gap-2">' +
               '<div class="min-w-0">' +
                 '<div class="text-base font-black text-slate-900 break-words leading-tight">' + po.customer + '</div>' +
+                (po.phone ? '<a href="tel:' + po.phone.replace(/[^0-9+]/g, '') + '" class="inline-block text-sm font-bold text-sky-700 underline underline-offset-2 font-mono">📞 ' + po.phone + '</a>' : '') +
                 '<div class="font-mono text-xs font-bold text-sky-800">' + po.id + '</div>' +
               '</div>' +
               '<span class="shrink-0 px-2 py-0.5 rounded text-[0.6875rem] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
@@ -3302,6 +3312,7 @@
           '<div>' +
             '<span style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block;">Customer / Job:</span>' +
             '<strong style="font-size: 16px; color: #0f172a;">' + po.customer + '</strong>' +
+            (po.phone ? '<div style="font-size: 13px; color: #334155; font-family: monospace; margin-top: 2px;">Phone: ' + po.phone + '</div>' : '') +
           '</div>' +
           '<div>' +
             '<span style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block;">Status:</span>' +
