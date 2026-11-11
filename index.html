@@ -136,6 +136,11 @@
           <span class="bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded-md text-[0.625rem] font-black" id="openPoBadge">0</span>
         </button>
 
+        <button type="button" onclick="openGallery()" title="Profile Gallery" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
+          <span>🖼️</span>
+          <span class="hidden lg:inline">Gallery</span>
+        </button>
+
         <button type="button" onclick="openSettingsModal()" title="Yard Settings" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 text-xs font-bold whitespace-nowrap flex items-center gap-1 active:scale-95">
           <span>⚙️</span>
           <span class="hidden lg:inline">Settings</span>
@@ -597,6 +602,62 @@
       <div class="flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-5">
         <div id="poListCards" class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3"></div>
         <div id="emptyPoListState" class="hidden p-8 text-center text-slate-500 text-sm">No purchase orders found.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE GALLERY (FULL SCREEN) -->
+  <div id="galleryModal" style="display:none; position:fixed; inset:0; z-index:9998; background-color:#f1f5f9;">
+    <div class="w-full h-full flex flex-col">
+      <div class="bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex items-center justify-between gap-2 shadow-sm shrink-0">
+        <div class="flex items-center space-x-2 min-w-0">
+          <span class="text-lg">🖼️</span>
+          <div class="min-w-0">
+            <h4 class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">Profile Gallery</h4>
+            <span class="text-[0.6875rem] text-slate-500 font-semibold uppercase" id="gallerySummaryLine">Loading photos...</span>
+          </div>
+        </div>
+        <button type="button" onclick="closeGallery()" class="shrink-0 text-slate-600 hover:text-slate-900 font-bold text-base px-3 h-9 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 active:scale-95">✕ <span class="text-xs">Close</span></button>
+      </div>
+
+      <div class="bg-white border-b border-slate-200 shrink-0">
+        <div id="galleryTabs" class="flex gap-1 overflow-x-auto px-3 sm:px-5 pt-2 [scrollbar-width:none]"></div>
+      </div>
+
+      <div class="bg-white border-b border-slate-200 px-3 sm:px-5 py-2 shrink-0">
+        <div class="max-w-7xl mx-auto flex items-center gap-2">
+          <input type="text" id="galleryCaption" maxlength="80" placeholder="Caption (optional), e.g. 1x8 pine KD" class="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500" />
+          <label class="shrink-0 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl text-sm shadow-sm cursor-pointer active:scale-95">
+            + Photo
+            <input type="file" id="galleryFileInput" accept="image/*" multiple class="hidden" onchange="handleGalleryFiles(this.files)" />
+          </label>
+        </div>
+        <div id="galleryUploadStatus" class="max-w-7xl mx-auto text-xs font-bold text-sky-700 mt-1 hidden"></div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-5">
+        <div id="galleryGrid" class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3"></div>
+        <div id="galleryEmpty" class="hidden p-10 text-center text-slate-500 text-sm">No photos yet. Tap <b>+ Photo</b> to add one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALLERY PHOTO VIEWER -->
+  <div id="galleryViewer" style="display:none; position:fixed; inset:0; z-index:9999; background-color:#020617;" onclick="if(event.target===this) closeGalleryViewer()">
+    <div class="w-full h-full flex flex-col">
+      <div class="flex items-center justify-between gap-2 px-3 py-2.5 shrink-0">
+        <div class="min-w-0 text-white">
+          <div id="galleryViewerProfile" class="text-sm font-black uppercase tracking-wider truncate"></div>
+          <div id="galleryViewerCaption" class="text-xs text-slate-300 truncate"></div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="shareGalleryPhoto()" class="px-3 h-9 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold active:scale-95">📤 Share</button>
+          <button type="button" onclick="deleteGalleryPhoto()" class="px-3 h-9 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold active:scale-95">🗑️ Delete</button>
+          <button type="button" onclick="closeGalleryViewer()" class="px-3 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold active:scale-95">✕</button>
+        </div>
+      </div>
+      <div class="flex-1 min-h-0 flex items-center justify-center p-2" onclick="if(event.target===this) closeGalleryViewer()">
+        <img id="galleryViewerImg" class="max-w-full max-h-full object-contain rounded-lg" alt="" />
       </div>
     </div>
   </div>
@@ -2142,6 +2203,235 @@
     };
     window.closeTagModal = function() {
       document.getElementById('tagPreviewModal').style.display = 'none';
+    };
+
+
+    /* PROFILE GALLERY */
+    // Photos are stored in Firestore ('profile_photos'), shrunk on the device first
+    // so each one stays well under Firestore's 1 MB document limit.
+    var galleryPhotos = [];
+    var galleryActiveProfile = null;
+    var galleryUnsub = null;
+    var galleryViewingId = null;
+    var galleryLoaded = false;
+
+    function getGalleryProfiles() {
+      var sel = document.getElementById('subStageSelector');
+      var list = [];
+      if (sel) {
+        for (var i = 0; i < sel.options.length; i++) {
+          var v = sel.options[i].value;
+          if (v === 'ALL_STAGES') continue;
+          list.push({ value: v, label: v === 'OTHER' ? 'Other' : (v === 'Rough' ? 'Rough' : v) });
+        }
+      }
+      return list;
+    }
+
+    function escapeHtml(str) {
+      return (str || "").replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    window.openGallery = function() {
+      var profiles = getGalleryProfiles();
+      if (!galleryActiveProfile) {
+        var firstMilled = profiles.find(function(p){ return p.value !== 'Rough'; });
+        galleryActiveProfile = (firstMilled || profiles[0]).value;
+      }
+      document.getElementById('galleryModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      renderGallery();
+
+      if (db && !galleryUnsub) {
+        galleryUnsub = db.collection('profile_photos').onSnapshot(function(snap) {
+          galleryPhotos = [];
+          snap.forEach(function(doc) { galleryPhotos.push(doc.data()); });
+          galleryLoaded = true;
+          renderGallery();
+        }, function() {
+          galleryLoaded = true;
+          renderGallery();
+        });
+      } else if (!db) {
+        galleryLoaded = true;
+        renderGallery();
+      }
+    };
+
+    window.closeGallery = function() {
+      document.getElementById('galleryModal').style.display = 'none';
+      document.body.style.overflow = '';
+      if (galleryUnsub) { galleryUnsub(); galleryUnsub = null; }
+    };
+
+    window.setGalleryTab = function(value) {
+      galleryActiveProfile = value;
+      renderGallery();
+    };
+
+    function renderGallery() {
+      var profiles = getGalleryProfiles();
+      var counts = {};
+      galleryPhotos.forEach(function(ph) { counts[ph.profile] = (counts[ph.profile] || 0) + 1; });
+
+      document.getElementById('galleryTabs').innerHTML = profiles.map(function(p) {
+        var active = p.value === galleryActiveProfile;
+        var n = counts[p.value] || 0;
+        return '<button type="button" onclick="setGalleryTab(\'' + p.value.replace(/'/g, "\\'") + '\')" class="shrink-0 px-3 py-2 text-sm font-bold rounded-t-lg border-b-4 whitespace-nowrap ' +
+          (active ? 'border-amber-500 text-amber-800 bg-amber-50' : 'border-transparent text-slate-600 hover:text-slate-900') + '">' +
+          escapeHtml(p.label) + (n ? ' <span class="ml-0.5 text-[0.6875rem] font-black ' + (active ? 'text-amber-700' : 'text-slate-400') + '">' + n + '</span>' : '') +
+          '</button>';
+      }).join('');
+
+      var activeBtn = document.querySelector('#galleryTabs .border-amber-500');
+      if (activeBtn && activeBtn.scrollIntoView) activeBtn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+      var summary = document.getElementById('gallerySummaryLine');
+      if (!db) summary.innerText = 'Offline: photos cannot be saved';
+      else summary.innerText = galleryLoaded ? galleryPhotos.length + ' photo' + (galleryPhotos.length === 1 ? '' : 's') + ' • ' + profiles.length + ' profiles' : 'Loading photos...';
+
+      var shown = galleryPhotos.filter(function(ph){ return ph.profile === galleryActiveProfile; })
+        .sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
+      var grid = document.getElementById('galleryGrid');
+      var empty = document.getElementById('galleryEmpty');
+      if (shown.length === 0) {
+        grid.innerHTML = "";
+        empty.classList.toggle('hidden', !galleryLoaded);
+      } else {
+        empty.classList.add('hidden');
+        grid.innerHTML = shown.map(function(ph) {
+          return '<button type="button" onclick="openGalleryViewer(\'' + ph.id + '\')" class="group text-left bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden active:scale-[0.98] transition">' +
+            '<div class="aspect-square bg-slate-100 overflow-hidden"><img src="' + ph.image + '" loading="lazy" class="w-full h-full object-cover" alt="" /></div>' +
+            (ph.caption ? '<div class="px-2 py-1.5 text-xs font-semibold text-slate-700 truncate">' + escapeHtml(ph.caption) + '</div>' : '') +
+          '</button>';
+        }).join('');
+      }
+    }
+
+    // Shrink a photo to at most 1600px on its long side as a JPEG, under ~700 KB.
+    function shrinkImageFile(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onerror = function() { reject(new Error('read')); };
+        reader.onload = function() {
+          var img = new Image();
+          img.onerror = function() { reject(new Error('decode')); };
+          img.onload = function() {
+            var maxSide = 1600;
+            for (var attempt = 0; attempt < 6; attempt++) {
+              var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+              var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+              var canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              var quality = 0.8;
+              var data = canvas.toDataURL('image/jpeg', quality);
+              while (data.length > 700000 && quality > 0.45) {
+                quality -= 0.1;
+                data = canvas.toDataURL('image/jpeg', quality);
+              }
+              if (data.length <= 700000) { resolve(data); return; }
+              maxSide = Math.round(maxSide * 0.75);
+            }
+            reject(new Error('too big'));
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    window.handleGalleryFiles = function(files) {
+      var input = document.getElementById('galleryFileInput');
+      if (!files || files.length === 0) return;
+      if (!db) {
+        alert("The app is not connected to the cloud right now, so photos can't be saved. Check the Sync light and try again.");
+        input.value = "";
+        return;
+      }
+      var status = document.getElementById('galleryUploadStatus');
+      var captionEl = document.getElementById('galleryCaption');
+      var caption = captionEl.value.trim();
+      var profile = galleryActiveProfile;
+      var list = Array.prototype.slice.call(files);
+      var done = 0, failed = 0;
+      status.classList.remove('hidden');
+      status.innerText = 'Saving ' + list.length + ' photo' + (list.length === 1 ? '' : 's') + '...';
+
+      list.reduce(function(chain, file, idx) {
+        return chain.then(function() {
+          return shrinkImageFile(file).then(function(dataUrl) {
+            var id = 'PH-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+            var photo = { id: id, profile: profile, caption: caption, image: dataUrl, createdAt: Date.now() + idx };
+            return db.collection('profile_photos').doc(id).set(photo).then(function() { done++; });
+          }).catch(function() { failed++; }).then(function() {
+            status.innerText = 'Saved ' + done + ' of ' + list.length + (failed ? ' (' + failed + ' failed)' : '') + '...';
+          });
+        });
+      }, Promise.resolve()).then(function() {
+        status.innerText = failed ? (done + ' saved, ' + failed + ' could not be saved.') : (done === 1 ? 'Photo saved.' : done + ' photos saved.');
+        if (!failed) captionEl.value = "";
+        setTimeout(function(){ status.classList.add('hidden'); }, 3000);
+      });
+      input.value = "";
+    };
+
+    window.openGalleryViewer = function(id) {
+      var ph = galleryPhotos.find(function(p){ return p.id === id; });
+      if (!ph) return;
+      galleryViewingId = id;
+      document.getElementById('galleryViewerImg').src = ph.image;
+      var prof = getGalleryProfiles().find(function(p){ return p.value === ph.profile; });
+      document.getElementById('galleryViewerProfile').innerText = prof ? prof.label : ph.profile;
+      document.getElementById('galleryViewerCaption').innerText = ph.caption || "";
+      document.getElementById('galleryViewer').style.display = 'block';
+    };
+
+    window.closeGalleryViewer = function() {
+      document.getElementById('galleryViewer').style.display = 'none';
+      document.getElementById('galleryViewerImg').src = "";
+      galleryViewingId = null;
+    };
+
+    // Share the open photo through the phone/tablet share menu (text, email, WhatsApp, etc.).
+    // Where sharing files isn't supported, the photo is downloaded instead.
+    window.shareGalleryPhoto = function() {
+      var ph = galleryPhotos.find(function(p){ return p.id === galleryViewingId; });
+      if (!ph) return;
+      var prof = getGalleryProfiles().find(function(p){ return p.value === ph.profile; });
+      var title = (prof ? prof.label : ph.profile) + (ph.caption ? ' - ' + ph.caption : '');
+      var fileName = (title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'profile') + '.jpg';
+
+      var parts = ph.image.split(',');
+      var bin = atob(parts[1]);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var file = new File([bytes], fileName, { type: 'image/jpeg' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: title, text: title + ' - C.I.M. MFG INC' }).catch(function(){});
+      } else {
+        var url = URL.createObjectURL(file);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      }
+    };
+
+    window.deleteGalleryPhoto = function() {
+      if (!galleryViewingId) return;
+      if (!confirm("Delete this photo? This can't be undone.")) return;
+      var id = galleryViewingId;
+      closeGalleryViewer();
+      galleryPhotos = galleryPhotos.filter(function(p){ return p.id !== id; });
+      renderGallery();
+      if (db) db.collection('profile_photos').doc(id).delete().catch(function(){ alert("Couldn't delete the photo from the cloud. Try again."); });
     };
 
     /* PO CREATION SYSTEM */
