@@ -107,7 +107,9 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         overflow: hidden;
       }
-      .ship-label:nth-child(2n) { page-break-after: always; break-after: page; }
+      /* One label per sheet */
+      .ship-label { margin-bottom: 0; page-break-after: always; break-after: page; }
+      .ship-label:last-child { page-break-after: auto; break-after: auto; }
 
       #printableTagContainer {
         position: static;
