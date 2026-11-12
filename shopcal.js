@@ -764,7 +764,7 @@
       var minutes = Math.round(parseFloat(res.form.minutes));
       var entry = {
         id: newId('E'), poId: po.id, customer: po.customer || '', profile: profile, dueDate: po.dueDate || '',
-        lines: group.lines.map(function (l) { return { desc: lineDesc(l.line), lf: Math.round(l.est.lf || 0), bf: Math.round(l.est.bf || 0), mpm: l.est.mpm ? +l.est.mpm.toFixed(2) : null }; }),
+        lines: group.lines.map(function (l) { return { desc: lineDesc(l.line), packId: l.line.isUnlinked ? 'CUSTOM' : (l.line.packId || ''), lf: Math.round(l.est.lf || 0), bf: Math.round(l.est.bf || 0), mpm: l.est.mpm ? +l.est.mpm.toFixed(2) : null }; }),
         lf: Math.round(group.lf), bf: Math.round(group.bf), minutes: minutes, estMinutes: group.total, addedAt: Date.now()
       };
       var draft = clone(runs);
@@ -888,7 +888,7 @@
   global.ShopCal = {
     init: init, onChange: function (fn) { listeners.push(fn); }, setPoLookup: setPoLookup,
     getSettings: function () { return settings; }, getRuns: function () { return runs; }, isReady: function () { return ready.settings && ready.runs; },
-    saveSettings: saveSettings, saveRuns: saveRuns, deleteRun: deleteRun, schedulePo: schedulePo, entriesForPo: entriesForPo, removePoEntries: removePoEntries,
+    saveSettings: saveSettings, saveRuns: saveRuns, deleteRun: deleteRun, schedulePo: schedulePo, lineDesc: lineDesc, entriesForPo: entriesForPo, removePoEntries: removePoEntries,
     confirmAndSave: confirmAndSave, rippleFrom: rippleFrom, overlapIds: overlapIds, lateEntries: lateEntries,
     runStart: runStart, runEnd: runEnd, runMinutes: runMinutes, blockEnd: blockEnd, blockMinutes: blockMinutes, blockingRuns: blockingRuns, isBlocking: isBlocking, entryDone: entryDone, runDone: runDone, statusFor: statusFor, sortRuns: sortRuns, firstOpenSlot: firstOpenSlot,
     daySegments: daySegments, workMinutesPerDay: workMinutesPerDay, addWorkMinutes: addWorkMinutes, nextWorkMoment: nextWorkMoment,

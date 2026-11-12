@@ -135,6 +135,7 @@
     var esc = S.esc;
     var db = null;
     var purchaseOrders = [];
+    var inventory = [];
     var weekStart = mondayOf(new Date());
     var openRunId = null;
     var PX_PER_MIN = 1.15;
@@ -161,6 +162,13 @@
         setSync(true);
         render();
       }, function () { setSync(false); });
+      // Stock packs, so each run shows where the packs to use are
+      db.collection('yard_inventory').onSnapshot(function (snap) {
+        var list = [];
+        snap.forEach(function (doc) { list.push(doc.data()); });
+        inventory = list;
+        if (document.getElementById('panel').style.display === 'block') renderPanel();
+      }, function () {});
     } catch (e) { setSync(false); }
     S.onChange(function () { render(); if (document.getElementById('panel').style.display === 'block') renderPanel(); });
 
@@ -331,7 +339,7 @@
             (po ? (po.status !== 'OPEN' ? '<div class="text-[0.6875rem] font-bold text-emerald-700">✓ Completed — its time is free for other work</div>' : '<div class="text-[0.6875rem] font-bold text-amber-700">Open</div>') : (purchaseOrders.length ? '<div class="text-[0.6875rem] font-bold text-rose-700">PO no longer in TimberTrack</div>' : '')) +
           '</div>' +
           '<button type="button" onclick="removeEntry(\'' + e.id + '\')" class="shrink-0 text-xs font-bold text-rose-600 px-2 py-1 rounded-lg border border-slate-200 bg-white">Remove</button></div>' +
-          (e.lines || []).map(function (l) { return '<div class="text-xs text-slate-600">• ' + esc(l.desc) + (l.mpm ? ' <span class="text-slate-400">@ ' + l.mpm + ' m/min</span>' : '') + '</div>'; }).join('') +
+          (e.lines || []).map(function (l) { return lineWithPack(l, po); }).join('') +
           '<div class="flex items-center justify-between gap-2 text-xs">' +
             '<span class="text-slate-500">' + (e.lf || 0).toLocaleString() + ' LF • ' + (e.bf || 0).toLocaleString() + ' BF' + (due ? ' • <b class="' + (late ? 'text-rose-700' : 'text-amber-800') + '">Due ' + S.fmtDay(due) + (late ? ' (late!)' : '') + '</b>' : '') + '</span>' +
             '<label class="flex items-center gap-1 shrink-0"><input type="number" step="5" min="0" value="' + Math.round(e.minutes) + '" data-min="' + e.id + '" class="w-16 bg-slate-50 border border-slate-300 rounded-lg px-1.5 py-1 text-xs font-mono font-bold text-right" /> min</label>' +
@@ -350,6 +358,25 @@
         '<div class="text-xs font-bold text-slate-600 uppercase pt-1">Orders in this run</div>' +
         (entries || '<div class="text-xs text-slate-400">No orders yet. Saving a PO in TimberTrack, or 📋 To Schedule, can add them here.</div>') +
         '<button type="button" onclick="closePanel(); openTodo();" class="w-full py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs">📋 Add an order from To Schedule</button>';
+    }
+
+    // Which pack each line comes from. Older bookings didn't save it, so match the line on the PO.
+    function packForLine(l, po) {
+      if (l.packId) return l.packId;
+      if (!po) return '';
+      var it = (po.items || []).find(function (x) { return S.lineDesc(x) === l.desc; });
+      return it ? (it.isUnlinked ? 'CUSTOM' : (it.packId || '')) : '';
+    }
+    function lineWithPack(l, po) {
+      var pk = packForLine(l, po);
+      var pack = pk && pk !== 'CUSTOM' ? inventory.find(function (i) { return i.id === pk; }) : null;
+      var tag = !pk ? '' : (pk === 'CUSTOM' ?
+        '<span class="px-1.5 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 font-bold">Custom stock</span>' :
+        '<span class="px-1.5 py-0.5 rounded bg-amber-100 border border-amber-400 text-amber-900 font-black font-mono">📦 ' + esc(pk) + '</span>' +
+          (pack ? ' <span class="text-slate-500">' + esc(pack.location || '') + (pack.location ? ' • ' : '') + pack.pieces + (pack.bfOnly ? ' BF' : ' pcs') + ' left after this' + (pack.dryingMethod === 'Air Dried' ? ' • AD' : ' • KD') + '</span>' :
+            ' <span class="text-slate-500">whole pack (all of it went to this order)</span>'));
+      return '<div class="text-xs text-slate-600 py-0.5"><div>• ' + esc(l.desc) + (l.mpm ? ' <span class="text-slate-400">@ ' + l.mpm + ' m/min</span>' : '') + '</div>' +
+        (tag ? '<div class="pl-3 mt-0.5 flex flex-wrap items-center gap-1">' + tag + '</div>' : '') + '</div>';
     }
 
     function readPanelInto(run) {
