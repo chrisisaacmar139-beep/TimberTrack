@@ -1277,8 +1277,12 @@
     }
 
     function syncCloudPo(po) {
+      // Older saves kept lifts as arrays inside an array, which Firestore refuses
+      if (po.shipLifts) po.shipLifts = po.shipLifts.map(function(l){ return Array.isArray(l) ? { qty: l } : l; });
       if (db) {
-        db.collection('yard_pos').doc(po.id).set(po, { merge: true }).catch(function(){});
+        try {
+          db.collection('yard_pos').doc(po.id).set(po, { merge: true }).catch(function(){});
+        } catch (e) { console.warn('Cloud save failed for ' + po.id, e); }
       }
     }
 
@@ -3384,7 +3388,7 @@
       shipPoId = poId;
       var lines = shipLines(po);
       if (po.shipLifts && po.shipLifts.length) {
-        shipLifts = JSON.parse(JSON.stringify(po.shipLifts));
+        shipLifts = po.shipLifts.map(function(l){ return Array.isArray(l) ? l.slice() : (l.qty || []).slice(); });
       } else {
         shipLifts = [lines.map(function(it){ return parseInt(it.pieces) || 0; })];
       }
@@ -3411,9 +3415,10 @@
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       if (!po) return;
       readShipInputs();
-      po.shipLifts = JSON.parse(JSON.stringify(shipLifts));
+      // Firestore can't store an array inside an array, so each lift is { qty: [...] }
+      po.shipLifts = shipLifts.map(function(l){ return { qty: l.slice() }; });
       localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
-      syncCloudPo(po);
+      try { syncCloudPo(po); } catch (e) { console.warn('Could not save lifts to cloud', e); }
     }
 
     window.setLiftCount = function(n) {
