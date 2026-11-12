@@ -295,7 +295,7 @@
           </div>
         </div>
 
-        <button type="button" onclick="openStockLevels()" class="w-full mt-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-black uppercase tracking-wider active:scale-[0.99]">📊 1&amp;2 Common Stock Levels</button>
+        <button type="button" onclick="openStockLevels()" class="w-full mt-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-black uppercase tracking-wider active:scale-[0.99]">📊 1&amp;2 Common Rough Stock Levels</button>
 
       </div>
 
@@ -747,7 +747,7 @@
     <div class="w-full h-full flex flex-col">
       <div class="bg-white border-b border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2 shadow-sm shrink-0">
         <div class="min-w-0">
-          <h4 class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">📊 1&amp;2 Common Stock</h4>
+          <h4 class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">📊 1&amp;2 Common Rough Stock</h4>
           <span id="slSub" class="text-[0.6875rem] text-slate-500 font-semibold uppercase"></span>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
@@ -770,7 +770,7 @@
           <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold" id="slCompanyBtns"></div>
           <div id="slGrid" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
           <div class="flex flex-wrap items-center gap-3 text-[0.6875rem] font-bold text-slate-600 px-1" id="slLegend"></div>
-          <div class="text-[0.6875rem] text-slate-500 px-1">1" thick, 1&amp;2 Common, every profile (rough and milled). Pieces not on hold. Tap a size to see its packs.</div>
+          <div class="text-[0.6875rem] text-slate-500 px-1">1" thick, 1&amp;2 Common, rough packs only. Pieces not on hold. Tap a size to see its packs.</div>
         </div>
       </div>
     </div>
@@ -3464,6 +3464,7 @@
         if ((item.company || "C.I.M. MFG INC") !== slCompany) return;
         if (isBfOnly(item)) return;
         if (getGradeKey(item.grade) !== 'COMMON') return;
+        if ((item.stage || 'Rough') !== 'Rough') return;   // rough packs only
         if (parseFloat(item.thickness) !== 1) return;
         var p = parseInt(item.pieces) || 0;
         var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - (parseInt(item.pendingPieces) || 0)) : p;
@@ -3503,7 +3504,7 @@
     window.showStockSize = function(w, l) {
       closeStockLevels();
       if (slCompany !== activeCompany) switchCompanyView(slCompany);
-      setStageFilter('ALL');
+      setStageFilter('Rough');
       setWidthFilter(String(w));
       setLengthFilter(String(l));
       setGradeFilter('COMMON');
