@@ -66,6 +66,11 @@
       </div>
     </div>
 
+    <div class="flex items-center gap-3 text-[0.6875rem] font-bold text-slate-600 px-1">
+      <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500"></span>Open</span>
+      <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-50 border border-emerald-300 border-l-4 border-l-emerald-500"></span>Completed (time is free)</span>
+    </div>
+
     <div id="warnBar" class="hidden rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-bold px-3 py-2"></div>
 
     <!-- Week grid (tablet / computer) -->
@@ -238,14 +243,14 @@
         closeCluster();
         var blocks = dayRuns.map(function (x) {
           var r = x.r, pc = x.pc, lanes = Math.max(1, x.lanes);
-          var f = runFlags(r, overlaps), c = S.colorFor(r.profile);
+          var f = runFlags(r, overlaps), c = S.statusFor(r);
           var top = (pc.from - ds) * PX_PER_MIN, h = Math.max(22, (pc.to - pc.from) * PX_PER_MIN - 2);
           var n = (r.entries || []).length;
           var leftPct = (x.lane / lanes) * 100, widthPct = 100 / lanes;
           return '<button type="button" onclick="openRun(\'' + r.id + '\')" class="run-block absolute rounded-lg border-l-4 border ' + c.block + (f.overlap ? ' run-overlap' : '') + ' text-left px-1.5 py-1 overflow-hidden active:scale-[0.99]" style="top:' + top + 'px;height:' + h + 'px;left:calc(' + leftPct + '% + 3px);width:calc(' + widthPct + '% - 6px)">' +
-            '<div class="text-xs font-black leading-tight truncate">' + (f.late ? '⏰ ' : '') + (pc.first ? '' : '↳ ') + esc(r.profile) + '</div>' +
+            '<div class="text-xs font-black leading-tight truncate">' + (S.runDone(r) ? '✓ ' : '') + (f.late ? '⏰ ' : '') + (pc.first ? '' : '↳ ') + esc(r.profile) + '</div>' +
             (h > 34 ? '<div class="text-[0.625rem] font-mono leading-tight">' + S.fmtTime(S.runStart(r)) + '–' + S.fmtTime(S.runEnd(r)) + (pc.last ? '' : ' →') + '</div>' : '') +
-            (h > 50 ? '<div class="text-[0.625rem] leading-tight truncate">' + n + ' order' + (n === 1 ? '' : 's') + ((r.entries || []).length ? ': ' + (r.entries || []).map(function (e) { return esc(e.customer); }).join(', ') : '') + '</div>' : '') +
+            (h > 50 ? '<div class="text-[0.625rem] leading-tight truncate">' + orderCountText(r) + ((r.entries || []).length ? ': ' + (r.entries || []).map(function (e) { return esc(e.customer); }).join(', ') : '') + '</div>' : '') +
           '</button>';
         }).join('');
         return '<div class="flex-1 min-w-0 border-l border-slate-200">' +
@@ -267,12 +272,12 @@
             '<div class="text-sm font-black ' + (key === todayKey ? 'text-amber-800' : 'text-slate-800') + '">' + S.fmtDay(day) + (key === todayKey ? ' • Today' : '') + '</div>' +
           '</div>' +
           (items.length ? '<div class="p-2 space-y-1.5">' + items.map(function (r) {
-            var pc = runPiecesOnDay(r, day), f = runFlags(r, overlaps), c = S.colorFor(r.profile), n = (r.entries || []).length;
+            var pc = runPiecesOnDay(r, day), f = runFlags(r, overlaps), c = S.statusFor(r), n = (r.entries || []).length;
             var t = function (m) { return S.fmtTime(new Date(2000, 0, 1, Math.floor(m / 60), m % 60)); };
             return '<button type="button" onclick="openRun(\'' + r.id + '\')" class="w-full text-left rounded-xl border-l-4 border px-3 py-2 ' + c.block + (f.overlap ? ' run-overlap' : '') + ' active:scale-[0.99]">' +
-              '<div class="flex items-center justify-between gap-2"><div class="font-black text-sm truncate">' + (f.late ? '⏰ ' : '') + (pc.first ? '' : '↳ ') + esc(r.profile) + '</div>' +
+              '<div class="flex items-center justify-between gap-2"><div class="font-black text-sm truncate">' + (S.runDone(r) ? '✓ ' : '') + (f.late ? '⏰ ' : '') + (pc.first ? '' : '↳ ') + esc(r.profile) + '</div>' +
               '<div class="text-xs font-mono font-bold shrink-0">' + t(pc.from) + '–' + t(pc.to) + '</div></div>' +
-              '<div class="text-xs truncate">' + n + ' order' + (n === 1 ? '' : 's') + (n ? ': ' + (r.entries || []).map(function (e) { return esc(e.customer); }).join(', ') : '') + (pc.last ? '' : ' • continues →') + '</div>' +
+              '<div class="text-xs truncate">' + orderCountText(r) + (n ? ': ' + (r.entries || []).map(function (e) { return esc(e.customer); }).join(', ') : '') + (pc.last ? '' : ' • continues →') + '</div>' +
             '</button>';
           }).join('') + '</div>' : '<div class="px-3 py-3 text-xs text-slate-400">Nothing booked</div>') +
         '</div>';
@@ -281,6 +286,11 @@
       // To-schedule badge
       document.getElementById('todoBadge').innerText = unscheduledPos().length;
       if (document.getElementById('todoPanel').style.display === 'block') renderTodo();
+    }
+
+    function orderCountText(r) {
+      var es = r.entries || [], n = es.length, done = es.filter(S.entryDone).length;
+      return n + ' order' + (n === 1 ? '' : 's') + (done && done < n ? ' (' + done + ' done)' : '');
     }
 
     function shiftWeek(n) { weekStart = addDays(weekStart, 7 * n); render(); }
@@ -294,7 +304,7 @@
     function renderPanel() {
       var r = S.getRuns().find(function (x) { return x.id === openRunId; });
       if (!r) { closePanel(); return; }
-      var c = S.colorFor(r.profile);
+      var c = S.statusFor(r);
       var overlaps = S.overlapIds(S.getRuns());
       document.getElementById('panelHead').innerHTML =
         '<div class="flex items-center gap-2 min-w-0"><span class="w-3 h-8 rounded ' + c.dot + '"></span><div class="min-w-0">' +
@@ -305,11 +315,12 @@
       var entries = (r.entries || []).map(function (e) {
         var po = poById(e.poId);
         var due = S.dueMoment(po ? po.dueDate : e.dueDate);
-        var late = due && S.runEnd(r) > due;
-        return '<div class="rounded-xl border ' + (late ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white') + ' p-2.5 space-y-1" data-entry="' + e.id + '">' +
+        var done = S.entryDone(e);
+        var late = !done && due && S.runEnd(r) > due;
+        return '<div class="rounded-xl border border-l-4 ' + (late ? 'border-rose-300 bg-rose-50 border-l-rose-500' : (done ? 'border-emerald-300 bg-emerald-50 border-l-emerald-500' : 'border-amber-300 bg-white border-l-amber-500')) + ' p-2.5 space-y-1" data-entry="' + e.id + '">' +
           '<div class="flex items-start justify-between gap-2"><div class="min-w-0">' +
             '<div class="font-black truncate">' + esc(e.customer) + ' <span class="font-mono text-xs text-sky-800">' + esc(e.poId) + '</span></div>' +
-            (po ? (po.status !== 'OPEN' ? '<div class="text-[0.6875rem] font-bold text-emerald-700">✓ PO completed</div>' : '') : (purchaseOrders.length ? '<div class="text-[0.6875rem] font-bold text-rose-700">PO no longer in TimberTrack</div>' : '')) +
+            (po ? (po.status !== 'OPEN' ? '<div class="text-[0.6875rem] font-bold text-emerald-700">✓ Completed — its time is free for other work</div>' : '<div class="text-[0.6875rem] font-bold text-amber-700">Open</div>') : (purchaseOrders.length ? '<div class="text-[0.6875rem] font-bold text-rose-700">PO no longer in TimberTrack</div>' : '')) +
           '</div>' +
           '<button type="button" onclick="removeEntry(\'' + e.id + '\')" class="shrink-0 text-xs font-bold text-rose-600 px-2 py-1 rounded-lg border border-slate-200 bg-white">Remove</button></div>' +
           (e.lines || []).map(function (l) { return '<div class="text-xs text-slate-600">• ' + esc(l.desc) + (l.mpm ? ' <span class="text-slate-400">@ ' + l.mpm + ' m/min</span>' : '') + '</div>'; }).join('') +
@@ -349,13 +360,13 @@
       if (!run) return;
       readPanelInto(run);
       var st = S.nextWorkMoment(S.parseLocal(run.start));
-      var prev = S.sortRuns(draft).filter(function (x) { return x.id !== run.id && S.runStart(x) <= st && S.runEnd(x) > st; })[0];
+      var prev = S.blockingRuns(draft).filter(function (x) { return x.id !== run.id && S.runStart(x) <= st && S.blockEnd(x) > st; })[0];
       var go = function () { S.confirmAndSave(draft, run.id, [run.id], null, 'Run saved.').then(function (res) { if (res === 'saved') closePanel(); }); };
       if (prev) {
-        S.ask({ title: 'Starts during another run', body: 'That start time is during the <b>' + esc(prev.profile) + '</b> run (' + S.fmtWhen(S.runStart(prev)) + ' to ' + S.fmtWhen(S.runEnd(prev)) + ').<br>Start this run when that one finishes, at <b>' + S.fmtWhen(S.runEnd(prev)) + '</b>?',
+        S.ask({ title: 'Starts during another run', body: 'That start time is during the <b>' + esc(prev.profile) + '</b> run (' + S.fmtWhen(S.runStart(prev)) + ' to ' + S.fmtWhen(S.blockEnd(prev)) + ').<br>Start this run when that one finishes, at <b>' + S.fmtWhen(S.blockEnd(prev)) + '</b>?',
           buttons: [{ label: 'Yes, start it then', value: 'snap', style: 'primary' }, { label: 'Keep my time (they will overlap)', value: 'keep', style: 'plain' }, { label: 'Cancel', value: 'no', style: 'ghost' }] })
           .then(function (r) {
-            if (r.value === 'snap') { run.start = S.toLocalStr(S.nextWorkMoment(S.runEnd(prev))); go(); }
+            if (r.value === 'snap') { run.start = S.toLocalStr(S.nextWorkMoment(S.blockEnd(prev))); go(); }
             else if (r.value === 'keep') go();
           });
       } else go();

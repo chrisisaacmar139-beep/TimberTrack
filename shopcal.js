@@ -218,14 +218,40 @@
   function sortRuns(list) { return list.slice().sort(function (a, b) { return parseLocal(a.start) - parseLocal(b.start); }); }
   function colorFor(profile) { return COLOR_CLASSES[PROFILE_COLORS[profile] || 'rose']; }
 
+  // A finished order (its PO is completed in TimberTrack) stays on the calendar
+  // but no longer holds its time: new or pushed work may overlap it.
+  function entryDone(e) {
+    var po = poLookup ? poLookup(e.poId) : null;
+    return !!(po && po.status && po.status !== 'OPEN');
+  }
+  function runDone(r) {
+    var es = r.entries || [];
+    return es.length > 0 && es.every(entryDone);
+  }
+  function blockMinutes(r) {
+    if (runDone(r)) return 0;
+    return (parseFloat(r.changeoverMin) || 0) + (r.entries || []).reduce(function (a, e) { return a + (entryDone(e) ? 0 : (parseFloat(e.minutes) || 0)); }, 0);
+  }
+  function isBlocking(r) { return !runDone(r); }
+  function blockEnd(r) { return addWorkMinutes(runStart(r), blockMinutes(r)); }
+  function blockingRuns(list) { return sortRuns(list.filter(isBlocking)); }
+
+  // Same colours as TimberTrack orders: amber = open, green = completed.
+  var STATUS_CLASSES = {
+    open: { block: 'bg-amber-50 border-amber-300 border-l-amber-500 text-amber-950', dot: 'bg-amber-500', label: 'Open' },
+    done: { block: 'bg-emerald-50 border-emerald-300 border-l-emerald-500 text-emerald-950', dot: 'bg-emerald-500', label: 'Completed' }
+  };
+  function statusFor(r) { return runDone(r) ? STATUS_CLASSES.done : STATUS_CLASSES.open; }
+
   // Push later runs back only as far as needed, starting after `fromId`.
   // Returns [{ id, profile, from, to }] for every run that moves. Mutates `list`.
   function rippleFrom(list, fromId) {
-    var sorted = sortRuns(list);
+    // Completed runs never move and never get in the way.
+    var sorted = blockingRuns(list);
     var idx = sorted.findIndex(function (r) { return r.id === fromId; });
     var moves = [];
     if (idx === -1) return moves;
-    var prevEnd = runEnd(sorted[idx]);
+    var prevEnd = blockEnd(sorted[idx]);
     for (var i = idx + 1; i < sorted.length; i++) {
       var r = sorted[i];
       var st = runStart(r);
@@ -233,16 +259,16 @@
       var newStart = nextWorkMoment(prevEnd);
       moves.push({ id: r.id, profile: r.profile, from: st, to: newStart });
       r.start = toLocalStr(newStart);
-      prevEnd = runEnd(r);
+      prevEnd = blockEnd(r);
     }
     return moves;
   }
 
   // Runs that overlap the run before them (for red warnings).
   function overlapIds(list) {
-    var ids = {}, sorted = sortRuns(list);
+    var ids = {}, sorted = blockingRuns(list);
     for (var i = 1; i < sorted.length; i++) {
-      if (runStart(sorted[i]) < runEnd(sorted[i - 1])) { ids[sorted[i].id] = true; ids[sorted[i - 1].id] = true; }
+      if (runStart(sorted[i]) < blockEnd(sorted[i - 1])) { ids[sorted[i].id] = true; ids[sorted[i - 1].id] = true; }
     }
     return ids;
   }
@@ -259,6 +285,7 @@
     list.forEach(function (r) {
       var end = runEnd(r);
       (r.entries || []).forEach(function (e) {
+        if (entryDone(e)) return;
         var po = poLookup ? poLookup(e.poId) : null;
         var due = dueMoment(po ? po.dueDate : e.dueDate);
         if (due && end > due) out.push({ run: r, entry: e, due: due, end: end });
@@ -270,9 +297,9 @@
   // Earliest time from `from` where `minutes` fit between existing runs.
   function firstOpenSlot(list, minutes, from) {
     var t = nextWorkMoment(from || new Date());
-    var sorted = sortRuns(list);
+    var sorted = blockingRuns(list);
     for (var i = 0; i < sorted.length; i++) {
-      var s = runStart(sorted[i]), e = runEnd(sorted[i]);
+      var s = runStart(sorted[i]), e = blockEnd(sorted[i]);
       if (e <= t) continue;
       if (addWorkMinutes(t, minutes) <= s) return t;
       if (e > t) t = nextWorkMoment(e);
@@ -495,7 +522,7 @@
   // Places one group (one profile) of a PO on the calendar.
   function placeGroup(po, profile, group) {
     var now = new Date();
-    var upcoming = sortRuns(runs).filter(function (r) { return r.profile === profile && runEnd(r) > now; });
+    var upcoming = blockingRuns(runs).filter(function (r) { return r.profile === profile && runEnd(r) > now; });
     var due = dueMoment(po.dueDate);
     var suggestAt = firstOpenSlot(runs, group.total + (settings.changeoverMin || 0), now);
 
@@ -553,13 +580,13 @@
       var target;
       if (res.form.target === 'NEW') {
         var st = nextWorkMoment(parseLocal(res.form.newStart));
-        var inside = sortRuns(draft).find(function (r) { return runStart(r) <= st && runEnd(r) > st; });
+        var inside = blockingRuns(draft).find(function (r) { return runStart(r) <= st && blockEnd(r) > st; });
         if (inside) {
-          return ask({ title: 'That time is taken', body: 'The ' + runLabel(inside) + ' is already booked then.<br>Start the new run when it finishes, at <b>' + fmtWhen(runEnd(inside)) + '</b>?',
+          return ask({ title: 'That time is taken', body: 'The ' + runLabel(inside) + ' is already booked then.<br>Start the new run when it finishes, at <b>' + fmtWhen(blockEnd(inside)) + '</b>?',
             buttons: [{ label: 'Yes, start it then', value: 'yes', style: 'primary' }, { label: 'Cancel', value: 'no', style: 'ghost' }] })
             .then(function (r2) {
               if (r2.value !== 'yes') return 'skipped';
-              return commitNew(draft, profile, nextWorkMoment(runEnd(inside)), entry, po);
+              return commitNew(draft, profile, nextWorkMoment(blockEnd(inside)), entry, po);
             });
         }
         return commitNew(draft, profile, st, entry, po);
@@ -579,9 +606,9 @@
   // After a change to run `changedId`: if it now runs into the next run, ask before pushing.
   function confirmAndSave(draft, changedId, touchedIds, po, doneMsg) {
     var changed = draft.find(function (r) { return r.id === changedId; });
-    var sorted = sortRuns(draft);
+    var sorted = blockingRuns(draft);
     var next = sorted[sorted.indexOf(changed) + 1];
-    var overlap = next && runStart(next) < runEnd(changed);
+    var overlap = sorted.indexOf(changed) !== -1 && next && runStart(next) < blockEnd(changed);
 
     var finish = function (list, ids, extraMsg) {
       var late = lateEntries(list.filter(function (r) { return ids.indexOf(r.id) !== -1; }), poLookup);
@@ -601,9 +628,9 @@
 
     var pushed = clone(draft);
     var moves = rippleFrom(pushed, changedId);
-    var over = workMinutesBetween(runStart(next), runEnd(changed));
+    var over = workMinutesBetween(runStart(next), blockEnd(changed));
     var body =
-      '<div>This makes the <b>' + esc(changed.profile) + '</b> run end at <b>' + fmtWhen(runEnd(changed)) + '</b>, which runs ' + fmtDur(over) + ' into the <b>' + esc(next.profile) + '</b> run starting ' + fmtWhen(runStart(next)) + '.</div>' +
+      '<div>This makes the <b>' + esc(changed.profile) + '</b> run end at <b>' + fmtWhen(blockEnd(changed)) + '</b>, which runs ' + fmtDur(over) + ' into the <b>' + esc(next.profile) + '</b> run starting ' + fmtWhen(runStart(next)) + '.</div>' +
       '<div class="text-xs font-bold text-slate-600 uppercase pt-1">If you push, these move:</div>' +
       moves.map(function (m) { return '<div class="text-sm">• <b>' + esc(m.profile) + '</b>: ' + fmtWhen(m.from) + ' → <b>' + fmtWhen(m.to) + '</b></div>'; }).join('');
     return ask({
@@ -678,7 +705,7 @@
     getSettings: function () { return settings; }, getRuns: function () { return runs; }, isReady: function () { return ready.settings && ready.runs; },
     saveSettings: saveSettings, saveRuns: saveRuns, deleteRun: deleteRun, schedulePo: schedulePo, entriesForPo: entriesForPo, removePoEntries: removePoEntries,
     confirmAndSave: confirmAndSave, rippleFrom: rippleFrom, overlapIds: overlapIds, lateEntries: lateEntries,
-    runStart: runStart, runEnd: runEnd, runMinutes: runMinutes, sortRuns: sortRuns, firstOpenSlot: firstOpenSlot,
+    runStart: runStart, runEnd: runEnd, runMinutes: runMinutes, blockEnd: blockEnd, blockMinutes: blockMinutes, blockingRuns: blockingRuns, isBlocking: isBlocking, entryDone: entryDone, runDone: runDone, statusFor: statusFor, sortRuns: sortRuns, firstOpenSlot: firstOpenSlot,
     daySegments: daySegments, workMinutesPerDay: workMinutesPerDay, addWorkMinutes: addWorkMinutes, nextWorkMoment: nextWorkMoment,
     workMinutesBetween: workMinutesBetween, hzToMpm: hzToMpm, speedForWidth: speedForWidth, strapMinutes: strapMinutes,
     feedMinutes: feedMinutes, lineLF: lineLF, isStandardLine: isStandardLine, lineProfile: lineProfile, isMouldedLine: isMouldedLine,
