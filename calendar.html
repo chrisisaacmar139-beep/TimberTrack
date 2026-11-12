@@ -369,11 +369,11 @@
       var prev = S.blockingRuns(draft).filter(function (x) { return x.id !== run.id && S.runStart(x) <= st && S.blockEnd(x) > st; })[0];
       var go = function () { S.confirmAndSave(draft, run.id, [run.id], null, 'Run saved.').then(function (res) { if (res === 'saved') closePanel(); }); };
       if (prev) {
-        S.ask({ title: 'Starts during another run', body: 'That start time is during the <b>' + esc(prev.profile) + '</b> run (' + S.fmtWhen(S.runStart(prev)) + ' to ' + S.fmtWhen(S.blockEnd(prev)) + ').<br>Start this run when that one finishes, at <b>' + S.fmtWhen(S.blockEnd(prev)) + '</b>?',
-          buttons: [{ label: 'Yes, start it then', value: 'snap', style: 'primary' }, { label: 'Keep my time (they will overlap)', value: 'keep', style: 'plain' }, { label: 'Cancel', value: 'no', style: 'ghost' }] })
+        S.ask({ title: 'Starts during another run', body: 'That start time is during the <b>' + esc(prev.profile) + '</b> run (' + S.fmtWhen(S.runStart(prev)) + ' to ' + S.fmtWhen(S.blockEnd(prev)) + ').',
+          buttons: [{ label: 'Pick a different time', value: 'again', style: 'primary' }, { label: 'Keep my time (they will overlap)', value: 'keep', style: 'plain' }, { label: 'Cancel', value: 'no', style: 'ghost' }] })
           .then(function (r) {
-            if (r.value === 'snap') { run.start = S.toLocalStr(S.nextWorkMoment(S.blockEnd(prev))); go(); }
-            else if (r.value === 'keep') go();
+            if (r.value === 'keep') go();
+            else if (r.value === 'again') { var el = document.getElementById('pStart'); if (el) el.focus(); }
           });
       } else go();
     }
@@ -407,13 +407,12 @@
 
     function newRun() {
       var set = S.getSettings();
-      var suggest = S.firstOpenSlot(S.getRuns(), set.changeoverMin || 60, new Date());
       S.ask({
         title: 'New profile run',
         body: '<label class="block text-xs font-bold text-slate-600 uppercase">Profile<select name="profile" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold">' +
             S.STANDARD_PROFILES.map(function (p) { return '<option>' + esc(p) + '</option>'; }).join('') + '<option value="__other">Other / custom…</option></select></label>' +
           '<label class="block text-xs font-bold text-slate-600 uppercase">Custom profile name (if Other)<input name="other" type="text" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold" /></label>' +
-          '<label class="block text-xs font-bold text-slate-600 uppercase">Start<input name="start" type="datetime-local" value="' + S.toLocalStr(suggest) + '" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono font-bold" /></label>' +
+          '<label class="block text-xs font-bold text-slate-600 uppercase">Start<input name="start" type="datetime-local" value="" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono font-bold" /></label>' +
           '<div class="text-xs text-slate-500">Starts with ' + S.fmtDur(set.changeoverMin) + ' of changeover. Orders get added when you save POs.</div>',
         buttons: [{ label: 'Book run', value: 'ok', style: 'amber', validate: function (f) {
           if (!f.querySelector('[name=start]').value) return 'Pick a start.';

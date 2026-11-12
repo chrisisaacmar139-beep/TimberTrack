@@ -520,11 +520,11 @@
   function runLabel(r) { return '<b>' + esc(r.profile) + '</b> run — ' + fmtWhen(runStart(r)) + ' to ' + fmtTime(runEnd(r)) + (dateKey(runStart(r)) !== dateKey(runEnd(r)) ? ' ' + fmtDay(runEnd(r)) : ''); }
 
   // Places one group (one profile) of a PO on the calendar.
-  function placeGroup(po, profile, group) {
+  // Nothing is picked for him: he chooses a run, or types the date himself.
+  function placeGroup(po, profile, group, pre) {
+    pre = pre || {};
     var now = new Date();
     var upcoming = blockingRuns(runs).filter(function (r) { return r.profile === profile && runEnd(r) > now; });
-    var due = dueMoment(po.dueDate);
-    var suggestAt = firstOpenSlot(runs, group.total + (settings.changeoverMin || 0), now);
 
     var body =
       '<div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 space-y-0.5">' +
@@ -537,32 +537,40 @@
         '<div class="rounded-lg border border-slate-200 px-2 py-1.5">Strapping<br><b class="text-sm">' + fmtDur(group.strap) + '</b></div>' +
       '</div>' +
       '<label class="block text-xs font-bold text-slate-600 uppercase">Time to book (minutes) — change it if it looks off' +
-        '<input name="minutes" type="number" step="5" inputmode="numeric" value="' + group.total + '" class="' + INPUT + ' mt-1" /></label>' +
-      '<div class="text-xs font-bold text-slate-600 uppercase pt-1">Where should it go?</div>' +
+        '<input name="minutes" type="number" step="5" inputmode="numeric" value="' + (pre.minutes || group.total) + '" class="' + INPUT + ' mt-1" /></label>' +
+      '<div class="text-xs font-bold text-slate-600 uppercase pt-1">Where should it go? Pick one</div>' +
       '<div class="space-y-2">' +
-        upcoming.slice(0, 5).map(function (r, i) {
-          return '<label class="flex items-start gap-2 rounded-xl border border-slate-200 px-3 py-2 has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50">' +
-            '<input type="radio" name="target" value="' + r.id + '"' + (i === 0 ? ' checked' : '') + ' class="mt-1 w-4 h-4" />' +
-            '<span class="text-sm">' + (i === 0 ? 'Next ' : '') + runLabel(r) + '<br><span class="text-xs text-slate-500">' + (r.entries || []).length + ' order(s) in it</span></span></label>';
-        }).join('') +
+        (upcoming.length ?
+          '<div class="text-xs font-bold text-sky-800">Put it in a ' + esc(profile) + ' run (it goes on the end of that run):</div>' +
+          upcoming.slice(0, 5).map(function (r, i) {
+            return '<label class="flex items-start gap-2 rounded-xl border border-slate-200 px-3 py-2 has-[:checked]:border-sky-500 has-[:checked]:bg-sky-50">' +
+              '<input type="radio" name="target" value="' + r.id + '"' + (pre.target === r.id ? ' checked' : '') + ' class="mt-1 w-4 h-4" />' +
+              '<span class="text-sm">' + (i === 0 ? 'Next ' : '') + runLabel(r) + '<br><span class="text-xs text-slate-500">' + (r.entries || []).length + ' order(s) in it</span></span></label>';
+          }).join('') :
+          '<div class="text-xs text-slate-500">There are no ' + esc(profile) + ' runs coming up.</div>') +
+        '<div class="text-xs font-bold text-amber-800 pt-1">Or pick the date yourself:</div>' +
         '<label class="flex items-start gap-2 rounded-xl border border-slate-200 px-3 py-2 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">' +
-          '<input type="radio" name="target" value="NEW"' + (upcoming.length ? '' : ' checked') + ' class="mt-1 w-4 h-4" />' +
+          '<input type="radio" name="target" value="NEW"' + (pre.target === 'NEW' ? ' checked' : '') + ' class="mt-1 w-4 h-4" />' +
           '<span class="flex-1 text-sm">New <b>' + esc(profile) + '</b> run starting:' +
-          '<input name="newStart" type="datetime-local" value="' + toLocalStr(suggestAt) + '" class="' + INPUT + ' mt-1" />' +
-          '<span class="text-xs text-slate-500">Includes ' + fmtDur(settings.changeoverMin) + ' changeover. Suggested: next open time.</span></span></label>' +
-      '</div>' +
-      (!upcoming.length ? '<div class="text-xs text-slate-500">There are no ' + esc(profile) + ' runs coming up.</div>' : '');
+          '<input name="newStart" type="datetime-local" value="' + esc(pre.newStart || '') + '" class="' + INPUT + ' mt-1" />' +
+          '<span class="text-xs text-slate-500">Includes ' + fmtDur(settings.changeoverMin) + ' changeover.</span></span></label>' +
+      '</div>';
 
     return ask({
       title: 'Put ' + profile + ' on the calendar?',
       subtitle: 'PO ' + esc(po.id),
       body: body,
+      onOpen: function (form) {
+        // Typing a date picks "new run" for him
+        var ns = form.querySelector('[name=newStart]');
+        ns.addEventListener('input', function () { if (ns.value) form.querySelector('[name=target][value=NEW]').checked = true; });
+      },
       buttons: [
         { label: 'Add to calendar', value: 'add', style: 'primary', validate: function (form) {
           var m = parseFloat(form.querySelector('[name=minutes]').value);
           if (!(m > 0)) return 'Enter the time to book.';
           var t = form.querySelector('[name=target]:checked');
-          if (!t) return 'Pick a run or a new run.';
+          if (!t) return 'Pick a run, or pick a date for a new run.';
           if (t.value === 'NEW' && !form.querySelector('[name=newStart]').value) return 'Pick a start date and time.';
           return null;
         } },
@@ -579,14 +587,22 @@
       var draft = clone(runs);
       var target;
       if (res.form.target === 'NEW') {
-        var st = nextWorkMoment(parseLocal(res.form.newStart));
+        var picked = parseLocal(res.form.newStart);
+        var again = function () { return placeGroup(po, profile, group, { minutes: minutes, target: 'NEW', newStart: res.form.newStart }); };
+        var st = nextWorkMoment(picked);
+        var problems = [];
+        if (st.getTime() !== picked.getTime()) problems.push(fmtWhen(picked) + ' is outside shop hours, so work would really start at <b>' + fmtWhen(st) + '</b>.');
         var inside = blockingRuns(draft).find(function (r) { return runStart(r) <= st && blockEnd(r) > st; });
-        if (inside) {
-          return ask({ title: 'That time is taken', body: 'The ' + runLabel(inside) + ' is already booked then.<br>Start the new run when it finishes, at <b>' + fmtWhen(blockEnd(inside)) + '</b>?',
-            buttons: [{ label: 'Yes, start it then', value: 'yes', style: 'primary' }, { label: 'Cancel', value: 'no', style: 'ghost' }] })
+        if (inside) problems.push('The ' + runLabel(inside) + ' is already booked then, so they would overlap.');
+        if (problems.length) {
+          return ask({ title: 'Check that date', body: problems.map(function (t) { return '<div>' + t + '</div>'; }).join(''),
+            buttons: [{ label: 'Pick a different date', value: 'again', style: 'primary' },
+                      { label: 'Keep it anyway', value: 'keep', style: 'plain' },
+                      { label: 'Cancel', value: 'no', style: 'ghost' }] })
             .then(function (r2) {
-              if (r2.value !== 'yes') return 'skipped';
-              return commitNew(draft, profile, nextWorkMoment(blockEnd(inside)), entry, po);
+              if (r2.value === 'again') return again();
+              if (r2.value !== 'keep') return 'skipped';
+              return commitNew(draft, profile, st, entry, po);
             });
         }
         return commitNew(draft, profile, st, entry, po);
