@@ -27,6 +27,7 @@
       { start: '15:00', end: '15:15' }
     ],
     speedHz: { '6': null, '8': null, '10': null, '12': null },
+    extraDays: [],                         // one-off shop days, e.g. a Saturday: 'YYYY-MM-DD'
     calHz: null,                           // a measured VFD setting...
     calMpm: null,                          // ...and the meters/minute it gave
     changeoverMin: 60,
@@ -77,11 +78,55 @@
   function atMinute(day, min) { return new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(min / 60), min % 60, 0, 0); }
   function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
 
-  function isWorkDay(d) { return settings.workDays.indexOf(d.getDay()) !== -1; }
+  function isExtraDay(d) { return (settings.extraDays || []).indexOf(dateKey(d)) !== -1; }
+  // An extra day (e.g. a Saturday) is only working time for the run he booked on it.
+  // `okDay` is that run's start date; other runs flow right past the extra day.
+  function isWorkDay(d, okDay) { return settings.workDays.indexOf(d.getDay()) !== -1 || (!!okDay && okDay === dateKey(d) && isExtraDay(d)); }
+  function okDayOf(d) { return d && isExtraDay(d) ? dateKey(d) : null; }
+
+  // Open the shop on one extra day (same hours and breaks as a normal day).
+  function addExtraDay(d) {
+    var s2 = clone(settings);
+    s2.extraDays = (s2.extraDays || []).filter(function (k) { return k !== dateKey(d); }).concat([dateKey(d)]).sort();
+    return saveSettings(s2);
+  }
+
+  // Checks a start time he typed. Resolves { start } to book, 'again' to re-pick, or 'cancel'.
+  // Never moves his time on its own: every change is his choice.
+  function checkStart(pickedStr, list, excludeId) {
+    var picked = parseLocal(pickedStr);
+    if (!picked) return Promise.resolve('again');
+    var dayCheck = (isWorkDay(picked) || isExtraDay(picked)) ? Promise.resolve('ok') :
+      ask({
+        title: 'Not a shop day',
+        body: '<div><b>' + DOW_LONG[picked.getDay()] + ' ' + fmtDay(picked).slice(4) + '</b> is not one of your shop days.</div>' +
+          '<div class="text-xs text-slate-500">Working it uses your normal hours and breaks (' + fmtTime(atMinute(picked, hm(settings.dayStart))) + '–' + fmtTime(atMinute(picked, hm(settings.dayEnd))) + ') for that one day only.</div>',
+        buttons: [{ label: 'Work that day', value: 'open', style: 'amber' },
+                  { label: 'Pick a different date', value: 'again', style: 'primary' },
+                  { label: 'Cancel', value: 'cancel', style: 'ghost' }]
+      }).then(function (r) {
+        if (r.value !== 'open') return r.value;
+        return addExtraDay(picked).then(function () { return 'ok'; }, function () { return 'ok'; });
+      });
+    return dayCheck.then(function (d) {
+      if (d !== 'ok') return d;
+      var st = nextWorkMoment(picked, okDayOf(picked));
+      var problems = [];
+      if (st.getTime() !== picked.getTime()) problems.push(fmtWhen(picked) + ' is outside shop hours, so work would really start at <b>' + fmtWhen(st) + '</b>.');
+      var inside = blockingRuns(list).find(function (r) { return r.id !== excludeId && runHolds(r, st); });
+      if (inside) problems.push('The ' + runLabel(inside) + ' is already booked then, so they would overlap.');
+      if (!problems.length) return { start: st };
+      return ask({ title: 'Check that date', body: problems.map(function (t) { return '<div>' + t + '</div>'; }).join(''),
+        buttons: [{ label: 'Pick a different date', value: 'again', style: 'primary' },
+                  { label: 'Keep it anyway', value: 'keep', style: 'plain' },
+                  { label: 'Cancel', value: 'cancel', style: 'ghost' }] })
+        .then(function (r) { return r.value === 'keep' ? { start: st } : r.value; });
+    });
+  }
 
   // Working segments of one day, as [startMin, endMin] pairs with breaks cut out.
-  function daySegments(d) {
-    if (!isWorkDay(d)) return [];
+  function daySegments(d, okDay) {
+    if (!isWorkDay(d, okDay)) return [];
     var segs = [[hm(settings.dayStart), hm(settings.dayEnd)]];
     (settings.breaks || []).slice().sort(function (a, b) { return hm(a.start) - hm(b.start); }).forEach(function (br) {
       var bs = hm(br.start), be = hm(br.end), out = [];
@@ -101,11 +146,11 @@
   }
 
   // First moment at or after d that is inside shop hours.
-  function nextWorkMoment(d) {
+  function nextWorkMoment(d, okDay) {
     var day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     var min = minuteOfDay(d);
     for (var i = 0; i < 370; i++) {
-      var segs = daySegments(day);
+      var segs = daySegments(day, okDay);
       for (var j = 0; j < segs.length; j++) {
         if (min < segs[j][1]) return atMinute(day, Math.max(min, segs[j][0]));
       }
@@ -115,14 +160,14 @@
   }
 
   // Walk forward through shop hours. Returns the moment the work ends.
-  function addWorkMinutes(start, minutes) {
-    var cur = nextWorkMoment(start);
+  function addWorkMinutes(start, minutes, okDay) {
+    var cur = nextWorkMoment(start, okDay);
     var left = Math.max(0, Math.round(minutes));
     if (left === 0) return cur;
     var day = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
     var min = minuteOfDay(cur);
     for (var i = 0; i < 2000; i++) {
-      var segs = daySegments(day);
+      var segs = daySegments(day, okDay);
       for (var j = 0; j < segs.length; j++) {
         var s = Math.max(segs[j][0], min), e = segs[j][1];
         if (s >= e) continue;
@@ -135,12 +180,12 @@
   }
 
   // Shop minutes between two moments (0 if b <= a).
-  function workMinutesBetween(a, b) {
+  function workMinutesBetween(a, b, okDay) {
     if (b <= a) return 0;
     var total = 0, day = new Date(a.getFullYear(), a.getMonth(), a.getDate());
     var endDay = new Date(b.getFullYear(), b.getMonth(), b.getDate());
     for (var i = 0; i < 2000 && day <= endDay; i++) {
-      daySegments(day).forEach(function (seg) {
+      daySegments(day, okDay).forEach(function (seg) {
         var s = atMinute(day, seg[0]), e = atMinute(day, seg[1]);
         var lo = s < a ? a : s, hi = e > b ? b : e;
         if (hi > lo) total += (hi - lo) / 60000;
@@ -204,17 +249,19 @@
     return ((h + 11) % 12 + 1) + ':' + pad(m) + (h < 12 ? ' am' : ' pm');
   }
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var DOW_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function fmtDay(d) { return DOW[d.getDay()] + ' ' + MON[d.getMonth()] + ' ' + d.getDate(); }
   function fmtWhen(d) { return fmtDay(d) + ', ' + fmtTime(d); }
 
   /* ---------------- runs ---------------- */
 
-  function runStart(r) { return nextWorkMoment(parseLocal(r.start)); }
+  function runOkDay(r) { return okDayOf(parseLocal(r.start)); }
+  function runStart(r) { return nextWorkMoment(parseLocal(r.start), runOkDay(r)); }
   function runMinutes(r) {
     return (parseFloat(r.changeoverMin) || 0) + (r.entries || []).reduce(function (a, e) { return a + (parseFloat(e.minutes) || 0); }, 0);
   }
-  function runEnd(r) { return addWorkMinutes(runStart(r), runMinutes(r)); }
+  function runEnd(r) { return addWorkMinutes(runStart(r), runMinutes(r), runOkDay(r)); }
   function sortRuns(list) { return list.slice().sort(function (a, b) { return parseLocal(a.start) - parseLocal(b.start); }); }
   function colorFor(profile) { return COLOR_CLASSES[PROFILE_COLORS[profile] || 'rose']; }
 
@@ -233,7 +280,7 @@
     return (parseFloat(r.changeoverMin) || 0) + (r.entries || []).reduce(function (a, e) { return a + (entryDone(e) ? 0 : (parseFloat(e.minutes) || 0)); }, 0);
   }
   function isBlocking(r) { return !runDone(r); }
-  function blockEnd(r) { return addWorkMinutes(runStart(r), blockMinutes(r)); }
+  function blockEnd(r) { return addWorkMinutes(runStart(r), blockMinutes(r), runOkDay(r)); }
   function blockingRuns(list) { return sortRuns(list.filter(isBlocking)); }
 
   // Same colours as TimberTrack orders: amber = open, green = completed.
@@ -243,32 +290,72 @@
   };
   function statusFor(r) { return runDone(r) ? STATUS_CLASSES.done : STATUS_CLASSES.open; }
 
-  // Push later runs back only as far as needed, starting after `fromId`.
+  // The actual working time a run holds, as [startMs, endMs] pieces
+  // (skips nights, weekends and breaks; uses an extra day only if the run is booked on it).
+  function blockIntervals(r) {
+    var okDay = runOkDay(r), left = Math.round(blockMinutes(r)), out = [];
+    var cur = runStart(r);
+    var day = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate()), min = minuteOfDay(cur);
+    for (var i = 0; i < 2000 && left > 0; i++) {
+      var segs = daySegments(day, okDay);
+      for (var j = 0; j < segs.length && left > 0; j++) {
+        var st = Math.max(segs[j][0], min), en = segs[j][1];
+        if (st >= en) continue;
+        var take = Math.min(en - st, left);
+        out.push([atMinute(day, st).getTime(), atMinute(day, st + take).getTime()]);
+        left -= take;
+      }
+      day = addDays(day, 1); min = 0;
+    }
+    return out;
+  }
+  function intervalsMeet(a, b) {
+    for (var i = 0; i < a.length; i++) for (var j = 0; j < b.length; j++) {
+      if (a[i][0] < b[j][1] && b[j][0] < a[i][1]) return true;
+    }
+    return false;
+  }
+  function runsOverlap(a, b) { return intervalsMeet(blockIntervals(a), blockIntervals(b)); }
+  // Is moment t inside the working time run r holds?
+  function runHolds(r, t) {
+    var ms = t.getTime();
+    return blockIntervals(r).some(function (iv) { return iv[0] <= ms && ms < iv[1]; });
+  }
+
+  // Push later runs back only as far as needed, starting with what clashes with `fromId`.
+  // Only runs that clash with the changed run (or with a run this push moved) move.
   // Returns [{ id, profile, from, to }] for every run that moves. Mutates `list`.
   function rippleFrom(list, fromId) {
     // Completed runs never move and never get in the way.
     var sorted = blockingRuns(list);
-    var idx = sorted.findIndex(function (r) { return r.id === fromId; });
+    var changed = sorted.find(function (r) { return r.id === fromId; });
     var moves = [];
-    if (idx === -1) return moves;
-    var prevEnd = blockEnd(sorted[idx]);
-    for (var i = idx + 1; i < sorted.length; i++) {
-      var r = sorted[i];
-      var st = runStart(r);
-      if (st >= prevEnd) break;
-      var newStart = nextWorkMoment(prevEnd);
-      moves.push({ id: r.id, profile: r.profile, from: st, to: newStart });
-      r.start = toLocalStr(newStart);
-      prevEnd = blockEnd(r);
-    }
+    if (!changed) return moves;
+    var chain = [changed];
+    var changedStart = runStart(changed);
+    sorted.forEach(function (r) {
+      if (r === changed || runStart(r) < changedStart) return;
+      var from = runStart(r), moved = false;
+      // Keep sliding it past whatever it still clashes with
+      for (var guard = 0; guard < 50; guard++) {
+        var hits = chain.filter(function (c) { return runsOverlap(c, r); });
+        if (!hits.length) break;
+        var after = hits.reduce(function (m, c) { var e = blockEnd(c); return e > m ? e : m; }, new Date(0));
+        r.start = toLocalStr(nextWorkMoment(after));   // never lands on an extra day by itself
+        moved = true;
+      }
+      if (!moved) return;
+      moves.push({ id: r.id, profile: r.profile, from: from, to: runStart(r) });
+      chain.push(r);
+    });
     return moves;
   }
 
-  // Runs that overlap the run before them (for red warnings).
+  // Runs whose working time overlaps another run's (for red warnings).
   function overlapIds(list) {
     var ids = {}, sorted = blockingRuns(list);
-    for (var i = 1; i < sorted.length; i++) {
-      if (runStart(sorted[i]) < blockEnd(sorted[i - 1])) { ids[sorted[i].id] = true; ids[sorted[i - 1].id] = true; }
+    for (var i = 0; i < sorted.length; i++) for (var j = i + 1; j < sorted.length; j++) {
+      if (runsOverlap(sorted[i], sorted[j])) { ids[sorted[i].id] = true; ids[sorted[j].id] = true; }
     }
     return ids;
   }
@@ -601,25 +688,11 @@
       var draft = clone(runs);
       var target;
       if (res.form.target === 'NEW') {
-        var picked = parseLocal(res.form.newStart);
-        var again = function () { return placeGroup(po, profile, group, { minutes: minutes, target: 'NEW', newStart: res.form.newStart }); };
-        var st = nextWorkMoment(picked);
-        var problems = [];
-        if (st.getTime() !== picked.getTime()) problems.push(fmtWhen(picked) + ' is outside shop hours, so work would really start at <b>' + fmtWhen(st) + '</b>.');
-        var inside = blockingRuns(draft).find(function (r) { return runStart(r) <= st && blockEnd(r) > st; });
-        if (inside) problems.push('The ' + runLabel(inside) + ' is already booked then, so they would overlap.');
-        if (problems.length) {
-          return ask({ title: 'Check that date', body: problems.map(function (t) { return '<div>' + t + '</div>'; }).join(''),
-            buttons: [{ label: 'Pick a different date', value: 'again', style: 'primary' },
-                      { label: 'Keep it anyway', value: 'keep', style: 'plain' },
-                      { label: 'Cancel', value: 'no', style: 'ghost' }] })
-            .then(function (r2) {
-              if (r2.value === 'again') return again();
-              if (r2.value !== 'keep') return 'skipped';
-              return commitNew(draft, profile, st, entry, po);
-            });
-        }
-        return commitNew(draft, profile, st, entry, po);
+        return checkStart(res.form.newStart, draft).then(function (c) {
+          if (c === 'again') return placeGroup(po, profile, group, { minutes: minutes, target: 'NEW', newStart: res.form.newStart });
+          if (!c || !c.start) return 'skipped';
+          return commitNew(draft, profile, c.start, entry, po);
+        });
       }
       target = draft.find(function (r) { return r.id === res.form.target; });
       target.entries = (target.entries || []).concat([entry]);
@@ -636,9 +709,9 @@
   // After a change to run `changedId`: if it now runs into the next run, ask before pushing.
   function confirmAndSave(draft, changedId, touchedIds, po, doneMsg) {
     var changed = draft.find(function (r) { return r.id === changedId; });
-    var sorted = blockingRuns(draft);
-    var next = sorted[sorted.indexOf(changed) + 1];
-    var overlap = sorted.indexOf(changed) !== -1 && next && runStart(next) < blockEnd(changed);
+    var cStart = runStart(changed);
+    var next = blockingRuns(draft).find(function (r) { return r !== changed && runStart(r) >= cStart && runsOverlap(changed, r); });
+    var overlap = isBlocking(changed) && !!next;
 
     var finish = function (list, ids, extraMsg) {
       var late = lateEntries(list.filter(function (r) { return ids.indexOf(r.id) !== -1; }), poLookup);
@@ -658,7 +731,7 @@
 
     var pushed = clone(draft);
     var moves = rippleFrom(pushed, changedId);
-    var over = workMinutesBetween(runStart(next), blockEnd(changed));
+    var over = workMinutesBetween(runStart(next), blockEnd(changed), runOkDay(changed));
     var body =
       '<div>This makes the <b>' + esc(changed.profile) + '</b> run end at <b>' + fmtWhen(blockEnd(changed)) + '</b>, which runs ' + fmtDur(over) + ' into the <b>' + esc(next.profile) + '</b> run starting ' + fmtWhen(runStart(next)) + '.</div>' +
       '<div class="text-xs font-bold text-slate-600 uppercase pt-1">If you push, these move:</div>' +
@@ -741,6 +814,6 @@
     feedMinutes: feedMinutes, lineLF: lineLF, isStandardLine: isStandardLine, lineProfile: lineProfile, isMouldedLine: isMouldedLine,
     parseLocal: parseLocal, toLocalStr: toLocalStr, dateKey: dateKey, hm: hm, dueMoment: dueMoment,
     fmtDur: fmtDur, fmtTime: fmtTime, fmtDay: fmtDay, fmtWhen: fmtWhen, colorFor: colorFor, esc: esc,
-    ask: ask, toast: toast, newId: newId, clone: clone, FT_PER_M: FT_PER_M, STANDARD_PROFILES: STANDARD_PROFILES, DEFAULT_SETTINGS: DEFAULT_SETTINGS
+    ask: ask, toast: toast, checkStart: checkStart, addExtraDay: addExtraDay, isWorkDay: isWorkDay, isExtraDay: isExtraDay, runOkDay: runOkDay, newId: newId, clone: clone, FT_PER_M: FT_PER_M, STANDARD_PROFILES: STANDARD_PROFILES, DEFAULT_SETTINGS: DEFAULT_SETTINGS
   };
 })(window);

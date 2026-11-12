@@ -167,8 +167,9 @@
     /* ---------- week view ---------- */
 
     function workDaysOfWeek() {
-      var days = [], set = S.getSettings().workDays;
-      for (var i = 0; i < 7; i++) { var d = addDays(weekStart, i); if (set.indexOf(d.getDay()) !== -1) days.push(d); }
+      // Regular shop days, plus any extra day (like a Saturday) he chose to work
+      var days = [];
+      for (var i = 0; i < 7; i++) { var d = addDays(weekStart, i); if (S.isWorkDay(d) || S.isExtraDay(d)) days.push(d); }
       return days;
     }
 
@@ -178,6 +179,7 @@
       var set = S.getSettings(), ds = S.hm(set.dayStart), de = S.hm(set.dayEnd);
       var key = S.dateKey(day);
       if (S.dateKey(st) > key || S.dateKey(en) < key) return null;
+      if (!S.isWorkDay(day, S.runOkDay(r))) return null;   // runs skip days they don't work (e.g. a Saturday booked for another run)
       var from = S.dateKey(st) === key ? st.getHours() * 60 + st.getMinutes() : ds;
       var to = S.dateKey(en) === key ? en.getHours() * 60 + en.getMinutes() : de;
       if (S.runMinutes(r) === 0) to = from + 15;
@@ -205,7 +207,7 @@
       runs.forEach(function (r) {
         var a = S.runStart(r), b = S.runEnd(r);
         var lo = a < weekStart ? weekStart : a, hi = b > addDays(weekStart, 7) ? addDays(weekStart, 7) : b;
-        if (hi > lo) booked += S.workMinutesBetween(lo, hi);
+        if (hi > lo) booked += S.workMinutesBetween(lo, hi, S.runOkDay(r));
       });
       document.getElementById('weekSummary').innerText = S.fmtDur(booked) + ' booked of ' + S.fmtDur(avail);
 
@@ -261,7 +263,7 @@
         }).join('');
         return '<div class="flex-1 min-w-0 border-l border-slate-200">' +
           '<div class="h-10 flex flex-col items-center justify-center border-b border-slate-200 ' + (key === todayKey ? 'bg-amber-50' : 'bg-slate-50') + '">' +
-            '<div class="text-[0.625rem] font-bold uppercase text-slate-500">' + S.fmtDay(day).slice(0, 3) + '</div>' +
+            '<div class="text-[0.625rem] font-bold uppercase text-slate-500">' + S.fmtDay(day).slice(0, 3) + (S.isExtraDay(day) ? ' <span class="text-amber-700">• extra</span>' : '') + '</div>' +
             '<div class="text-sm font-black ' + (key === todayKey ? 'text-amber-700' : 'text-slate-800') + '">' + day.getDate() + '</div></div>' +
           '<div class="relative" style="height:' + height + 'px">' + breaks + blocks + '</div></div>';
       }).join('');
@@ -275,7 +277,7 @@
         var items = S.sortRuns(runs).filter(function (r) { return runPiecesOnDay(r, day); });
         return '<div class="bg-white rounded-2xl border ' + (key === todayKey ? 'border-amber-400' : 'border-slate-200') + ' shadow-sm overflow-hidden">' +
           '<div class="px-3 py-2 flex items-center justify-between ' + (key === todayKey ? 'bg-amber-50' : 'bg-slate-50') + ' border-b border-slate-200">' +
-            '<div class="text-sm font-black ' + (key === todayKey ? 'text-amber-800' : 'text-slate-800') + '">' + S.fmtDay(day) + (key === todayKey ? ' • Today' : '') + '</div>' +
+            '<div class="text-sm font-black ' + (key === todayKey ? 'text-amber-800' : 'text-slate-800') + '">' + S.fmtDay(day) + (key === todayKey ? ' • Today' : '') + (S.isExtraDay(day) ? ' <span class="text-xs text-amber-700">• extra shop day</span>' : '') + '</div>' +
           '</div>' +
           (items.length ? '<div class="p-2 space-y-1.5">' + items.map(function (r) {
             var pc = runPiecesOnDay(r, day), f = runFlags(r, overlaps), c = S.statusFor(r), n = (r.entries || []).length;
@@ -365,17 +367,13 @@
       var run = draft.find(function (x) { return x.id === openRunId; });
       if (!run) return;
       readPanelInto(run);
-      var st = S.nextWorkMoment(S.parseLocal(run.start));
-      var prev = S.blockingRuns(draft).filter(function (x) { return x.id !== run.id && S.runStart(x) <= st && S.blockEnd(x) > st; })[0];
+      var orig = S.getRuns().find(function (x) { return x.id === openRunId; });
       var go = function () { S.confirmAndSave(draft, run.id, [run.id], null, 'Run saved.').then(function (res) { if (res === 'saved') closePanel(); }); };
-      if (prev) {
-        S.ask({ title: 'Starts during another run', body: 'That start time is during the <b>' + esc(prev.profile) + '</b> run (' + S.fmtWhen(S.runStart(prev)) + ' to ' + S.fmtWhen(S.blockEnd(prev)) + ').',
-          buttons: [{ label: 'Pick a different time', value: 'again', style: 'primary' }, { label: 'Keep my time (they will overlap)', value: 'keep', style: 'plain' }, { label: 'Cancel', value: 'no', style: 'ghost' }] })
-          .then(function (r) {
-            if (r.value === 'keep') go();
-            else if (r.value === 'again') { var el = document.getElementById('pStart'); if (el) el.focus(); }
-          });
-      } else go();
+      if (orig && orig.start === run.start) { go(); return; }
+      S.checkStart(run.start, draft, run.id).then(function (c) {
+        if (c && c.start) { run.start = S.toLocalStr(c.start); go(); }
+        else if (c === 'again') { var el = document.getElementById('pStart'); if (el) el.focus(); }
+      });
     }
 
     function removeEntry(entryId) {
@@ -423,10 +421,14 @@
         if (r.value !== 'ok') return;
         var profile = r.form.profile === '__other' ? r.form.other.trim() : r.form.profile;
         var draft = S.clone(S.getRuns());
-        var run = { id: S.newId('RUN'), profile: profile, start: S.toLocalStr(S.nextWorkMoment(S.parseLocal(r.form.start))), changeoverMin: set.changeoverMin || 0, entries: [], createdAt: Date.now() };
-        draft.push(run);
-        S.confirmAndSave(draft, run.id, [run.id], null, profile + ' run booked.').then(function (res) {
-          if (res === 'saved') { weekStart = mondayOf(S.parseLocal(run.start)); render(); }
+        S.checkStart(r.form.start, draft).then(function (c) {
+          if (c === 'again') { newRun(); return; }
+          if (!c || !c.start) return;
+          var run = { id: S.newId('RUN'), profile: profile, start: S.toLocalStr(c.start), changeoverMin: S.getSettings().changeoverMin || 0, entries: [], createdAt: Date.now() };
+          draft.push(run);
+          S.confirmAndSave(draft, run.id, [run.id], null, profile + ' run booked.').then(function (res) {
+            if (res === 'saved') { weekStart = mondayOf(S.parseLocal(run.start)); render(); }
+          });
         });
       });
     }
@@ -479,6 +481,10 @@
           (s.breaks || []).map(breakRow).join('') + '</div>' +
           '<button type="button" onclick="document.getElementById(\'sBreaks\').insertAdjacentHTML(\'beforeend\', breakRow({start:\'\',end:\'\'}))" class="text-xs font-bold text-sky-700">+ Add break</button>' +
           '<div class="text-xs text-slate-500" id="sPerDay">Bookable time per day: ' + S.fmtDur(S.workMinutesPerDay()) + '</div>' +
+          '<div class="text-xs font-bold text-slate-600 uppercase pt-1">Extra shop days (like a Saturday)</div>' +
+          '<div id="sExtra" class="space-y-1.5">' + ((s.extraDays || []).length ? s.extraDays.map(function (k) {
+            return '<div class="flex items-center gap-2" data-extra="' + k + '"><span class="flex-1 text-sm font-bold">' + S.fmtDay(S.parseLocal(k)) + ', ' + S.parseLocal(k).getFullYear() + '</span><button type="button" onclick="this.parentNode.remove()" class="px-2 text-rose-600 font-bold">✕</button></div>';
+          }).join('') : '<div class="text-xs text-slate-400">None. When you book a run on a day you don\'t normally work, the app asks if you want to work it.</div>') + '</div>' +
         '</section>' +
 
         '<section class="space-y-2 border-t border-slate-200 pt-3"><div class="text-xs font-black text-amber-800 uppercase tracking-wider">Moulder speed (VFD)</div>' +
@@ -521,6 +527,7 @@
       s.breaks = Array.prototype.slice.call(document.querySelectorAll('[data-break]')).map(function (row) {
         return { start: row.querySelector('[data-bs]').value, end: row.querySelector('[data-be]').value };
       }).filter(function (b) { return b.start && b.end && b.end > b.start; });
+      s.extraDays = Array.prototype.slice.call(document.querySelectorAll('[data-extra]')).map(function (el) { return el.getAttribute('data-extra'); });
       s.calHz = parseFloat(document.getElementById('sCalHz').value) || null;
       s.calMpm = parseFloat(document.getElementById('sCalMpm').value) || null;
       document.querySelectorAll('[data-hz]').forEach(function (el) { s.speedHz[el.getAttribute('data-hz')] = parseFloat(el.value) || null; });
