@@ -77,19 +77,25 @@
     }
 
     @page { size: 8.5in 11in; margin: 0.4in; }
+    /* Printing: only the PO or the tag goes to paper. Everything else is
+       removed from the layout (not just made invisible), so no blank pages. */
     @media print {
-      body * { visibility: hidden; }
-      #printableTagContainer, #printableTagContainer *,
-      #printablePoContainer, #printablePoContainer * { visibility: visible; }
-      
+      html, body {
+        background: #ffffff !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+      body > * { display: none !important; }
+      body.print-po > #printablePoContainer,
+      body.print-tag > #printableTagContainer { display: block !important; }
+
       #printableTagContainer {
-        position: absolute;
-        left: 0;
-        top: 0;
+        position: static;
         width: 8in;
         background: #ffffff !important;
         color: #000000 !important;
-        display: block !important;
       }
       .bunk-tag-card {
         width: 8in;
@@ -102,13 +108,10 @@
       }
 
       #printablePoContainer {
-        position: absolute;
-        left: 0;
-        top: 0;
+        position: static;
         width: 7.7in;
         background: #ffffff !important;
         color: #000000 !important;
-        display: block !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
     }
@@ -696,7 +699,7 @@
       <div class="flex justify-between items-center pb-2 border-b border-slate-200">
         <span class="text-xs font-bold text-slate-900 uppercase">Purchase Order Work Order (8.5" × 11")</span>
         <div class="space-x-2">
-          <button type="button" onclick="window.print()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm">Print Order</button>
+          <button type="button" onclick="printOnly('po')" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs shadow-sm">Print Order</button>
           <button type="button" onclick="closePoPrintModal()" class="text-slate-500 font-bold text-sm">✕</button>
         </div>
       </div>
@@ -1001,7 +1004,7 @@
       <div class="flex justify-between items-center pb-2 border-b border-slate-200">
         <span class="text-xs font-bold text-slate-900 uppercase">Bunk Tag Preview (8" × 5")</span>
         <div class="space-x-2">
-          <button type="button" onclick="window.print()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs shadow-sm">Print</button>
+          <button type="button" onclick="printOnly('tag')" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs shadow-sm">Print</button>
           <button type="button" onclick="closeTagModal()" class="text-slate-500 hover:text-slate-800 font-bold text-sm">✕</button>
         </div>
       </div>
@@ -1012,6 +1015,16 @@
 
   <!-- APP ENGINE SCRIPT -->
   <script>
+    // Print just the PO or just the tag
+    window.printOnly = function(kind) {
+      document.body.classList.remove('print-po', 'print-tag');
+      document.body.classList.add(kind === 'tag' ? 'print-tag' : 'print-po');
+      window.print();
+    };
+    window.addEventListener('afterprint', function() {
+      document.body.classList.remove('print-po', 'print-tag');
+    });
+
     var DEFAULT_WIDTHS = ["4", "6", "8", "10", "12", "RW"];
     
     function makeDefaultWidthMap(baseR, baseM) {
