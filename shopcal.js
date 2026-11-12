@@ -360,6 +360,52 @@
     return ids;
   }
 
+  // Open (unbooked) shop time on one day: [{ from, to, minutes }].
+  // Breaks inside an open stretch don't split it; their minutes don't count.
+  function freeWindows(day, list, fromMoment) {
+    var okDay = isExtraDay(day) ? dateKey(day) : null;
+    var segs = daySegments(day, okDay);
+    if (!segs.length) return [];
+    var booked = [];
+    blockingRuns(list || runs).forEach(function (r) { booked = booked.concat(blockIntervals(r)); });
+    var floor = fromMoment ? fromMoment.getTime() : 0;
+    var pieces = [];
+    segs.forEach(function (sg) {
+      var a = Math.max(atMinute(day, sg[0]).getTime(), floor), b = atMinute(day, sg[1]).getTime();
+      if (a >= b) return;
+      var cuts = booked.filter(function (iv) { return iv[0] < b && iv[1] > a; }).sort(function (x, y) { return x[0] - y[0]; });
+      var cur = a;
+      cuts.forEach(function (iv) { if (iv[0] > cur) pieces.push([cur, iv[0]]); cur = Math.max(cur, iv[1]); });
+      if (cur < b) pieces.push([cur, b]);
+    });
+    // join pieces that are only separated by a break
+    var out = [];
+    pieces.forEach(function (pc) {
+      var last = out[out.length - 1];
+      var gapIsBreak = last && (settings.breaks || []).some(function (br) {
+        return atMinute(day, hm(br.start)).getTime() <= last.to && atMinute(day, hm(br.end)).getTime() >= pc[0];
+      });
+      if (last && (last.to === pc[0] || gapIsBreak)) { last.to = pc[1]; last.minutes += (pc[1] - pc[0]) / 60000; }
+      else out.push({ from: pc[0], to: pc[1], minutes: (pc[1] - pc[0]) / 60000 });
+    });
+    return out.filter(function (w) { return w.minutes >= 5; }).map(function (w) { return { from: new Date(w.from), to: new Date(w.to), minutes: Math.round(w.minutes) }; });
+  }
+
+  // The next `count` shop days (including any extra days he opened), with their open time.
+  function openTimeAhead(count, list) {
+    var now = new Date(), out = [];
+    var day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    for (var i = 0; i < 60 && out.length < count; i++) {
+      if (isWorkDay(day) || isExtraDay(day)) {
+        var wins = freeWindows(day, list, dateKey(day) === dateKey(now) ? now : null);
+        var total = daySegments(day, isExtraDay(day) ? dateKey(day) : null).reduce(function (a, sg) { return a + sg[1] - sg[0]; }, 0);
+        if (dateKey(day) !== dateKey(now) || wins.length) out.push({ day: day, windows: wins, free: wins.reduce(function (a, w) { return a + w.minutes; }, 0), total: total });
+      }
+      day = addDays(day, 1);
+    }
+    return out;
+  }
+
   function dueMoment(dueDate) {
     var d = parseLocal(dueDate);
     if (!d) return null;
@@ -604,6 +650,30 @@
     });
   }
 
+  // Next 2 weeks of open shop time. Tapping a time fills in the date; it never picks one for him.
+  function openTimeHtml(needed, dueDate) {
+    var due = dueDate ? dateKey(parseLocal(dueDate)) : null;
+    var days = openTimeAhead(10);
+    return '<details class="rounded-xl border border-slate-200 bg-white" open>' +
+      '<summary class="px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer select-none">📆 Open time — next 2 weeks <span class="font-normal text-slate-500">(tap a time to use it)</span></summary>' +
+      '<div class="px-3 pb-2 space-y-1.5 max-h-56 overflow-y-auto">' +
+        days.map(function (d) {
+          var k = dateKey(d.day);
+          var pastDue = due && k > due;
+          var head = '<div class="flex items-center justify-between text-xs"><span class="font-black ' + (pastDue ? 'text-rose-700' : 'text-slate-800') + '">' + fmtDay(d.day) + (isExtraDay(d.day) ? ' <span class="text-amber-700">(extra)</span>' : '') + (k === due ? ' <span class="text-amber-800">• due</span>' : '') + (pastDue ? ' <span class="font-bold">• after due</span>' : '') + '</span>' +
+            '<span class="font-mono text-slate-500">' + (d.free ? fmtDur(d.free) + ' free' : 'booked full') + '</span></div>';
+          var chips = d.windows.map(function (w) {
+            var fits = w.minutes >= needed;
+            return '<button type="button" data-pick="' + toLocalStr(w.from) + '" class="px-2 py-1 rounded-lg border text-[0.6875rem] font-mono font-bold ' +
+              (fits ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-slate-50 border-slate-300 text-slate-600') + '">' +
+              fmtTime(w.from) + '–' + fmtTime(w.to) + '</button>';
+          }).join('');
+          return '<div class="border-t border-slate-100 pt-1.5">' + head + (chips ? '<div class="flex flex-wrap gap-1 mt-1">' + chips + '</div>' : '') + '</div>';
+        }).join('') +
+        '<div class="text-[0.625rem] text-slate-500 pt-1">Green = room for the whole job (' + fmtDur(needed) + ' incl. changeover) in one stretch.</div>' +
+      '</div></details>';
+  }
+
   function runLabel(r) { return '<b>' + esc(r.profile) + '</b> run — ' + fmtWhen(runStart(r)) + ' to ' + fmtTime(runEnd(r)) + (dateKey(runStart(r)) !== dateKey(runEnd(r)) ? ' ' + fmtDay(runEnd(r)) : ''); }
 
   // Places one group (one profile) of a PO on the calendar.
@@ -636,6 +706,7 @@
           }).join('') :
           '<div class="text-xs text-slate-500">There are no ' + esc(profile) + ' runs coming up.</div>') +
         '<div class="text-xs font-bold text-amber-800 pt-1">Or pick the date yourself:</div>' +
+        openTimeHtml(group.total + (parseFloat(settings.changeoverMin) || 0), po.dueDate) +
         '<label class="flex items-start gap-2 rounded-xl border border-slate-200 px-3 py-2 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">' +
           '<input type="radio" name="target" value="NEW"' + (pre.target === 'NEW' ? ' checked' : '') + ' class="mt-1 w-4 h-4" />' +
           '<span class="flex-1 text-sm">New <b>' + esc(profile) + '</b> run starting:' +
@@ -664,6 +735,17 @@
         ns.addEventListener('input', function () { if (ns.value) form.querySelector('[name=target][value=NEW]').checked = true; showTotal(); });
         form.querySelectorAll('[name=target]').forEach(function (el) { el.addEventListener('change', showTotal); });
         form.querySelector('[name=minutes]').addEventListener('input', showTotal);
+        // Tapping an open time fills the date box (he still taps Add)
+        form.querySelectorAll('[data-pick]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            ns.value = btn.getAttribute('data-pick');
+            form.querySelector('[name=target][value=NEW]').checked = true;
+            form.querySelectorAll('[data-pick]').forEach(function (b) { b.classList.remove('ring-2', 'ring-amber-500'); });
+            btn.classList.add('ring-2', 'ring-amber-500');
+            showTotal();
+            ns.scrollIntoView({ block: 'nearest' });
+          });
+        });
         showTotal();
       },
       buttons: [
@@ -814,6 +896,6 @@
     feedMinutes: feedMinutes, lineLF: lineLF, isStandardLine: isStandardLine, lineProfile: lineProfile, isMouldedLine: isMouldedLine,
     parseLocal: parseLocal, toLocalStr: toLocalStr, dateKey: dateKey, hm: hm, dueMoment: dueMoment,
     fmtDur: fmtDur, fmtTime: fmtTime, fmtDay: fmtDay, fmtWhen: fmtWhen, colorFor: colorFor, esc: esc,
-    ask: ask, toast: toast, checkStart: checkStart, addExtraDay: addExtraDay, isWorkDay: isWorkDay, isExtraDay: isExtraDay, runOkDay: runOkDay, newId: newId, clone: clone, FT_PER_M: FT_PER_M, STANDARD_PROFILES: STANDARD_PROFILES, DEFAULT_SETTINGS: DEFAULT_SETTINGS
+    ask: ask, toast: toast, freeWindows: freeWindows, openTimeAhead: openTimeAhead, checkStart: checkStart, addExtraDay: addExtraDay, isWorkDay: isWorkDay, isExtraDay: isExtraDay, runOkDay: runOkDay, newId: newId, clone: clone, FT_PER_M: FT_PER_M, STANDARD_PROFILES: STANDARD_PROFILES, DEFAULT_SETTINGS: DEFAULT_SETTINGS
   };
 })(window);
