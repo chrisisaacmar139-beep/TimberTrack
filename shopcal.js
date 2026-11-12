@@ -553,17 +553,31 @@
           '<input type="radio" name="target" value="NEW"' + (pre.target === 'NEW' ? ' checked' : '') + ' class="mt-1 w-4 h-4" />' +
           '<span class="flex-1 text-sm">New <b>' + esc(profile) + '</b> run starting:' +
           '<input name="newStart" type="datetime-local" value="' + esc(pre.newStart || '') + '" class="' + INPUT + ' mt-1" />' +
-          '<span class="text-xs text-slate-500">Includes ' + fmtDur(settings.changeoverMin) + ' changeover.</span></span></label>' +
-      '</div>';
+          '<span class="text-xs text-slate-500">A new run adds ' + fmtDur(settings.changeoverMin) + ' of changeover.</span></span></label>' +
+      '</div>' +
+      '<div data-total class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-bold"></div>';
 
     return ask({
       title: 'Put ' + profile + ' on the calendar?',
       subtitle: 'PO ' + esc(po.id),
       body: body,
       onOpen: function (form) {
-        // Typing a date picks "new run" for him
         var ns = form.querySelector('[name=newStart]');
-        ns.addEventListener('input', function () { if (ns.value) form.querySelector('[name=target][value=NEW]').checked = true; });
+        var co = parseFloat(settings.changeoverMin) || 0;
+        // Shows what actually gets booked: a new run carries the changeover, an existing run already has it.
+        var showTotal = function () {
+          var m = Math.max(0, parseFloat(form.querySelector('[name=minutes]').value) || 0);
+          var t = form.querySelector('[name=target]:checked');
+          var box = form.querySelector('[data-total]');
+          if (!t) { box.innerText = 'This order: ' + fmtDur(m) + '. A new run adds ' + fmtDur(co) + ' changeover (' + fmtDur(m + co) + ' total).'; return; }
+          if (t.value === 'NEW') box.innerText = 'Books ' + fmtDur(m + co) + ': ' + fmtDur(co) + ' changeover + ' + fmtDur(m) + ' for this order.';
+          else box.innerText = 'Adds ' + fmtDur(m) + ' to the end of that run (its changeover is already counted).';
+        };
+        // Typing a date picks "new run" for him
+        ns.addEventListener('input', function () { if (ns.value) form.querySelector('[name=target][value=NEW]').checked = true; showTotal(); });
+        form.querySelectorAll('[name=target]').forEach(function (el) { el.addEventListener('change', showTotal); });
+        form.querySelector('[name=minutes]').addEventListener('input', showTotal);
+        showTotal();
       },
       buttons: [
         { label: 'Add to calendar', value: 'add', style: 'primary', validate: function (form) {
