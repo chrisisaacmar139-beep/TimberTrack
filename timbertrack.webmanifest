@@ -1,0 +1,14 @@
+{
+  "id": "./index.html",
+  "name": "TimberTrack - C.I.M. MFG INC",
+  "short_name": "TimberTrack",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#f59e0b",
+  "icons": [
+    { "src": "icons/timbertrack-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/timbertrack-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
