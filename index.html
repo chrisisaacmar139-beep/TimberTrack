@@ -87,7 +87,9 @@
         overflow: visible !important;
         display: block !important;
       }
-      body > * { display: none !important; }
+      body.print-po > *:not(#printablePoContainer),
+      body.print-tag > *:not(#printableTagContainer),
+      body.print-ship > *:not(#printableShipContainer) { display: none !important; }
       body.print-po > #printablePoContainer,
       body.print-tag > #printableTagContainer,
       body.print-ship > #printableShipContainer { display: block !important; }
@@ -1083,9 +1085,8 @@
       document.body.classList.add(kind === 'tag' ? 'print-tag' : (kind === 'ship' ? 'print-ship' : 'print-po'));
       window.print();
     };
-    window.addEventListener('afterprint', function() {
-      document.body.classList.remove('print-po', 'print-tag', 'print-ship');
-    });
+    // Note: on Android, print() returns before the page is captured, so the
+    // print class is left on until the next print (it only matters when printing).
 
     var DEFAULT_WIDTHS = ["4", "6", "8", "10", "12", "RW"];
     
