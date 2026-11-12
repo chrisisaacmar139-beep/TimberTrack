@@ -295,6 +295,8 @@
           </div>
         </div>
 
+        <button type="button" onclick="openStockLevels()" class="w-full mt-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-black uppercase tracking-wider active:scale-[0.99]">📊 1&amp;2 Common Stock Levels</button>
+
       </div>
 
       <!-- Live Volume Totals -->
@@ -739,6 +741,40 @@
     </div>
   </div>
   <div id="printablePoContainer" class="hidden"></div>
+
+  <!-- 1&2 COMMON STOCK LEVELS -->
+  <div id="stockLevelsModal" style="display:none; position:fixed; inset:0; z-index:9998; background:#f1f5f9;">
+    <div class="w-full h-full flex flex-col">
+      <div class="bg-white border-b border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2 shadow-sm shrink-0">
+        <div class="min-w-0">
+          <h4 class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">📊 1&amp;2 Common Stock</h4>
+          <span id="slSub" class="text-[0.6875rem] text-slate-500 font-semibold uppercase"></span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" onclick="toggleStockLevelSettings()" class="px-2.5 h-9 rounded-lg bg-slate-100 border border-slate-300 text-sm font-bold">⚙️</button>
+          <button type="button" onclick="closeStockLevels()" class="px-3 h-9 rounded-lg bg-slate-100 border border-slate-300 font-bold text-sm">✕ <span class="text-xs">Close</span></button>
+        </div>
+      </div>
+      <div id="slSettings" class="hidden bg-white border-b border-slate-200 px-3 py-2 shrink-0">
+        <div class="grid grid-cols-2 gap-2 max-w-md">
+          <label class="text-[0.6875rem] font-bold text-emerald-700 uppercase">Green at or above (pcs)<input id="slGreen" type="number" min="0" inputmode="numeric" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold" /></label>
+          <label class="text-[0.6875rem] font-bold text-rose-700 uppercase">Red below (pcs)<input id="slRed" type="number" min="0" inputmode="numeric" class="w-full mt-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold" /></label>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-2 max-w-md">
+          <span class="text-[0.6875rem] text-slate-500">In between is yellow. Saved for every device.</span>
+          <button type="button" onclick="saveStockLevelSettings()" class="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-black">Save</button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-2 sm:p-4">
+        <div class="max-w-xl mx-auto space-y-2">
+          <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold" id="slCompanyBtns"></div>
+          <div id="slGrid" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
+          <div class="flex flex-wrap items-center gap-3 text-[0.6875rem] font-bold text-slate-600 px-1" id="slLegend"></div>
+          <div class="text-[0.6875rem] text-slate-500 px-1">1" thick, 1&amp;2 Common, every profile (rough and milled). Pieces not on hold. Tap a size to see its packs.</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- SHIPPING LABELS -->
   <div id="shipLabelModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.6);">
@@ -1241,6 +1277,7 @@
             inventory = cloudItems;
             localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
             renderInventory();
+            if (typeof renderStockLevels === 'function') renderStockLevels();
           }, function(err) {
             console.error(err);
             if (ind) ind.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500 mr-1"></span> Local';
@@ -3360,6 +3397,118 @@
         updatePoBadge();
         openShipLabels(po.id, true);
       }
+    };
+
+
+    /* 1&2 COMMON STOCK LEVELS — width × length grid, coloured by piece count */
+    var SL_WIDTHS = [4, 6, 8, 10, 12];
+    var SL_LENGTHS = [6, 8, 10, 12, 14, 16];
+    var stockLevelCfg = { green: 500, red: 200 };
+    var slCompany = null;
+    try { var _slc = JSON.parse(localStorage.getItem('timbertrack_stocklevels') || 'null'); if (_slc) stockLevelCfg = Object.assign(stockLevelCfg, _slc); } catch (e) {}
+
+    function stockLevelColor(n) {
+      if (n >= stockLevelCfg.green) return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+      if (n < stockLevelCfg.red) return 'bg-rose-100 text-rose-900 border-rose-300';
+      return 'bg-amber-100 text-amber-900 border-amber-300';
+    }
+
+    window.openStockLevels = function() {
+      slCompany = slCompany || activeCompany;
+      document.getElementById('stockLevelsModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+      if (db && !window._slSub) {
+        window._slSub = db.collection('tt_settings').doc('stockLevels').onSnapshot(function(doc) {
+          if (doc.exists) {
+            var d = doc.data();
+            stockLevelCfg.green = parseInt(d.green) || stockLevelCfg.green;
+            stockLevelCfg.red = parseInt(d.red) || stockLevelCfg.red;
+            try { localStorage.setItem('timbertrack_stocklevels', JSON.stringify(stockLevelCfg)); } catch (e) {}
+            renderStockLevels();
+          }
+        }, function(){});
+      }
+      renderStockLevels();
+    };
+
+    window.closeStockLevels = function() {
+      document.getElementById('stockLevelsModal').style.display = 'none';
+      document.body.style.overflow = '';
+    };
+
+    window.setStockLevelCompany = function(co) { slCompany = co; renderStockLevels(); };
+
+    window.toggleStockLevelSettings = function() {
+      var box = document.getElementById('slSettings');
+      document.getElementById('slGreen').value = stockLevelCfg.green;
+      document.getElementById('slRed').value = stockLevelCfg.red;
+      box.classList.toggle('hidden');
+    };
+
+    window.saveStockLevelSettings = function() {
+      var g = parseInt(document.getElementById('slGreen').value), r = parseInt(document.getElementById('slRed').value);
+      if (!(g >= 0) || !(r >= 0)) { alert('Enter both numbers.'); return; }
+      if (r > g) { alert('Red has to be below the green number.'); return; }
+      stockLevelCfg.green = g; stockLevelCfg.red = r;
+      try { localStorage.setItem('timbertrack_stocklevels', JSON.stringify(stockLevelCfg)); } catch (e) {}
+      if (db) { try { db.collection('tt_settings').doc('stockLevels').set({ green: g, red: r }); } catch (e) {} }
+      document.getElementById('slSettings').classList.add('hidden');
+      renderStockLevels();
+    };
+
+    function renderStockLevels() {
+      var modal = document.getElementById('stockLevelsModal');
+      if (!modal || modal.style.display !== 'block') return;
+      var counts = {}, packs = {}, total = 0;
+      inventory.forEach(function(item) {
+        if ((item.company || "C.I.M. MFG INC") !== slCompany) return;
+        if (isBfOnly(item)) return;
+        if (getGradeKey(item.grade) !== 'COMMON') return;
+        if (parseFloat(item.thickness) !== 1) return;
+        var p = parseInt(item.pieces) || 0;
+        var avail = item.status === 'PENDING_SALE' ? Math.max(0, p - (parseInt(item.pendingPieces) || 0)) : p;
+        if (avail <= 0) return;
+        var k = item.width + 'x' + item.length;
+        counts[k] = (counts[k] || 0) + avail;
+        packs[k] = (packs[k] || 0) + 1;
+        total += avail;
+      });
+
+      var cos = ["C.I.M. MFG INC", "Crosshill Sawmill"];
+      document.getElementById('slCompanyBtns').innerHTML = cos.map(function(co) {
+        return '<button type="button" onclick="setStockLevelCompany(\'' + co + '\')" class="flex-1 py-1.5 rounded-lg ' + (co === slCompany ? 'bg-amber-500 text-white shadow' : 'text-slate-600') + '">' + (co === "C.I.M. MFG INC" ? 'C.I.M.' : 'Crosshill') + '</button>';
+      }).join('');
+      document.getElementById('slSub').innerText = total.toLocaleString() + ' pcs in these sizes';
+
+      var head = '<div class="grid grid-cols-7 bg-slate-100 border-b border-slate-200 text-[0.6875rem] font-black text-slate-600 text-center">' +
+        '<div class="py-1.5"></div>' + SL_LENGTHS.map(function(l){ return '<div class="py-1.5">' + l + "'</div>"; }).join('') + '</div>';
+      var rows = SL_WIDTHS.map(function(w) {
+        return '<div class="grid grid-cols-7 gap-1 px-1 py-1 border-b border-slate-100 items-stretch">' +
+          '<div class="flex items-center justify-center text-sm font-black text-slate-800">1x' + w + '</div>' +
+          SL_LENGTHS.map(function(l) {
+            var k = w + 'x' + l, n = counts[k] || 0;
+            return '<button type="button" onclick="showStockSize(' + w + ',' + l + ')" class="rounded-lg border py-1.5 leading-tight active:scale-95 ' + stockLevelColor(n) + '">' +
+              '<div class="text-sm font-black font-mono">' + n + '</div>' +
+              '<div class="text-[0.5625rem] font-bold opacity-70">' + (packs[k] ? packs[k] + ' pk' : '—') + '</div></button>';
+          }).join('') + '</div>';
+      }).join('');
+      document.getElementById('slGrid').innerHTML = head + rows;
+      document.getElementById('slLegend').innerHTML =
+        '<span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span>' + stockLevelCfg.green + '+ pcs</span>' +
+        '<span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>' + stockLevelCfg.red + '–' + (stockLevelCfg.green - 1) + '</span>' +
+        '<span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-rose-100 border border-rose-300"></span>under ' + stockLevelCfg.red + '</span>';
+    }
+
+    // Tap a size: show those packs on the main list
+    window.showStockSize = function(w, l) {
+      closeStockLevels();
+      if (slCompany !== activeCompany) switchCompanyView(slCompany);
+      setStageFilter('ALL');
+      setWidthFilter(String(w));
+      setLengthFilter(String(l));
+      setGradeFilter('COMMON');
+      var list = document.getElementById('inventoryTableBody');
+      if (list && list.scrollIntoView) list.closest('table').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     window.setPoFulfillment = function(val) {
