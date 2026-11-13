@@ -216,6 +216,7 @@
   }
 
   function lineLF(it) {
+    if (it.isCustomMoulding) return it.unit === 'LF' ? (parseFloat(it.pieces) || null) : null;
     var t = parseFloat(it.thickness) || 0, w = parseFloat(it.width) || 0, l = parseFloat(it.length) || 0;
     var pcs = parseFloat(it.pieces) || 0;
     if (it.bfOnly) {
@@ -578,6 +579,7 @@
   var INPUT = 'w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-800 focus:outline-none focus:border-amber-500';
 
   function lineDesc(it) {
+    if (it.isCustomMoulding) return it.pieces + (it.unit === 'LF' ? ' LF ' : ' pcs ') + (it.dims || '') + ' ' + lineProfile(it) + ' (custom moulding)';
     var dim = it.thickness + '"×' + (parseFloat(it.width) === 0 ? 'RW' : it.width + '"') + '×' + (parseFloat(it.length) === 0 ? 'RL' : it.length + "'");
     var qty = it.bfOnly ? (it.pieces + ' BF') : (it.pieces + ' pcs');
     return qty + ' ' + dim + ' ' + lineProfile(it);

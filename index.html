@@ -309,8 +309,8 @@
           <span class="text-xs text-slate-500" id="metricPackCount">0 Packs</span>
         </div>
         <div class="text-right">
-          <span class="text-[0.6875rem] font-bold text-slate-500 uppercase tracking-wider block">Available Pieces</span>
-          <div class="text-xl sm:text-2xl font-black text-emerald-700 font-mono" id="metricTotalPieces">0 <span class="text-sm font-sans text-slate-500">pcs</span></div>
+          <span class="text-[0.6875rem] font-bold text-slate-500 uppercase tracking-wider block">BF On Order</span>
+          <div class="text-xl sm:text-2xl font-black text-emerald-700 font-mono" id="metricTotalPieces">0 <span class="text-sm font-sans text-slate-500">BF</span></div>
           <span class="text-xs text-rose-600 font-medium" id="metricPendingPieces">0 held</span>
         </div>
       </div>
@@ -1770,7 +1770,7 @@
       });
 
       document.getElementById('metricTotalBF').innerHTML = totalBF.toFixed(1) + ' <span class="text-sm font-sans text-slate-500">BF</span>';
-      document.getElementById('metricTotalPieces').innerHTML = totalPieces + ' <span class="text-sm font-sans text-slate-500">pcs</span>';
+      document.getElementById('metricTotalPieces').innerHTML = Math.round(bfOnOrder()).toLocaleString() + ' <span class="text-sm font-sans text-slate-500">BF</span>';
       document.getElementById('metricPendingPieces').innerText = pendingCount + ' held';
       document.getElementById('metricPackCount').innerText = packCount + ' Packs';
     }
@@ -2635,7 +2635,18 @@
         addPoLineItemRow();
         var row = container.lastElementChild;
         var select = row.querySelector('.po-pack-select');
-        if (it.isUnlinked) {
+        if (it.isCustomMoulding) {
+          select.value = "CUSTOM_MOULDING";
+          row.querySelector('.po-mould-dims').value = it.dims || "";
+          row.querySelector('.po-mould-profile').value = it.targetProfile || "";
+          row.querySelector('.po-mould-species').value = it.species || "";
+          row.querySelector('.po-mould-unit').value = it.unit === 'LF' ? 'LF' : 'pcs';
+          row.querySelector('.po-moulding-fields').classList.remove('hidden');
+          row.querySelector('.po-target-block').classList.add('hidden');
+          row.querySelector('.po-qty-label').innerText = it.unit === 'LF' ? 'LF Needed:' : 'Pcs Needed:';
+          row.querySelector('.po-rate-label').innerText = '$ per ' + (it.unit === 'LF' ? 'LF' : 'pc') + ':';
+          row.querySelector('.po-total-label').innerText = 'Line Total:';
+        } else if (it.isUnlinked) {
           select.value = "CUSTOM_UNLINKED";
           row.querySelector('.po-custom-stock-fields').classList.remove('hidden');
           row.querySelector('.po-cust-drying').value = it.dryingMethod || "Kiln Dried";
@@ -2743,7 +2754,9 @@
       var priceKind = isMilled ? 'Milled' : 'Rough';
       warning.classList.add('hidden');
 
-      if (packId === "CUSTOM_UNLINKED") {
+      if (packId === "CUSTOM_MOULDING") {
+        note.innerText = 'Your price';
+      } else if (packId === "CUSTOM_UNLINKED") {
         var cGrade = row.querySelector('.po-cust-grade').value;
         var cRates = getMatrixRates(row.querySelector('.po-cust-drying').value, cGrade, row.querySelector('.po-cust-width').value);
         rateInput.value = isMilled ? cRates.milled : cRates.rough;
@@ -2791,13 +2804,14 @@
         length: row.dataset.fLength || 'ALL',
         grade: row.dataset.fGrade || 'ALL'
       };
-      var keepId = (current && current !== 'CUSTOM_UNLINKED') ? current : '';
+      var keepId = (current && current !== 'CUSTOM_UNLINKED' && current !== 'CUSTOM_MOULDING') ? current : '';
       var options = buildPoPackOptions(f, keepId);
       var n = buildPoPackOptions.lastCount;
       var filtering = f.width !== 'ALL' || f.length !== 'ALL' || f.grade !== 'ALL';
       select.innerHTML =
         '<option value="">' + (filtering ? (n === 0 ? 'No packs match these filters' : 'Select from ' + n + ' matching pack' + (n === 1 ? '' : 's') + '...') : 'Select stock pack...') + '</option>' +
         '<option value="CUSTOM_UNLINKED" class="font-bold text-sky-700 bg-sky-50">✨ -- Custom / Unlinked Stock (No Inventory Deduction) --</option>' +
+        '<option value="CUSTOM_MOULDING" class="font-bold text-violet-700 bg-violet-50">🛠️ -- Custom Moulding (enter size & profile) --</option>' +
         options;
       select.value = current;
       var countEl = row.querySelector('.po-filter-count');
@@ -2837,6 +2851,7 @@
             '<select class="po-pack-select w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium" onchange="handlePoPackSelectChange(\'' + rowId + '\')">' +
               '<option value="">Select stock pack...</option>' +
               '<option value="CUSTOM_UNLINKED" class="font-bold text-sky-700 bg-sky-50">✨ -- Custom / Unlinked Stock (No Inventory Deduction) --</option>' +
+        '<option value="CUSTOM_MOULDING" class="font-bold text-violet-700 bg-violet-50">🛠️ -- Custom Moulding (enter size & profile) --</option>' +
               options +
             '</select>' +
           '</div>' +
@@ -2888,7 +2903,35 @@
           '</div>' +
         '</div>' +
 
-        '<div class="bg-amber-50/70 border border-amber-200 rounded-lg p-2 space-y-1.5">' +
+        '<div class="po-moulding-fields hidden bg-violet-50/80 border border-violet-200 rounded-lg p-2.5 space-y-2">' +
+          '<div class="flex justify-between items-center text-[0.6875rem] font-bold text-violet-900 uppercase tracking-wider">' +
+            '<span>🛠️ Custom Moulding</span>' +
+            '<span class="text-violet-600 font-normal normal-case">Not counted in BF on order</span>' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Dimensions</label>' +
+            '<input type="text" class="po-mould-dims w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-mono font-bold" placeholder="e.g. 11/16 x 3-1/2 x 8 ft" />' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Profile</label>' +
+            '<input type="text" class="po-mould-profile w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-bold" placeholder="e.g. Crown, Base, Casing..." />' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-2">' +
+            '<div>' +
+              '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Count by</label>' +
+              '<select class="po-mould-unit w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-bold" onchange="handleMouldUnitChange(\'' + rowId + '\')">' +
+                '<option value="pcs">Pieces</option>' +
+                '<option value="LF">Linear feet</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Species</label>' +
+              '<input type="text" class="po-mould-species w-full bg-white border border-slate-300 rounded p-1.5 text-xs" value="Eastern White Pine" />' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="po-target-block bg-amber-50/70 border border-amber-200 rounded-lg p-2 space-y-1.5">' +
           '<label class="block text-[0.6875rem] uppercase font-bold text-amber-900 tracking-wider">Target Profile to Mill Into:</label>' +
           '<select class="po-target-profile-select w-full bg-white border border-amber-300 rounded-lg p-2 text-xs font-bold text-amber-800" onchange="handlePoTargetProfileChange(\'' + rowId + '\', this.value)">' +
             '<option value="Rough">Rough (Leave Rough)</option>' +
@@ -2912,12 +2955,12 @@
             '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
           '</div>' +
           '<div>' +
-            '<label class="block text-[0.6875rem] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
+            '<label class="po-rate-label block text-[0.6875rem] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
             '<input type="number" step="0.05" class="po-rate-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
             '<div class="po-rate-note text-[0.625rem] font-bold text-sky-700 mt-0.5"></div>' +
           '</div>' +
           '<div>' +
-            '<label class="block text-[0.6875rem] uppercase font-bold text-slate-500">Line BF / Total:</label>' +
+            '<label class="po-total-label block text-[0.6875rem] uppercase font-bold text-slate-500">Line BF / Total:</label>' +
             '<div class="po-line-preview text-xs font-mono font-bold text-emerald-700 pt-2">0 BF • $0</div>' +
           '</div>' +
         '</div>' +
@@ -2953,7 +2996,15 @@
       var customFields = row.querySelector('.po-custom-stock-fields');
 
       var packId = select.value;
-      if (packId === "CUSTOM_UNLINKED") {
+      var isMould = packId === "CUSTOM_MOULDING";
+      row.querySelector('.po-moulding-fields').classList.toggle('hidden', !isMould);
+      row.querySelector('.po-target-block').classList.toggle('hidden', isMould);
+      row.querySelector('.po-rate-label').innerText = isMould ? ('$ per ' + (row.querySelector('.po-mould-unit').value === 'LF' ? 'LF' : 'pc') + ':') : 'Unit $/BF:';
+      row.querySelector('.po-total-label').innerText = isMould ? 'Line Total:' : 'Line BF / Total:';
+      if (isMould) {
+        customFields.classList.add('hidden');
+        row.querySelector('.po-qty-label').innerText = row.querySelector('.po-mould-unit').value === 'LF' ? 'LF Needed:' : 'Pcs Needed:';
+      } else if (packId === "CUSTOM_UNLINKED") {
         customFields.classList.remove('hidden');
         row.querySelector('.po-qty-label').innerText = 'Pcs Needed:';
         if (!pcsInput.value) pcsInput.value = "100";
@@ -2969,6 +3020,15 @@
       updatePoRowRate(rowId);
     };
 
+    window.handleMouldUnitChange = function(rowId) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      var lf = row.querySelector('.po-mould-unit').value === 'LF';
+      row.querySelector('.po-qty-label').innerText = lf ? 'LF Needed:' : 'Pcs Needed:';
+      row.querySelector('.po-rate-label').innerText = '$ per ' + (lf ? 'LF' : 'pc') + ':';
+      recalcPoLiveSummary();
+    };
+
     window.recalcPoLiveSummary = function() {
       var rows = document.querySelectorAll('.po-line-row');
       var grandPieces = 0;
@@ -2981,7 +3041,12 @@
         var rate = parseFloat(row.querySelector('.po-rate-input').value) || 0;
         var preview = row.querySelector('.po-line-preview');
 
-        if (packId === "CUSTOM_UNLINKED") {
+        if (packId === "CUSTOM_MOULDING") {
+          var mCost = pcs * rate;
+          if (row.querySelector('.po-mould-unit').value !== 'LF') grandPieces += pcs;
+          grandSubtotal += mCost;
+          preview.innerText = "$" + mCost.toFixed(2) + " (moulding)";
+        } else if (packId === "CUSTOM_UNLINKED") {
           var t = parseFloat(row.querySelector('.po-cust-thick').value) || 1;
           var w = parseFloat(row.querySelector('.po-cust-width').value) || 6;
           var l = parseFloat(row.querySelector('.po-cust-len').value) || 12;
@@ -3053,7 +3118,13 @@
           alert("All rows must have a selected pack or custom specification and a positive piece count (or board feet).");
           return;
         }
-        if (vId !== "CUSTOM_UNLINKED") {
+        if (vId === "CUSTOM_MOULDING") {
+          var mr = rows[v];
+          if (!mr.querySelector('.po-mould-dims').value.trim() || !mr.querySelector('.po-mould-profile').value.trim()) {
+            alert("Line " + (v + 1) + ": enter the dimensions and profile for the custom moulding.");
+            return;
+          }
+        } else if (vId !== "CUSTOM_UNLINKED") {
           if ((rows[v].dataset.fGrade || 'ALL') === 'ALL') {
             alert("Line " + (v + 1) + ": pick a Grade (1&2, Clear, Millrun, Barn, Low or Stain) so the price is right.");
             return;
@@ -3094,7 +3165,23 @@
 
         var effectiveTargetProfile = (targetProfile === 'Other' && targetOther) ? targetOther : targetProfile;
 
-        if (packId === "CUSTOM_UNLINKED") {
+        if (packId === "CUSTOM_MOULDING") {
+          var mUnit = r.querySelector('.po-mould-unit').value === 'LF' ? 'LF' : 'pcs';
+          lineItems.push({
+            packId: "CUSTOM_MOULDING",
+            isUnlinked: true,
+            isCustomMoulding: true,
+            dims: r.querySelector('.po-mould-dims').value.trim(),
+            targetProfile: r.querySelector('.po-mould-profile').value.trim(),
+            species: r.querySelector('.po-mould-species').value.trim(),
+            grade: "Custom moulding",
+            unit: mUnit,
+            pieces: pcsNeeded,
+            rate: rate,
+            bf: 0,
+            total: pcsNeeded * rate
+          });
+        } else if (packId === "CUSTOM_UNLINKED") {
           var specSpecies = r.querySelector('.po-cust-species').value.trim() || "Eastern White Pine";
           var specGrade = r.querySelector('.po-cust-grade').value;
           var specDrying = r.querySelector('.po-cust-drying').value;
@@ -3187,7 +3274,7 @@
         notes: notes,
         status: isEdit ? (oldPo.status || "OPEN") : "OPEN",
         items: lineItems,
-        totalPieces: lineItems.reduce(function(acc, item){ return acc + (isBfOnly(item) ? 0 : item.pieces); }, 0),
+        totalPieces: lineItems.reduce(function(acc, item){ return acc + ((isBfOnly(item) || (item.isCustomMoulding && item.unit === 'LF')) ? 0 : item.pieces); }, 0),
         totalBF: lineItems.reduce(function(acc, item){ return acc + item.bf; }, 0),
         subtotal: subtotal,
         hstAmount: hstAmount,
@@ -3236,7 +3323,7 @@
         
         lineItems.forEach(function(it, idx){
           var tagLabel = it.isUnlinked ? "CUSTOM ORDER" : it.packId;
-          emailBodyText += (idx+1) + ". [" + tagLabel + "] - " + it.pieces + " " + qtyUnit(it) + " " + it.thickness + "x" + it.width + " (" + it.targetProfile + ") = " + it.bf.toFixed(1) + " BF%0D%0A";
+          emailBodyText += (idx+1) + ". [" + (it.isCustomMoulding ? "CUSTOM MOULDING" : tagLabel) + "] - " + it.pieces + " " + poLineUnit(it) + " " + encodeURIComponent(poLineDims(it)) + " (" + encodeURIComponent(it.targetProfile || '') + ")" + (it.isCustomMoulding ? "" : " = " + (parseFloat(it.bf) || 0).toFixed(1) + " BF") + "%0D%0A";
         });
 
         window.location.href = "mailto:chris@cimmfg.ca?subject=" + emailSubject + "&body=" + emailBodyText;
@@ -3251,6 +3338,8 @@
     };
 
     window.updatePoBadge = function() {
+      var bfm = document.getElementById('metricTotalPieces');
+      if (bfm) bfm.innerHTML = Math.round(bfOnOrder()).toLocaleString() + ' <span class="text-sm font-sans text-slate-500">BF</span>';
       var openCount = purchaseOrders.filter(function(po){ return po.status === "OPEN"; }).length;
       var badge = document.getElementById('openPoBadge');
       if (badge) badge.innerText = openCount;
@@ -3297,14 +3386,14 @@
           var items = po.items || [];
 
           var itemsHtml = items.map(function(it){
-            var dim = it.thickness + '"×' + (it.width===0?'RW':it.width+'"') + '×' + (it.length===0?'RL':it.length+"'");
-            var source = it.isUnlinked ? '<span class="text-sky-700 font-bold">Custom</span>' : '<span class="font-mono text-slate-500">' + it.packId + '</span>';
+            var dim = poLineDims(it);
+            var source = it.isCustomMoulding ? '<span class="text-violet-700 font-bold">Custom moulding</span>' : (it.isUnlinked ? '<span class="text-sky-700 font-bold">Custom</span>' : '<span class="font-mono text-slate-500">' + it.packId + '</span>');
             return '<li class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
               '<div class="min-w-0">' +
-                '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' ' + qtyUnit(it) + ' ' + dim + '</div>' +
-                '<div class="text-[0.6875rem] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + it.grade + ' • ' + source + '</div>' +
+                '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' ' + poLineUnit(it) + ' ' + dim + '</div>' +
+                '<div class="text-[0.6875rem] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + (it.isCustomMoulding ? (it.species || '') : it.grade) + ' • ' + source + '</div>' +
               '</div>' +
-              '<div class="text-right font-mono text-[0.6875rem] text-slate-600 shrink-0">' + (parseFloat(it.bf)||0).toFixed(1) + ' BF</div>' +
+              '<div class="text-right font-mono text-[0.6875rem] text-slate-600 shrink-0">' + (it.isCustomMoulding ? '—' : (parseFloat(it.bf)||0).toFixed(1) + ' BF') + '</div>' +
             '</li>';
           }).join('');
 
@@ -3524,13 +3613,31 @@
 
     function fulfillLabel(po) { return po.fulfillment === 'DELIVERY' ? 'DELIVERY' : 'PICKUP'; }
 
+    // Board feet on all open POs, rough or milled. Custom moulding lines don't count.
+    function bfOnOrder() {
+      return purchaseOrders.reduce(function(sum, po) {
+        if (po.status !== 'OPEN') return sum;
+        return sum + (po.items || []).reduce(function(a, it) { return a + (it.isCustomMoulding ? 0 : (parseFloat(it.bf) || 0)); }, 0);
+      }, 0);
+    }
+
+    // One description of a PO line, used on cards, prints, email and labels
+    function poLineDims(it) {
+      if (it.isCustomMoulding) return it.dims || 'Custom moulding';
+      return it.thickness + '"×' + (it.width === 0 ? 'RW' : it.width + '"') + '×' + (it.length === 0 ? 'RL' : it.length + "'");
+    }
+    function poLineUnit(it) {
+      if (it.isCustomMoulding) return it.unit === 'LF' ? 'LF' : 'pcs';
+      return qtyUnit(it);
+    }
+
     /* SHIPPING LABELS — one label per lift, marked 1/2, 2/2 ... */
     var shipPoId = null;
     var shipLifts = [];   // shipLifts[lift][lineIndex] = pieces (or BF for RW/RL packs)
 
     function shipLines(po) { return po.items || []; }
     function shipLineDesc(it) {
-      var dim = it.thickness + '"×' + (it.width === 0 ? 'RW' : it.width + '"') + '×' + (it.length === 0 ? 'RL' : it.length + "'");
+      var dim = poLineDims(it);
       return dim + ' ' + (it.targetProfile || it.sourceStage || 'Rough') + ' • ' + (it.grade || '');
     }
 
@@ -3597,7 +3704,7 @@
             return '<label class="flex items-center justify-between gap-2">' +
               '<span class="text-xs text-slate-700 min-w-0">' + shipLineDesc(it) + '</span>' +
               '<span class="flex items-center gap-1 shrink-0"><input type="number" min="0" inputmode="numeric" data-lift="' + l + '" data-line="' + i + '" value="' + (lift[i] || '') + '" oninput="updateShipCheck()" class="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold text-right" />' +
-              '<span class="text-xs text-slate-500 w-6">' + (it.bfOnly ? 'BF' : 'pcs') + '</span></span></label>';
+              '<span class="text-xs text-slate-500 w-6">' + poLineUnit(it) + '</span></span></label>';
           }).join('') +
         '</div>';
       }).join('');
@@ -3611,7 +3718,7 @@
       var lines = shipLines(po);
       var msgs = lines.map(function(it, i) {
         var put = shipLifts.reduce(function(a, lift){ return a + (lift[i] || 0); }, 0);
-        var want = parseInt(it.pieces) || 0, unit = it.bfOnly ? 'BF' : 'pcs';
+        var want = parseInt(it.pieces) || 0, unit = poLineUnit(it);
         if (put === want) return '';
         return '<div class="text-rose-700">' + shipLineDesc(it) + ': ' + put + ' of ' + want + ' ' + unit + ' on lifts (' + (put < want ? (want - put) + ' not on a lift' : (put - want) + ' too many') + ')</div>';
       }).filter(Boolean);
@@ -3620,7 +3727,7 @@
         var pcs = 0, bf = 0;
         lines.forEach(function(it, i) {
           var q = lift[i] || 0;
-          if (it.bfOnly) bf += q; else { pcs += q; bf += calculateBF(it.thickness, it.width, it.length, q); }
+          if (it.isCustomMoulding) { if (it.unit !== 'LF') pcs += q; } else if (it.bfOnly) bf += q; else { pcs += q; bf += calculateBF(it.thickness, it.width, it.length, q); }
         });
         var el = document.querySelector('[data-lift-total="' + l + '"]');
         if (el) el.innerText = pcs + ' pcs • ' + bf.toFixed(0) + ' BF';
@@ -3637,7 +3744,7 @@
       saveShipLifts();
       var today = new Date().toISOString().split('T')[0];
       var orderPcs = 0, orderBF = 0;
-      lines.forEach(function(it){ if (!it.bfOnly) orderPcs += parseInt(it.pieces) || 0; orderBF += parseFloat(it.bf) || 0; });
+      lines.forEach(function(it){ if (!it.bfOnly && !(it.isCustomMoulding && it.unit === 'LF')) orderPcs += parseInt(it.pieces) || 0; orderBF += parseFloat(it.bf) || 0; });
       var isDel = po.fulfillment === 'DELIVERY';
       var cell = function(label, value) { return value ? '<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#333;">' + label + '</div><div style="font-size:13px;font-weight:800;">' + value + '</div></div>' : ''; };
       document.getElementById('printableShipContainer').innerHTML = shipLifts.map(function(lift, l) {
@@ -3645,17 +3752,17 @@
         var rows = lines.map(function(it, i) {
           var q = lift[i] || 0;
           if (!q) return '';
-          var lbf = it.bfOnly ? q : calculateBF(it.thickness, it.width, it.length, q);
-          bf += lbf; if (!it.bfOnly) pcs += q;
-          var dim = it.thickness + '" × ' + (it.width === 0 ? 'RW' : it.width + '"') + ' × ' + (it.length === 0 ? 'RL' : it.length + "'");
+          var lbf = it.isCustomMoulding ? 0 : (it.bfOnly ? q : calculateBF(it.thickness, it.width, it.length, q));
+          bf += lbf; if (!it.bfOnly && !(it.isCustomMoulding && it.unit === 'LF')) pcs += q;
+          var dim = poLineDims(it);
           return '<tr style="border-bottom:1px solid #999;">' +
-            '<td style="padding:3px 6px;font-size:17px;font-weight:900;font-family:monospace;text-align:right;white-space:nowrap;">' + q + (it.bfOnly ? ' BF' : ' pcs') + '</td>' +
+            '<td style="padding:3px 6px;font-size:17px;font-weight:900;font-family:monospace;text-align:right;white-space:nowrap;">' + q + ' ' + poLineUnit(it) + '</td>' +
             '<td style="padding:3px 6px;font-size:15px;font-weight:900;font-family:monospace;white-space:nowrap;">' + dim + '</td>' +
             '<td style="padding:3px 6px;font-size:14px;font-weight:800;">' + (it.targetProfile || it.sourceStage || 'Rough') + '</td>' +
             '<td style="padding:3px 6px;font-size:12px;">' + (it.grade || '') + (it.species ? '<br>' + it.species : '') + '</td>' +
-            '<td style="padding:3px 6px;font-size:12px;font-weight:700;">' + (it.dryingMethod === 'Air Dried' ? 'AD' : 'KD') + '</td>' +
-            '<td style="padding:3px 6px;font-size:12px;font-family:monospace;">' + (it.isUnlinked ? 'Custom' : (it.packId || '')) + '</td>' +
-            '<td style="padding:3px 6px;font-size:14px;font-family:monospace;text-align:right;white-space:nowrap;">' + lbf.toFixed(0) + ' BF</td></tr>';
+            '<td style="padding:3px 6px;font-size:12px;font-weight:700;">' + (it.isCustomMoulding ? '' : (it.dryingMethod === 'Air Dried' ? 'AD' : 'KD')) + '</td>' +
+            '<td style="padding:3px 6px;font-size:12px;font-family:monospace;">' + (it.isCustomMoulding ? 'Moulding' : (it.isUnlinked ? 'Custom' : (it.packId || ''))) + '</td>' +
+            '<td style="padding:3px 6px;font-size:14px;font-family:monospace;text-align:right;white-space:nowrap;">' + (it.isCustomMoulding ? '' : lbf.toFixed(0) + ' BF') + '</td></tr>';
         }).join('');
         return '<div class="ship-label">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:5px;">' +
@@ -3738,9 +3845,9 @@
       if (!po) return;
 
       var itemsRows = po.items.map(function(it, idx) {
-        var dimStr = it.thickness + '" × ' + (it.width===0?'RW':it.width+'"') + ' × ' + (it.length===0?'RL':it.length+"'");
+        var dimStr = poLineDims(it);
         var targetProf = it.targetProfile || it.sourceStage || 'Rough';
-        var tagBadge = it.isUnlinked ? '<span style="color:#0284c7;font-weight:bold;">Custom Order</span>' : it.packId;
+        var tagBadge = it.isCustomMoulding ? '<span style="color:#6d28d9;font-weight:bold;">Custom Moulding</span>' : (it.isUnlinked ? '<span style="color:#0284c7;font-weight:bold;">Custom Order</span>' : it.packId);
 
         return '<tr style="border-bottom: 1px solid #cbd5e1;">' +
           '<td style="padding: 10px 8px; text-align: center; font-weight: bold;">' + (idx+1) + '</td>' +
@@ -3748,8 +3855,8 @@
           '<td style="padding: 10px 8px;">' + it.species + ' (' + (it.grade || 'Unspecified') + ')</td>' +
           '<td style="padding: 10px 8px; font-weight: bold; font-size: 13px; color: #0f172a;">' + targetProf + '</td>' +
           '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
-          '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + (isBfOnly(it) ? '—' : it.pieces) + '</td>' +
-          '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + it.bf.toFixed(1) + '</td>' +
+          '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + (isBfOnly(it) ? '—' : it.pieces + (it.isCustomMoulding && it.unit === 'LF' ? ' LF' : '')) + '</td>' +
+          '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + (it.isCustomMoulding ? '—' : (parseFloat(it.bf) || 0).toFixed(1)) + '</td>' +
         '</tr>';
       }).join('');
 
