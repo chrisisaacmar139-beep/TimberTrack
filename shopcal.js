@@ -835,6 +835,58 @@
     });
   }
 
+  // Running behind: push every unfinished run (from the one he picks onward) back by N shop hours.
+  // Nothing moves until he sees the list and says yes.
+  function runningBehind() {
+    var now = new Date();
+    var open = blockingRuns(runs).filter(function (r) { return blockEnd(r) > now; });
+    if (!open.length) { toast('No open runs from now on — nothing to push.'); return Promise.resolve('none'); }
+    return ask({
+      title: '⏰ Running behind',
+      body:
+        '<label class="block text-xs font-bold text-slate-600 uppercase">How far behind are you? (shop hours)' +
+          '<input name="hours" type="number" min="0.25" step="0.25" inputmode="decimal" value="1" class="' + INPUT + ' mt-1" /></label>' +
+        '<label class="block text-xs font-bold text-slate-600 uppercase">Push back starting with' +
+          '<select name="from" class="' + INPUT + ' mt-1">' + open.map(function (r) {
+            return '<option value="' + esc(r.id) + '">' + esc(r.profile) + ' — ' + fmtWhen(runStart(r)) + (runStart(r) <= now ? ' (on now)' : '') + '</option>';
+          }).join('') + '</select></label>' +
+        '<div class="text-xs text-slate-500">That run and every open run after it move back by the same amount of shop time. Completed orders don’t move. You’ll see the list before anything changes.</div>',
+      buttons: [
+        { label: 'Show what moves', value: 'go', style: 'primary', validate: function (f) { var h = parseFloat(f.querySelector('[name=hours]').value); return h > 0 ? '' : 'Enter how many hours behind.'; } },
+        { label: 'Cancel', value: 'cancel', style: 'ghost' }
+      ]
+    }).then(function (r) {
+      if (r.value !== 'go') return 'cancelled';
+      var mins = Math.round(parseFloat(r.form.hours) * 60);
+      var draft = clone(runs);
+      var first = draft.find(function (x) { return x.id === r.form.from; });
+      var fromStart = runStart(first);
+      var moved = blockingRuns(draft).filter(function (x) { return blockEnd(x) > now && runStart(x) >= fromStart; });
+      var before = {};
+      moved.forEach(function (x) { before[x.id] = runStart(x); });
+      moved.forEach(function (x) { x.start = toLocalStr(addWorkMinutes(runStart(x), mins, runOkDay(x))); });
+      // Safety: if anything still clashes after the shift, slide it just past.
+      rippleFrom(draft, first.id).forEach(function (m) { if (!before[m.id]) { before[m.id] = m.from; moved.push(draft.find(function (x) { return x.id === m.id; })); } });
+      var late = lateEntries(moved, poLookup);
+      var body =
+        '<div>Pushing <b>' + moved.length + ' run' + (moved.length === 1 ? '' : 's') + '</b> back ' + fmtDur(mins) + ':</div>' +
+        '<div class="space-y-1">' + moved.map(function (x) { return '<div class="text-sm">• <b>' + esc(x.profile) + '</b>: ' + fmtWhen(before[x.id]) + ' → <b>' + fmtWhen(runStart(x)) + '</b></div>'; }).join('') + '</div>' +
+        (late.length ? '<div class="text-rose-700 font-bold pt-1">These orders would be finished after their due date:</div>' +
+          late.map(function (l) { return '<div class="text-sm text-rose-700">• <b>' + esc(l.entry.customer) + '</b> ' + esc(l.entry.poId) + ' — due ' + fmtDay(l.due) + ', done ' + fmtWhen(l.end) + '</div>'; }).join('') : '');
+      return ask({
+        title: '⏰ Push the schedule back?',
+        body: body,
+        buttons: [
+          { label: 'Push ' + moved.length + ' run' + (moved.length === 1 ? '' : 's') + ' back', value: 'push', style: 'primary' },
+          { label: 'Cancel', value: 'cancel', style: 'ghost' }
+        ]
+      }).then(function (r2) {
+        if (r2.value !== 'push') return 'cancelled';
+        return saveRuns(moved).then(function () { toast('Pushed ' + moved.length + ' run(s) back ' + fmtDur(mins) + '.'); return 'saved'; });
+      });
+    });
+  }
+
   var poLookup = null;
   function setPoLookup(fn) { poLookup = fn; }
 
@@ -891,7 +943,7 @@
     init: init, onChange: function (fn) { listeners.push(fn); }, setPoLookup: setPoLookup,
     getSettings: function () { return settings; }, getRuns: function () { return runs; }, isReady: function () { return ready.settings && ready.runs; },
     saveSettings: saveSettings, saveRuns: saveRuns, deleteRun: deleteRun, schedulePo: schedulePo, lineDesc: lineDesc, entriesForPo: entriesForPo, removePoEntries: removePoEntries,
-    confirmAndSave: confirmAndSave, rippleFrom: rippleFrom, overlapIds: overlapIds, lateEntries: lateEntries,
+    confirmAndSave: confirmAndSave, runningBehind: runningBehind, rippleFrom: rippleFrom, overlapIds: overlapIds, lateEntries: lateEntries,
     runStart: runStart, runEnd: runEnd, runMinutes: runMinutes, blockEnd: blockEnd, blockMinutes: blockMinutes, blockingRuns: blockingRuns, isBlocking: isBlocking, entryDone: entryDone, runDone: runDone, statusFor: statusFor, sortRuns: sortRuns, firstOpenSlot: firstOpenSlot,
     daySegments: daySegments, workMinutesPerDay: workMinutesPerDay, addWorkMinutes: addWorkMinutes, nextWorkMoment: nextWorkMoment,
     workMinutesBetween: workMinutesBetween, hzToMpm: hzToMpm, speedForWidth: speedForWidth, strapMinutes: strapMinutes,
