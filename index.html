@@ -3393,7 +3393,7 @@
               '<div class="min-w-0">' +
                 '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' ' + poLineUnit(it) + ' ' + dim + '</div>' +
                 '<div class="text-[0.6875rem] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + (it.isCustomMoulding ? (it.species || '') : it.grade) + ' • ' + source + '</div>' +
-                (anyShipped ? '<div class="text-[0.6875rem] font-bold"><span class="text-emerald-700">Shipped ' + shippedQty(po, li) + '</span> • <span class="' + (remainingQty(po, li) ? 'text-violet-700' : 'text-slate-400') + '">Still needed ' + remainingQty(po, li) + '</span></div>' : '') +
+                (anyShipped ? '<div class="text-[0.6875rem] font-bold"><span class="text-emerald-700">Shipped ' + shippedQty(po, li) + '</span> • <span class="' + (remainingQty(po, li) ? 'text-violet-700' : 'text-slate-400') + '">Still needed ' + remainingQty(po, li) + '</span>' + (extraQty(po, li) ? ' • <span class="text-amber-700">+' + extraQty(po, li) + ' extra</span>' : '') + '</div>' : '') +
               '</div>' +
               '<div class="text-right font-mono text-[0.6875rem] text-slate-600 shrink-0">' + (it.isCustomMoulding ? '—' : (parseFloat(it.bf)||0).toFixed(1) + ' BF') + '</div>' +
             '</li>';
@@ -3661,6 +3661,10 @@
       var it = (po.items || [])[i];
       return Math.max(0, (parseInt(it && it.pieces) || 0) - shippedQty(po, i));
     }
+    function extraQty(po, i) {
+      var it = (po.items || [])[i];
+      return Math.max(0, shippedQty(po, i) - (parseInt(it && it.pieces) || 0));
+    }
     function hasRemaining(po) { return (po.items || []).some(function(it, i){ return remainingQty(po, i) > 0; }); }
     function qtySummary(po, perLine) {
       var pcs = 0, lf = 0, bf = 0;
@@ -3707,7 +3711,7 @@
         return;
       }
       shipPoId = poId; shipMode = 'new'; shipReprintIdx = -1;
-      shipLifts = [shipLines(po).map(function(it, i){ return remainingQty(po, i); })];
+      shipLifts = [shipLines(po).map(function(){ return null; })];   // null = not typed yet, use the suggestion
       var n = (po.shipments || []).length + 1;
       document.getElementById('shipTitle').innerText = justDone ? '✓ Order done — ship what\'s left?' : '🚚 Shipment #' + n;
       document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id + ' • set what\'s going on this truck';
@@ -3749,7 +3753,7 @@
     function readShipInputs() {
       document.querySelectorAll('[data-lift]').forEach(function(el) {
         var l = +el.getAttribute('data-lift'), i = +el.getAttribute('data-line');
-        if (shipLifts[l]) shipLifts[l][i] = Math.max(0, parseInt(el.value) || 0);
+        if (shipLifts[l]) shipLifts[l][i] = el.value.trim() === '' ? null : Math.max(0, parseInt(el.value) || 0);
       });
     }
 
@@ -3758,7 +3762,7 @@
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       n = Math.max(1, Math.min(40, parseInt(n) || 1));
       var lines = shipLines(po);
-      while (shipLifts.length < n) shipLifts.push(lines.map(function(){ return 0; }));
+      while (shipLifts.length < n) shipLifts.push(lines.map(function(){ return null; }));
       shipLifts.length = n;
       renderShipLifts();
     };
@@ -3768,6 +3772,27 @@
     function shipLimit(po, i) {
       if (shipMode === 'reprint') return shipLifts.reduce(function(a, l){ return a + (l[i] || 0); }, 0);
       return remainingQty(po, i);
+    }
+
+    // Suggested amount for each blank box: what's still needed (minus what's typed) split evenly over the blank lifts
+    function shipSuggest(po) {
+      var lines = shipLines(po);
+      var sug = shipLifts.map(function(){ return lines.map(function(){ return 0; }); });
+      if (shipMode === 'reprint') return sug;
+      lines.forEach(function(it, i) {
+        var typed = 0, blank = [];
+        shipLifts.forEach(function(lift, l){ if (lift[i] == null) blank.push(l); else typed += lift[i]; });
+        if (!blank.length) return;
+        var rest = Math.max(0, remainingQty(po, i) - typed);
+        var base = Math.floor(rest / blank.length), extra = rest % blank.length;
+        blank.forEach(function(l, k){ sug[l][i] = base + (k < extra ? 1 : 0); });
+      });
+      return sug;
+    }
+    // Amounts actually going: typed value, or the suggestion when the box is blank
+    function shipEffective(po) {
+      var sug = shipSuggest(po);
+      return shipLifts.map(function(lift, l){ return lift.map(function(q, i){ return q == null ? sug[l][i] : q; }); });
     }
 
     function renderShipLifts() {
@@ -3782,10 +3807,11 @@
           '<span class="text-xs font-mono text-slate-500" data-lift-total="' + l + '"></span></div>' +
           lines.map(function(it, i) {
             var done = !ro && remainingQty(po, i) === 0;
-            return '<label class="flex items-center justify-between gap-2' + (done ? ' opacity-50' : '') + '">' +
-              '<span class="text-xs text-slate-700 min-w-0">' + shipLineDesc(it) + (done ? ' <b class="text-emerald-700">(all shipped)</b>' : '') + '</span>' +
-              '<span class="flex items-center gap-1 shrink-0"><input type="number" min="0" inputmode="numeric" data-lift="' + l + '" data-line="' + i + '" value="' + (lift[i] || '') + '" oninput="updateShipCheck()"' + (ro || done ? ' disabled' : '') + ' class="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold text-right" />' +
-              '<span class="text-xs text-slate-500 w-6">' + poLineUnit(it) + '</span></span></label>';
+            return '<label class="flex items-start justify-between gap-2">' +
+              '<span class="text-xs text-slate-700 min-w-0 pt-2">' + shipLineDesc(it) + (done ? ' <b class="text-emerald-700">(all shipped)</b>' : '') + '</span>' +
+              '<span class="shrink-0"><span class="flex items-center gap-1"><input type="number" min="0" inputmode="numeric" data-lift="' + l + '" data-line="' + i + '" value="' + (lift[i] == null ? '' : lift[i]) + '" oninput="updateShipCheck()"' + (ro ? ' disabled' : '') + ' class="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold text-right" />' +
+              '<span class="text-xs text-slate-500 w-6">' + poLineUnit(it) + '</span></span>' +
+              (ro ? '' : '<span class="block text-[0.6875rem] text-slate-500 text-right pr-7" data-sug="' + l + '-' + i + '"></span>') + '</span></label>';
           }).join('') +
         '</div>';
       }).join('');
@@ -3798,12 +3824,21 @@
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       if (!po) return false;
       var lines = shipLines(po), ok = true, any = false;
+      var eff = shipEffective(po), sug = shipSuggest(po);
+      shipLifts.forEach(function(lift, l) {
+        lines.forEach(function(it, i) {
+          var el = document.querySelector('[data-sug="' + l + '-' + i + '"]');
+          if (!el) return;
+          var typed = lift[i] != null, s = sug[l][i];
+          el.innerHTML = typed ? '' : 'should be <b class="text-slate-800">' + s + '</b>';
+        });
+      });
       var msgs = lines.map(function(it, i) {
-        var put = shipLifts.reduce(function(a, lift){ return a + (lift[i] || 0); }, 0);
+        var put = eff.reduce(function(a, lift){ return a + (lift[i] || 0); }, 0);
         if (put > 0) any = true;
         if (shipMode === 'reprint') return '';
         var left = remainingQty(po, i), unit = poLineUnit(it);
-        if (put > left) { ok = false; return '<div class="text-rose-700">' + shipLineDesc(it) + ': shipping ' + put + ' but only ' + left + ' ' + unit + ' still needed</div>'; }
+        if (put > left) return '<div class="text-amber-700 font-bold">' + shipLineDesc(it) + ': ' + (put - left) + ' ' + unit + ' more than ordered (extras)</div>';
         if (put < left) return '<div class="text-violet-700">' + shipLineDesc(it) + ': ' + put + ' of ' + left + ' ' + unit + ' — ' + (left - put) + ' still needed after this</div>';
         return '';
       }).filter(Boolean);
@@ -3812,10 +3847,10 @@
       if (shipMode === 'reprint') box.innerHTML = '<div class="text-slate-600">Reprinting labels for a shipment already made.</div>';
       else if (!any) box.innerHTML = '<div class="text-rose-700">Put something on a lift to ship it.</div>';
       else box.innerHTML = msgs.length ? msgs.join('') : '<div class="text-emerald-700">✓ This ships everything that\'s left on the order.</div>';
-      shipLifts.forEach(function(lift, l) {
+      eff.forEach(function(lift, l) {
         var pcs = 0, bf = 0;
         lines.forEach(function(it, i) {
-          var q = lift[i] || 0;
+          var q = eff[l][i] || 0;
           if (it.isCustomMoulding) { if (it.unit !== 'LF') pcs += q; } else if (it.bfOnly) bf += q; else { pcs += q; bf += calculateBF(it.thickness, it.width, it.length, q); }
         });
         var el = document.querySelector('[data-lift-total="' + l + '"]');
@@ -3828,8 +3863,8 @@
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       if (!po) return;
       readShipInputs();
-      if (!updateShipCheck()) { alert(shipMode === 'reprint' ? 'Nothing to print.' : 'Check the amounts: you can\'t ship more than is still needed, and something has to be on a lift.'); return; }
-      shipLifts = shipLifts.filter(function(l){ return l.some(function(q){ return q > 0; }); });   // drop empty lifts
+      if (!updateShipCheck()) { alert(shipMode === 'reprint' ? 'Nothing to print.' : 'Put something on a lift to ship it.'); return; }
+      shipLifts = shipEffective(po).filter(function(l){ return l.some(function(q){ return q > 0; }); });   // blanks take the suggestion; drop empty lifts
       var shipIdx, shipDate;
       if (shipMode === 'new') {
         shipDate = new Date().toISOString().split('T')[0];
@@ -3973,7 +4008,7 @@
           '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
           '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + (isBfOnly(it) ? '—' : it.pieces + (it.isCustomMoulding && it.unit === 'LF' ? ' LF' : '')) + '</td>' +
           '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + (it.isCustomMoulding ? '—' : (parseFloat(it.bf) || 0).toFixed(1)) + '</td>' +
-          (shipCols ? '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + shippedQty(po, idx) + '</td>' +
+          (shipCols ? '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + shippedQty(po, idx) + (extraQty(po, idx) ? '<br><span style="font-size:10px;">(+' + extraQty(po, idx) + ' extra)</span>' : '') + '</td>' +
             '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: 900;">' + remainingQty(po, idx) + '</td>' : '') +
         '</tr>';
       }).join('');
