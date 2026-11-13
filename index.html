@@ -2656,6 +2656,7 @@
           row.querySelector('.po-cust-width').value = it.width;
           row.querySelector('.po-cust-len').value = it.length;
         } else {
+          if (!select.querySelector('option[value="' + it.packId + '"]')) select.insertAdjacentHTML('beforeend', '<option value="' + it.packId + '">' + it.packId + '</option>');
           select.value = it.packId;
           if (it.bfOnly) row.querySelector('.po-qty-label').innerText = 'BF Needed:';
         }
@@ -2674,6 +2675,7 @@
         row.querySelector('.po-rate-input').value = it.rate;
       });
       if (!po.items || po.items.length === 0) addPoLineItemRow();
+      refreshOtherPackLists(null);
 
       closePoListModal();
       recalcPoLiveSummary();
@@ -2721,10 +2723,29 @@
       return true;
     }
 
-    function buildPoPackOptions(f, keepId) {
+    // Pieces (or BF) of each pack already taken by the other lines on this PO
+    function poPackUsedElsewhere(rowId) {
+      var used = {};
+      document.querySelectorAll('.po-line-row').forEach(function(r) {
+        if (r.id === rowId) return;
+        var id = r.querySelector('.po-pack-select').value;
+        if (!id || id === 'CUSTOM_UNLINKED' || id === 'CUSTOM_MOULDING') return;
+        used[id] = (used[id] || 0) + (parseInt(r.querySelector('.po-pcs-input').value) || 0);
+      });
+      return used;
+    }
+    function poPackLeftFor(pack, rowId) {
+      return (parseInt(pack.pieces) || 0) - (poPackUsedElsewhere(rowId)[pack.id] || 0);
+    }
+
+    function buildPoPackOptions(f, keepId, rowId) {
       var count = 0;
-      var html = poStock().filter(function(item) {
-        if ((parseInt(item.pieces)||0) <= 0) return false;
+      var used = poPackUsedElsewhere(rowId);
+      var html = poStock().map(function(item) {
+        var left = (parseInt(item.pieces) || 0) - (used[item.id] || 0);
+        return Object.assign({}, item, { pieces: left, _shared: !!used[item.id] });
+      }).filter(function(item) {
+        if (item.pieces <= 0 && item.id !== keepId) return false;   // used up by other lines on this PO
         if (packMatchesPoFilter(item, f)) { count++; return true; }
         return item.id === keepId;
       }).map(function(item) {
@@ -2732,7 +2753,7 @@
         var displayStage = getDisplayStage(item);
         var coBadge = item.company === "Crosshill Sawmill" ? "[Crosshill] " : "[CIM] ";
         var dryingPill = item.dryingMethod === "Air Dried" ? "[AD] " : "[KD] ";
-        return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + item.pieces + ' ' + qtyUnit(item) + ' avail]</option>';
+        return '<option value="' + item.id + '">' + coBadge + dryingPill + item.id + ' — ' + dim + ' (' + displayStage + ', ' + item.grade + ') [' + Math.max(0, item.pieces) + ' ' + qtyUnit(item) + (item._shared ? ' left after other lines' : ' avail') + ']</option>';
       }).join('');
       buildPoPackOptions.lastCount = count;
       return html;
@@ -2805,7 +2826,7 @@
         grade: row.dataset.fGrade || 'ALL'
       };
       var keepId = (current && current !== 'CUSTOM_UNLINKED' && current !== 'CUSTOM_MOULDING') ? current : '';
-      var options = buildPoPackOptions(f, keepId);
+      var options = buildPoPackOptions(f, keepId, rowId);
       var n = buildPoPackOptions.lastCount;
       var filtering = f.width !== 'ALL' || f.length !== 'ALL' || f.grade !== 'ALL';
       select.innerHTML =
@@ -2822,7 +2843,7 @@
       var container = document.getElementById('poLineItemsContainer');
       var rowId = "poRow_" + Date.now() + "_" + Math.floor(Math.random()*1000);
 
-      var options = buildPoPackOptions({ width: 'ALL', length: 'ALL', grade: 'ALL' }, '');
+      var options = buildPoPackOptions({ width: 'ALL', length: 'ALL', grade: 'ALL' }, '', null);
 
       var rowHtml = '<div id="' + rowId + '" class="po-line-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">' +
         '<div class="flex items-center gap-2">' +
@@ -2952,7 +2973,7 @@
         '<div class="grid grid-cols-3 gap-2">' +
           '<div>' +
             '<label class="po-qty-label block text-[0.6875rem] uppercase font-bold text-slate-500">Pcs Needed:</label>' +
-            '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary()" />' +
+            '<input type="number" min="1" class="po-pcs-input w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800" oninput="recalcPoLiveSummary(); refreshOtherPackLists(\'' + rowId + '\')" />' +
           '</div>' +
           '<div>' +
             '<label class="po-rate-label block text-[0.6875rem] uppercase font-bold text-slate-500">Unit $/BF:</label>' +
@@ -2972,7 +2993,15 @@
     window.removePoLineItemRow = function(rowId) {
       var row = document.getElementById(rowId);
       if (row) row.remove();
+      refreshOtherPackLists(rowId);
       recalcPoLiveSummary();
+    };
+
+    // Re-list packs on the other lines so a pack this line used up isn't offered twice
+    window.refreshOtherPackLists = function(exceptRowId) {
+      document.querySelectorAll('.po-line-row').forEach(function(r) {
+        if (r.id !== exceptRowId) filterPoPackOptions(r.id);
+      });
     };
 
     window.handlePoTargetProfileChange = function(rowId, val) {
@@ -3011,12 +3040,13 @@
       } else {
         customFields.classList.add('hidden');
         var pack = poStock().find(function(i){ return i.id === packId; });
-        pcsInput.value = pack ? pack.pieces : "";
+        pcsInput.value = pack ? Math.max(0, poPackLeftFor(pack, rowId)) : "";
         row.querySelector('.po-qty-label').innerText = isBfOnly(pack) ? 'BF Needed:' : 'Pcs Needed:';
         if (pack && (row.dataset.fGrade || 'ALL') === 'ALL') {
           alert("Pick a Grade for this line (1&2, Clear, Millrun, Barn, Low or Stain) so the price can be set.");
         }
       }
+      refreshOtherPackLists(rowId);
       updatePoRowRate(rowId);
     };
 
