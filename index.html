@@ -800,8 +800,8 @@
       <div class="bg-white border-t border-slate-200 p-3 space-y-2 shrink-0">
         <div id="shipCheck" class="text-xs font-bold"></div>
         <div class="grid grid-cols-2 gap-2">
-          <button type="button" onclick="closeShipLabels()" class="py-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 font-bold text-sm active:scale-95">Skip</button>
-          <button type="button" onclick="printShipLabels()" class="py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm active:scale-95">🖨️ Print labels</button>
+          <button type="button" id="shipCancelBtn" onclick="closeShipLabels()" class="py-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 font-bold text-sm active:scale-95">Skip</button>
+          <button type="button" id="shipPrintBtn" onclick="printShipLabels()" class="py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm active:scale-95">🖨️ Print labels</button>
         </div>
       </div>
     </div>
@@ -3385,13 +3385,15 @@
           var isOpen = po.status === "OPEN";
           var items = po.items || [];
 
-          var itemsHtml = items.map(function(it){
+          var anyShipped = (po.shipments || []).length > 0;
+          var itemsHtml = items.map(function(it, li){
             var dim = poLineDims(it);
             var source = it.isCustomMoulding ? '<span class="text-violet-700 font-bold">Custom moulding</span>' : (it.isUnlinked ? '<span class="text-sky-700 font-bold">Custom</span>' : '<span class="font-mono text-slate-500">' + it.packId + '</span>');
             return '<li class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
               '<div class="min-w-0">' +
                 '<div class="font-mono font-bold text-slate-900">' + it.pieces + ' ' + poLineUnit(it) + ' ' + dim + '</div>' +
                 '<div class="text-[0.6875rem] text-slate-600 break-words">➔ <span class="font-bold text-amber-800">' + (it.targetProfile || it.sourceStage) + '</span> • ' + (it.isCustomMoulding ? (it.species || '') : it.grade) + ' • ' + source + '</div>' +
+                (anyShipped ? '<div class="text-[0.6875rem] font-bold"><span class="text-emerald-700">Shipped ' + shippedQty(po, li) + '</span> • <span class="' + (remainingQty(po, li) ? 'text-violet-700' : 'text-slate-400') + '">Still needed ' + remainingQty(po, li) + '</span></div>' : '') +
               '</div>' +
               '<div class="text-right font-mono text-[0.6875rem] text-slate-600 shrink-0">' + (it.isCustomMoulding ? '—' : (parseFloat(it.bf)||0).toFixed(1) + ' BF') + '</div>' +
             '</li>';
@@ -3433,6 +3435,7 @@
             '</div>' +
 
             poCalendarLine(po) +
+            poShippingBlock(po) +
 
             '<div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100">' +
               '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🖨️ Print</button>' +
@@ -3486,7 +3489,7 @@
         syncCloudPo(po);
         openPoListModal();
         updatePoBadge();
-        openShipLabels(po.id, true);
+        if (hasRemaining(po)) openShipLabels(po.id, true);
       }
     };
 
@@ -3617,7 +3620,12 @@
     function bfOnOrder() {
       return purchaseOrders.reduce(function(sum, po) {
         if (po.status !== 'OPEN') return sum;
-        return sum + (po.items || []).reduce(function(a, it) { return a + (it.isCustomMoulding ? 0 : (parseFloat(it.bf) || 0)); }, 0);
+        return sum + (po.items || []).reduce(function(a, it, i) {
+          if (it.isCustomMoulding) return a;
+          var pcs = parseFloat(it.pieces) || 0, bf = parseFloat(it.bf) || 0;
+          var left = remainingQty(po, i);
+          return a + (pcs > 0 ? bf * left / pcs : bf);
+        }, 0);
       }, 0);
     }
 
@@ -3631,34 +3639,109 @@
       return qtyUnit(it);
     }
 
-    /* SHIPPING LABELS — one label per lift, marked 1/2, 2/2 ... */
+    /* SHIPPING — ship all or part of an order. Each shipment is saved on the PO
+       (po.shipments) with its lifts, and prints one label per lift: 1/2, 2/2 ... */
     var shipPoId = null;
-    var shipLifts = [];   // shipLifts[lift][lineIndex] = pieces (or BF for RW/RL packs)
+    var shipMode = 'new';      // 'new' = record a new shipment, 'reprint' = print a saved one
+    var shipReprintIdx = -1;
+    var shipLifts = [];        // shipLifts[lift][lineIndex] = pieces (or BF / LF)
 
     function shipLines(po) { return po.items || []; }
     function shipLineDesc(it) {
       var dim = poLineDims(it);
       return dim + ' ' + (it.targetProfile || it.sourceStage || 'Rough') + ' • ' + (it.grade || '');
     }
+    function shipmentLifts(sh) { return (sh.lifts || []).map(function(l){ return (l.qty || []).slice(); }); }
+    function shippedQty(po, i) {
+      return (po.shipments || []).reduce(function(a, sh) {
+        return a + shipmentLifts(sh).reduce(function(b, l){ return b + (parseInt(l[i]) || 0); }, 0);
+      }, 0);
+    }
+    function remainingQty(po, i) {
+      var it = (po.items || [])[i];
+      return Math.max(0, (parseInt(it && it.pieces) || 0) - shippedQty(po, i));
+    }
+    function hasRemaining(po) { return (po.items || []).some(function(it, i){ return remainingQty(po, i) > 0; }); }
+    function qtySummary(po, perLine) {
+      var pcs = 0, lf = 0, bf = 0;
+      (po.items || []).forEach(function(it, i) {
+        var q = perLine(i);
+        if (!q) return;
+        if (it.isCustomMoulding) { if (it.unit === 'LF') lf += q; else pcs += q; return; }
+        if (it.bfOnly) { bf += q; return; }
+        pcs += q; bf += calculateBF(it.thickness, it.width, it.length, q);
+      });
+      return [pcs ? pcs + ' pcs' : '', lf ? lf + ' LF' : '', bf ? Math.round(bf) + ' BF' : ''].filter(Boolean).join(' • ') || 'nothing';
+    }
 
+    // Shipping status + history shown on a PO card
+    function poShippingBlock(po) {
+      var ships = po.shipments || [];
+      var isOpen = po.status === 'OPEN';
+      if (!ships.length) {
+        return isOpen ? '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 active:scale-95">🚚 Ship part of this order</button>' : '';
+      }
+      var left = hasRemaining(po);
+      return '<div class="rounded-lg border ' + (left ? 'border-violet-300 bg-violet-50' : 'border-emerald-300 bg-emerald-50') + ' px-2 py-1.5 space-y-1">' +
+        '<div class="flex items-center justify-between gap-2 text-xs font-black ' + (left ? 'text-violet-800' : 'text-emerald-800') + '"><span>' + (left ? '🚚 Partly shipped' : '✓ All shipped') + '</span>' +
+          (left ? '<span class="font-mono font-bold">Still needed: ' + qtySummary(po, function(i){ return remainingQty(po, i); }) + '</span>' : '') + '</div>' +
+        ships.map(function(sh, k) {
+          var lifts = shipmentLifts(sh);
+          return '<div class="flex items-center justify-between gap-2 text-[0.6875rem] text-slate-700">' +
+            '<span class="min-w-0">#' + (k + 1) + ' • ' + (sh.date || '') + ' • ' + qtySummary(po, function(i){ return lifts.reduce(function(a, l){ return a + (parseInt(l[i]) || 0); }, 0); }) + ' • ' + lifts.length + ' lift' + (lifts.length === 1 ? '' : 's') + '</span>' +
+            '<span class="flex items-center gap-1 shrink-0">' +
+              '<button type="button" onclick="reprintShipment(\'' + po.id + '\',' + k + ')" class="px-1.5 py-0.5 rounded bg-white border border-slate-300 font-bold">🖨️</button>' +
+              '<button type="button" onclick="undoShipment(\'' + po.id + '\',' + k + ')" class="px-1.5 py-0.5 rounded bg-white border border-slate-300 font-bold text-rose-600">✕</button>' +
+            '</span></div>';
+        }).join('') +
+        (left && isOpen ? '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="w-full mt-0.5 text-xs font-bold text-violet-800 bg-white border border-violet-300 rounded-lg px-2 py-1 active:scale-95">🚚 Ship more</button>' : '') +
+      '</div>';
+    }
+
+    // Open the ship screen for a new shipment (pre-filled with what's still needed)
     window.openShipLabels = function(poId, justDone) {
       var po = purchaseOrders.find(function(p){ return p.id === poId; });
       if (!po) return;
-      shipPoId = poId;
-      var lines = shipLines(po);
-      if (po.shipLifts && po.shipLifts.length) {
-        shipLifts = po.shipLifts.map(function(l){ return Array.isArray(l) ? l.slice() : (l.qty || []).slice(); });
-      } else {
-        shipLifts = [lines.map(function(it){ return parseInt(it.pieces) || 0; })];
+      if (!hasRemaining(po)) {
+        if ((po.shipments || []).length) { reprintShipment(poId, po.shipments.length - 1); }
+        return;
       }
-      document.getElementById('shipTitle').innerText = justDone ? '✓ Order done — print shipping labels?' : '🏷️ Shipping Labels';
-      document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id;
+      shipPoId = poId; shipMode = 'new'; shipReprintIdx = -1;
+      shipLifts = [shipLines(po).map(function(it, i){ return remainingQty(po, i); })];
+      var n = (po.shipments || []).length + 1;
+      document.getElementById('shipTitle').innerText = justDone ? '✓ Order done — ship what\'s left?' : '🚚 Shipment #' + n;
+      document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id + ' • set what\'s going on this truck';
+      document.getElementById('shipCancelBtn').innerText = justDone ? 'Skip labels' : 'Cancel';
+      document.getElementById('shipPrintBtn').innerText = '🖨️ Ship & print labels';
       renderShipLifts();
       document.getElementById('shipLabelModal').style.display = 'block';
     };
 
+    window.reprintShipment = function(poId, k) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (!po || !po.shipments || !po.shipments[k]) return;
+      shipPoId = poId; shipMode = 'reprint'; shipReprintIdx = k;
+      shipLifts = shipmentLifts(po.shipments[k]);
+      document.getElementById('shipTitle').innerText = '🏷️ Shipment #' + (k + 1) + ' labels';
+      document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id + ' • shipped ' + (po.shipments[k].date || '');
+      document.getElementById('shipCancelBtn').innerText = 'Close';
+      document.getElementById('shipPrintBtn').innerText = '🖨️ Print again';
+      renderShipLifts();
+      document.getElementById('shipLabelModal').style.display = 'block';
+    };
+
+    window.undoShipment = function(poId, k) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (!po || !po.shipments || !po.shipments[k]) return;
+      if (!confirm('Remove shipment #' + (k + 1) + ' (' + (po.shipments[k].date || '') + ')? Those pieces go back to "still needed".')) return;
+      po.shipments.splice(k, 1);
+      localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+      syncCloudPo(po);
+      openPoListModal();
+      updatePoBadge();
+    };
+
     window.closeShipLabels = function() {
-      saveShipLifts();
       document.getElementById('shipLabelModal').style.display = 'none';
       shipPoId = null;
     };
@@ -3668,16 +3751,6 @@
         var l = +el.getAttribute('data-lift'), i = +el.getAttribute('data-line');
         if (shipLifts[l]) shipLifts[l][i] = Math.max(0, parseInt(el.value) || 0);
       });
-    }
-
-    function saveShipLifts() {
-      var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
-      if (!po) return;
-      readShipInputs();
-      // Firestore can't store an array inside an array, so each lift is { qty: [...] }
-      po.shipLifts = shipLifts.map(function(l){ return { qty: l.slice() }; });
-      localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
-      try { syncCloudPo(po); } catch (e) { console.warn('Could not save lifts to cloud', e); }
     }
 
     window.setLiftCount = function(n) {
@@ -3691,19 +3764,27 @@
     };
     window.changeLiftCount = function(d) { setLiftCount(shipLifts.length + d); };
 
+    // How much of line i is "available" for this screen
+    function shipLimit(po, i) {
+      if (shipMode === 'reprint') return shipLifts.reduce(function(a, l){ return a + (l[i] || 0); }, 0);
+      return remainingQty(po, i);
+    }
+
     function renderShipLifts() {
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       if (!po) return;
-      var lines = shipLines(po), n = shipLifts.length;
+      var lines = shipLines(po), n = shipLifts.length, ro = shipMode === 'reprint';
       document.getElementById('shipLiftCount').value = n;
+      document.getElementById('shipLiftCount').disabled = ro;
       document.getElementById('shipLifts').innerHTML = shipLifts.map(function(lift, l) {
         return '<div class="bg-white rounded-2xl border border-amber-300 border-l-4 border-l-amber-500 p-3 space-y-2">' +
           '<div class="flex items-center justify-between"><span class="text-base font-black text-slate-900">Lift ' + (l + 1) + '/' + n + '</span>' +
           '<span class="text-xs font-mono text-slate-500" data-lift-total="' + l + '"></span></div>' +
           lines.map(function(it, i) {
-            return '<label class="flex items-center justify-between gap-2">' +
-              '<span class="text-xs text-slate-700 min-w-0">' + shipLineDesc(it) + '</span>' +
-              '<span class="flex items-center gap-1 shrink-0"><input type="number" min="0" inputmode="numeric" data-lift="' + l + '" data-line="' + i + '" value="' + (lift[i] || '') + '" oninput="updateShipCheck()" class="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold text-right" />' +
+            var done = !ro && remainingQty(po, i) === 0;
+            return '<label class="flex items-center justify-between gap-2' + (done ? ' opacity-50' : '') + '">' +
+              '<span class="text-xs text-slate-700 min-w-0">' + shipLineDesc(it) + (done ? ' <b class="text-emerald-700">(all shipped)</b>' : '') + '</span>' +
+              '<span class="flex items-center gap-1 shrink-0"><input type="number" min="0" inputmode="numeric" data-lift="' + l + '" data-line="' + i + '" value="' + (lift[i] || '') + '" oninput="updateShipCheck()"' + (ro || done ? ' disabled' : '') + ' class="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold text-right" />' +
               '<span class="text-xs text-slate-500 w-6">' + poLineUnit(it) + '</span></span></label>';
           }).join('') +
         '</div>';
@@ -3711,18 +3792,26 @@
       updateShipCheck();
     }
 
+    // Returns true when the numbers are OK to ship
     window.updateShipCheck = function() {
       readShipInputs();
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
-      if (!po) return;
-      var lines = shipLines(po);
+      if (!po) return false;
+      var lines = shipLines(po), ok = true, any = false;
       var msgs = lines.map(function(it, i) {
         var put = shipLifts.reduce(function(a, lift){ return a + (lift[i] || 0); }, 0);
-        var want = parseInt(it.pieces) || 0, unit = poLineUnit(it);
-        if (put === want) return '';
-        return '<div class="text-rose-700">' + shipLineDesc(it) + ': ' + put + ' of ' + want + ' ' + unit + ' on lifts (' + (put < want ? (want - put) + ' not on a lift' : (put - want) + ' too many') + ')</div>';
+        if (put > 0) any = true;
+        if (shipMode === 'reprint') return '';
+        var left = remainingQty(po, i), unit = poLineUnit(it);
+        if (put > left) { ok = false; return '<div class="text-rose-700">' + shipLineDesc(it) + ': shipping ' + put + ' but only ' + left + ' ' + unit + ' still needed</div>'; }
+        if (put < left) return '<div class="text-violet-700">' + shipLineDesc(it) + ': ' + put + ' of ' + left + ' ' + unit + ' — ' + (left - put) + ' still needed after this</div>';
+        return '';
       }).filter(Boolean);
-      document.getElementById('shipCheck').innerHTML = msgs.length ? msgs.join('') : '<div class="text-emerald-700">✓ Every piece is on a lift.</div>';
+      if (!any) ok = false;
+      var box = document.getElementById('shipCheck');
+      if (shipMode === 'reprint') box.innerHTML = '<div class="text-slate-600">Reprinting labels for a shipment already made.</div>';
+      else if (!any) box.innerHTML = '<div class="text-rose-700">Put something on a lift to ship it.</div>';
+      else box.innerHTML = msgs.length ? msgs.join('') : '<div class="text-emerald-700">✓ This ships everything that\'s left on the order.</div>';
       shipLifts.forEach(function(lift, l) {
         var pcs = 0, bf = 0;
         lines.forEach(function(it, i) {
@@ -3732,19 +3821,44 @@
         var el = document.querySelector('[data-lift-total="' + l + '"]');
         if (el) el.innerText = pcs + ' pcs • ' + bf.toFixed(0) + ' BF';
       });
+      return ok;
     };
 
     window.printShipLabels = function() {
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       if (!po) return;
       readShipInputs();
+      if (!updateShipCheck()) { alert(shipMode === 'reprint' ? 'Nothing to print.' : 'Check the amounts: you can\'t ship more than is still needed, and something has to be on a lift.'); return; }
+      shipLifts = shipLifts.filter(function(l){ return l.some(function(q){ return q > 0; }); });   // drop empty lifts
+      var shipIdx, shipDate;
+      if (shipMode === 'new') {
+        shipDate = new Date().toISOString().split('T')[0];
+        po.shipments = (po.shipments || []).concat([{ id: 'SH-' + Date.now(), date: shipDate, lifts: shipLifts.map(function(l){ return { qty: l.slice() }; }) }]);
+        shipIdx = po.shipments.length - 1;
+        localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+        try { syncCloudPo(po); } catch (e) {}
+        shipMode = 'reprint'; shipReprintIdx = shipIdx;
+        document.getElementById('shipTitle').innerText = '🏷️ Shipment #' + (shipIdx + 1) + ' labels';
+        document.getElementById('shipCancelBtn').innerText = 'Close';
+        document.getElementById('shipPrintBtn').innerText = '🖨️ Print again';
+        renderShipLifts();
+        if (document.getElementById('poListModal').style.display === 'block') openPoListModal();
+        updatePoBadge();
+      } else {
+        shipIdx = shipReprintIdx;
+        shipDate = po.shipments[shipIdx].date;
+      }
+
       var lines = shipLines(po), n = shipLifts.length;
-      var empty = shipLifts.map(function(lift, l){ return lift.some(function(q){ return q > 0; }) ? null : (l + 1); }).filter(Boolean);
-      if (empty.length && !confirm('Lift ' + empty.join(', ') + ' has nothing on it. Print anyway?')) return;
-      saveShipLifts();
-      var today = new Date().toISOString().split('T')[0];
+      var ships = po.shipments || [];
       var orderPcs = 0, orderBF = 0;
       lines.forEach(function(it){ if (!it.bfOnly && !(it.isCustomMoulding && it.unit === 'LF')) orderPcs += parseInt(it.pieces) || 0; orderBF += parseFloat(it.bf) || 0; });
+      // what was still needed after this shipment
+      var after = function(i) {
+        var upTo = ships.slice(0, shipIdx + 1).reduce(function(a, sh){ return a + shipmentLifts(sh).reduce(function(b, l){ return b + (parseInt(l[i]) || 0); }, 0); }, 0);
+        return Math.max(0, (parseInt(lines[i].pieces) || 0) - upTo);
+      };
+      var leftAfter = lines.some(function(it, i){ return after(i) > 0; }) ? qtySummary(po, after) : '';
       var isDel = po.fulfillment === 'DELIVERY';
       var cell = function(label, value) { return value ? '<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#333;">' + label + '</div><div style="font-size:13px;font-weight:800;">' + value + '</div></div>' : ''; };
       document.getElementById('printableShipContainer').innerHTML = shipLifts.map(function(lift, l) {
@@ -3767,7 +3881,7 @@
         return '<div class="ship-label">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:5px;">' +
             '<div><div style="font-size:14px;font-weight:900;letter-spacing:0.08em;">C.I.M. MFG INC</div>' +
-              '<div style="font-size:20px;font-weight:900;font-family:monospace;">PO ' + po.id + '</div>' +
+              '<div style="font-size:20px;font-weight:900;font-family:monospace;">PO ' + po.id + (ships.length > 1 || leftAfter ? ' <span style="font-size:14px;">• Shipment #' + (shipIdx + 1) + '</span>' : '') + '</div>' +
               '<div style="display:inline-block;margin-top:3px;padding:2px 8px;border:3px solid #000;font-size:18px;font-weight:900;color:#000;letter-spacing:0.05em;' + (isDel ? 'border-style:double;border-width:5px;' : '') + '">' + (isDel ? 'DELIVERY' : 'PICKUP') + '</div></div>' +
             '<div style="text-align:right;"><div style="font-size:12px;font-weight:700;">LIFT</div><div style="font-size:56px;font-weight:900;line-height:1;font-family:monospace;">' + (l + 1) + '/' + n + '</div></div>' +
           '</div>' +
@@ -3778,8 +3892,9 @@
               (isDel && po.address ? '<div style="font-size:14px;font-weight:700;white-space:pre-line;margin-top:2px;">' + po.address + '</div>' : '') +
             '</div>' +
             '<div style="display:grid;grid-template-columns:auto auto;gap:4px 14px;align-content:start;">' +
-              cell('Ordered', po.orderDate || po.date) + cell('Due', po.dueDate) + cell('Shipped', today) +
+              cell('Ordered', po.orderDate || po.date) + cell('Due', po.dueDate) + cell('Shipped', shipDate) +
               cell('Order total', (orderPcs ? orderPcs + ' pcs • ' : '') + orderBF.toFixed(0) + ' BF') +
+              (leftAfter ? cell('Still to come', leftAfter) : '') +
             '</div>' +
           '</div>' +
           '<table style="width:100%;border-collapse:collapse;margin-top:6px;border-top:2px solid #000;">' + rows + '</table>' +
@@ -3844,6 +3959,7 @@
       var po = purchaseOrders.find(function(p){ return p.id === poId; });
       if (!po) return;
 
+      var shipCols = (po.shipments || []).length > 0;
       var itemsRows = po.items.map(function(it, idx) {
         var dimStr = poLineDims(it);
         var targetProf = it.targetProfile || it.sourceStage || 'Rough';
@@ -3857,6 +3973,8 @@
           '<td style="padding: 10px 8px; font-weight: 800; font-family: monospace; font-size: 13px;">' + dimStr + '</td>' +
           '<td style="padding: 10px 8px; text-align: right; font-weight: 900; font-family: monospace; font-size: 14px;">' + (isBfOnly(it) ? '—' : it.pieces + (it.isCustomMoulding && it.unit === 'LF' ? ' LF' : '')) + '</td>' +
           '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + (it.isCustomMoulding ? '—' : (parseFloat(it.bf) || 0).toFixed(1)) + '</td>' +
+          (shipCols ? '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: bold;">' + shippedQty(po, idx) + '</td>' +
+            '<td style="padding: 10px 8px; text-align: right; font-family: monospace; font-weight: 900;">' + remainingQty(po, idx) + '</td>' : '') +
         '</tr>';
       }).join('');
 
@@ -3900,10 +4018,15 @@
               '<th style="padding: 8px; text-align: left;">Profile (T×W×L)</th>' +
               '<th style="padding: 8px; text-align: right;">Pieces</th>' +
               '<th style="padding: 8px; text-align: right;">Volume (BF)</th>' +
+              (shipCols ? '<th style="padding: 8px; text-align: right;">Shipped</th><th style="padding: 8px; text-align: right;">Still Needed</th>' : '') +
             '</tr>' +
           '</thead>' +
           '<tbody>' + itemsRows + '</tbody>' +
         '</table>' +
+        (shipCols ? '<div style="margin-top: 10px; font-size: 12px;"><b>Shipments:</b> ' + po.shipments.map(function(sh, k) {
+          var lifts = shipmentLifts(sh);
+          return '#' + (k + 1) + ' ' + (sh.date || '') + ' — ' + qtySummary(po, function(i){ return lifts.reduce(function(a, l){ return a + (parseInt(l[i]) || 0); }, 0); }) + ' (' + lifts.length + ' lift' + (lifts.length === 1 ? '' : 's') + ')';
+        }).join(' &nbsp;|&nbsp; ') + (hasRemaining(po) ? ' &nbsp;|&nbsp; <b>Still needed:</b> ' + qtySummary(po, function(i){ return remainingQty(po, i); }) : ' &nbsp;|&nbsp; <b>All shipped</b>') + '</div>' : '') +
 
         '<div style="display: flex; justify-content: flex-end; margin-top: 10px;">' +
           '<div style="width: 280px; border-top: 2px solid #000; padding-top: 10px; font-size: 13px;">' +
