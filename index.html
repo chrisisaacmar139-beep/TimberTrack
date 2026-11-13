@@ -3964,7 +3964,6 @@
             '<td style="padding:3px 6px;font-size:14px;font-weight:800;">' + (it.targetProfile || it.sourceStage || 'Rough') + '</td>' +
             '<td style="padding:3px 6px;font-size:12px;">' + (it.grade || '') + (it.species ? '<br>' + it.species : '') + '</td>' +
             '<td style="padding:3px 6px;font-size:12px;font-weight:700;">' + (it.isCustomMoulding ? '' : (it.dryingMethod === 'Air Dried' ? 'AD' : 'KD')) + '</td>' +
-            '<td style="padding:3px 6px;font-size:12px;font-family:monospace;">' + g.src.join(', ') + '</td>' +
             '<td style="padding:3px 6px;font-size:14px;font-family:monospace;text-align:right;white-space:nowrap;">' + (it.isCustomMoulding ? '' : lbf.toFixed(0) + ' BF') + '</td></tr>';
         }).join('');
         return '<div class="ship-label">' +
