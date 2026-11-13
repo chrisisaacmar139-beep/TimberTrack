@@ -3941,11 +3941,22 @@
       var cell = function(label, value) { return value ? '<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#333;">' + label + '</div><div style="font-size:13px;font-weight:800;">' + value + '</div></div>' : ''; };
       document.getElementById('printableShipContainer').innerHTML = shipLifts.map(function(lift, l) {
         var pcs = 0, bf = 0;
-        var rows = lines.map(function(it, i) {
+        // Same product from different packs/lines prints as one line
+        var groups = [], byKey = {};
+        lines.forEach(function(it, i) {
           var q = lift[i] || 0;
-          if (!q) return '';
+          if (!q) return;
           var lbf = it.isCustomMoulding ? 0 : (it.bfOnly ? q : calculateBF(it.thickness, it.width, it.length, q));
           bf += lbf; if (!it.bfOnly && !(it.isCustomMoulding && it.unit === 'LF')) pcs += q;
+          var src = it.isCustomMoulding ? 'Moulding' : (it.isUnlinked ? 'Custom' : (it.packId || ''));
+          var key = [poLineDims(it), it.targetProfile || it.sourceStage || 'Rough', it.grade || '', it.species || '', it.isCustomMoulding ? 'M' : (it.dryingMethod === 'Air Dried' ? 'AD' : 'KD'), poLineUnit(it)].join('|');
+          var g = byKey[key];
+          if (!g) { g = byKey[key] = { it: it, q: 0, lbf: 0, src: [] }; groups.push(g); }
+          g.q += q; g.lbf += lbf;
+          if (src && g.src.indexOf(src) === -1) g.src.push(src);
+        });
+        var rows = groups.map(function(g) {
+          var it = g.it, q = g.q, lbf = g.lbf;
           var dim = poLineDims(it);
           return '<tr style="border-bottom:1px solid #999;">' +
             '<td style="padding:3px 6px;font-size:17px;font-weight:900;font-family:monospace;text-align:right;white-space:nowrap;">' + q + ' ' + poLineUnit(it) + '</td>' +
@@ -3953,7 +3964,7 @@
             '<td style="padding:3px 6px;font-size:14px;font-weight:800;">' + (it.targetProfile || it.sourceStage || 'Rough') + '</td>' +
             '<td style="padding:3px 6px;font-size:12px;">' + (it.grade || '') + (it.species ? '<br>' + it.species : '') + '</td>' +
             '<td style="padding:3px 6px;font-size:12px;font-weight:700;">' + (it.isCustomMoulding ? '' : (it.dryingMethod === 'Air Dried' ? 'AD' : 'KD')) + '</td>' +
-            '<td style="padding:3px 6px;font-size:12px;font-family:monospace;">' + (it.isCustomMoulding ? 'Moulding' : (it.isUnlinked ? 'Custom' : (it.packId || ''))) + '</td>' +
+            '<td style="padding:3px 6px;font-size:12px;font-family:monospace;">' + g.src.join(', ') + '</td>' +
             '<td style="padding:3px 6px;font-size:14px;font-family:monospace;text-align:right;white-space:nowrap;">' + (it.isCustomMoulding ? '' : lbf.toFixed(0) + ' BF') + '</td></tr>';
         }).join('');
         return '<div class="ship-label">' +
