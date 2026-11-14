@@ -4023,6 +4023,8 @@
     // Amounts actually going: typed value, or the suggestion when the box is blank
     function shipEffective(po) {
       var sug = shipSuggest(po);
+      // lift by lift: a blank box means none of that product on this lift (the suggestion is only a guide)
+      if (shipMode === 'lift') return shipLifts.map(function(lift){ return lift.map(function(q){ return q == null ? 0 : q; }); });
       return shipLifts.map(function(lift, l){ return lift.map(function(q, i){ return q == null ? sug[l][i] : q; }); });
     }
 
