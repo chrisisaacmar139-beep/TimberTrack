@@ -1326,6 +1326,7 @@
             purchaseOrders = cloudPos;
             localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
             updatePoBadge();
+            renderInventory();   // part bundles show which PO took their pieces
             var poModal = document.getElementById('poListModal');
             if (poModal && poModal.style.display === 'block') openPoListModal();
           });
@@ -1579,6 +1580,21 @@
       }
     };
 
+    // The POs that took pieces from a part bundle (until its tag is updated or the PO is deleted)
+    function partialPoHtml(item) {
+      var ids = item.partialPos;
+      var pos = purchaseOrders.filter(function(po) {
+        if (ids && ids.indexOf(po.id) === -1) return false;
+        if (!ids && po.status !== 'OPEN') return false;   // older bundles saved before this was tracked
+        return (po.items || []).some(function(it){ return it.packId === item.id; });
+      });
+      if (!pos.length) return '';
+      return '<div class="w-full space-y-0.5">' + pos.map(function(po) {
+        var pcs = (po.items || []).reduce(function(a, it){ return a + (it.packId === item.id ? (parseInt(it.pieces) || 0) : 0); }, 0);
+        return '<button type="button" onclick="viewPo(\'' + po.id + '\')" class="w-full text-left px-2 py-1 rounded bg-white/80 border border-amber-400 text-[0.6875rem] font-bold text-slate-800">📋 <span class="font-mono text-sky-800">' + po.id + '</span> • ' + (po.customer || '') + ' • ' + pcs + ' ' + qtyUnit(item) + ' taken</button>';
+      }).join('') + '</div>';
+    }
+
     function renderInventory() {
       var tbody = document.getElementById('inventoryTableBody');
       var empty = document.getElementById('emptyInventoryState');
@@ -1688,6 +1704,7 @@
               (isPartial ? 
                 '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-sm max-w-[13rem]">' +
                   '<span>⚠️ Partial pull: <strong>' + totalPieces + ' ' + unit + ' left</strong>. Update bundle tag!</span>' +
+                  partialPoHtml(item) +
                   '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[0.6875rem] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
                 '</div>'
               : '') +
@@ -1814,6 +1831,7 @@
       var item = inventory.find(function(i){ return i.id === id; });
       if (item) {
         item.partialTaken = false;
+        item.partialPos = [];
         localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
         syncCloudItem(item);
         renderInventory();
@@ -2629,6 +2647,7 @@
         if (existingPack) {
           existingPack.pieces = (parseInt(existingPack.pieces) || 0) + (parseInt(lineItem.pieces) || 0);
           existingPack.partialTaken = false;
+          existingPack.partialPos = (existingPack.partialPos || []).filter(function(x){ return x !== po.id; });
           if (touched.indexOf(existingPack) === -1) touched.push(existingPack);
         } else if (lineItem.originalPackData) {
           var restoredPack = JSON.parse(JSON.stringify(lineItem.originalPackData));
@@ -3311,6 +3330,7 @@
           } else {
             pack.pieces = pack.pieces - pcsNeeded;
             pack.partialTaken = true;
+            pack.partialPos = (pack.partialPos || []).filter(function(x){ return x !== poNum; }).concat([poNum]);   // which PO took the pieces
             partialBundlesCreated.push(pack.id + " (" + pack.pieces + " " + qtyUnit(pack) + " remaining)");
             syncCloudItem(pack);
           }
@@ -4317,6 +4337,7 @@
           if (existingPack) {
             existingPack.pieces = (parseInt(existingPack.pieces) || 0) + (parseInt(lineItem.pieces) || 0);
             existingPack.partialTaken = false;
+            existingPack.partialPos = (existingPack.partialPos || []).filter(function(x){ return x !== targetPo.id; });
             syncCloudItem(existingPack);
           } else if (lineItem.originalPackData) {
             var restoredPack = JSON.parse(JSON.stringify(lineItem.originalPackData));
