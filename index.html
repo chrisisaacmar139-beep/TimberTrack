@@ -1581,17 +1581,23 @@
     };
 
     // The POs that took pieces from a part bundle (until its tag is updated or the PO is deleted)
-    function partialPoHtml(item) {
+    function partialPosFor(item) {
       var ids = item.partialPos;
-      var pos = purchaseOrders.filter(function(po) {
+      return purchaseOrders.filter(function(po) {
         if (ids && ids.indexOf(po.id) === -1) return false;
         if (!ids && po.status !== 'OPEN') return false;   // older bundles saved before this was tracked
         return (po.items || []).some(function(it){ return it.packId === item.id; });
       });
+    }
+    function partialPoHtml(item) {
+      var pos = partialPosFor(item);
       if (!pos.length) return '';
       return '<div class="w-full space-y-0.5">' + pos.map(function(po) {
         var pcs = (po.items || []).reduce(function(a, it){ return a + (it.packId === item.id ? (parseInt(it.pieces) || 0) : 0); }, 0);
-        return '<button type="button" onclick="viewPo(\'' + po.id + '\')" class="w-full text-left px-2 py-1 rounded bg-white/80 border border-amber-400 text-[0.6875rem] font-bold text-slate-800">📋 <span class="font-mono text-sky-800">' + po.id + '</span> • ' + (po.customer || '') + ' • ' + pcs + ' ' + qtyUnit(item) + ' taken</button>';
+        return '<div class="flex items-stretch gap-1">' +
+          '<button type="button" onclick="viewPo(\'' + po.id + '\')" class="flex-1 min-w-0 text-left px-2 py-1 rounded bg-white/80 border border-amber-400 text-[0.6875rem] font-bold text-slate-800">📋 <span class="font-mono text-sky-800">' + po.id + '</span> • ' + (po.customer || '') + ' • ' + pcs + ' ' + qtyUnit(item) + ' taken</button>' +
+          (pos.length > 1 ? '<button type="button" onclick="markPoTagUpdated(\'' + item.id + '\',\'' + po.id + '\')" title="Tag updated for this PO" class="shrink-0 px-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[0.6875rem] font-bold">✓ Done</button>' : '') +
+        '</div>';
       }).join('') + '</div>';
     }
 
@@ -1705,7 +1711,7 @@
                 '<div class="mt-2 p-2 rounded-lg bg-amber-200/90 border border-amber-400 text-amber-900 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-sm max-w-[13rem]">' +
                   '<span>⚠️ Partial pull: <strong>' + totalPieces + ' ' + unit + ' left</strong>. Update bundle tag!</span>' +
                   partialPoHtml(item) +
-                  '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[0.6875rem] font-bold shrink-0 shadow-sm">✓ Tag Updated</button>' +
+                  '<button type="button" onclick="markTagUpdated(\'' + item.id + '\')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[0.6875rem] font-bold shrink-0 shadow-sm">✓ Tag Updated' + (partialPosFor(item).length > 1 ? ' (all)' : '') + '</button>' +
                 '</div>'
               : '') +
             '</td>' +
@@ -1826,6 +1832,17 @@
       document.getElementById('metricPendingPieces').innerText = pendingCount + ' held';
       document.getElementById('metricPackCount').innerText = packCount + ' Packs';
     }
+
+    // Tag updated for one PO's pieces only — the other PO(s) stay listed
+    window.markPoTagUpdated = function(packId, poId) {
+      var item = inventory.find(function(i){ return i.id === packId; });
+      if (!item) return;
+      item.partialPos = partialPosFor(item).map(function(po){ return po.id; }).filter(function(x){ return x !== poId; });
+      if (!item.partialPos.length) item.partialTaken = false;
+      localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
+      syncCloudItem(item);
+      renderInventory();
+    };
 
     window.markTagUpdated = function(id) {
       var item = inventory.find(function(i){ return i.id === id; });
