@@ -812,13 +812,14 @@
         <button type="button" onclick="closeShipLabels()" class="px-3 h-9 rounded-lg bg-slate-100 border border-slate-300 font-bold text-sm shrink-0">✕</button>
       </div>
       <div class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
-        <span class="text-sm font-black text-slate-800">How many lifts?</span>
+        <span id="shipCountLabel" class="text-sm font-black text-slate-800">How many lifts?</span>
         <div class="flex items-center gap-2">
           <button type="button" onclick="changeLiftCount(-1)" class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 text-lg font-black active:scale-95">−</button>
           <input id="shipLiftCount" type="number" min="1" max="40" inputmode="numeric" onchange="setLiftCount(this.value)" class="w-16 h-10 text-center bg-white border border-slate-300 rounded-xl text-lg font-black font-mono" />
           <button type="button" onclick="changeLiftCount(1)" class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 text-lg font-black active:scale-95">+</button>
         </div>
       </div>
+      <div id="shipModeRow" class="bg-white border-b border-slate-200 px-4 py-2 shrink-0"></div>
       <div id="shipLifts" class="flex-1 overflow-y-auto p-3 space-y-2.5"></div>
       <div class="bg-white border-t border-slate-200 p-3 space-y-2 shrink-0">
         <div id="shipCheck" class="text-xs font-bold"></div>
@@ -1552,7 +1553,7 @@
       if (methodVal === "Air Dried") {
         dateWrapper.classList.remove('hidden');
         if (!document.getElementById('drawerCutDate').value) {
-          document.getElementById('drawerCutDate').value = new Date().toISOString().split('T')[0];
+          document.getElementById('drawerCutDate').value = localToday();
         }
         moistureWrapper.classList.add('hidden');
         grid.className = "grid grid-cols-1 gap-3";
@@ -1952,7 +1953,7 @@
       document.getElementById('drawerGrade').value = "";
       
       document.getElementById('drawerDryingMethod').value = "";
-      document.getElementById('drawerCutDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('drawerCutDate').value = localToday();
       document.getElementById('drawerCutDateWrapper').classList.add('hidden');
       document.getElementById('drawerMoistureFieldWrapper').classList.add('hidden');
       document.getElementById('moistureAndLocationGrid').className = "grid grid-cols-1 gap-3";
@@ -2277,7 +2278,7 @@
       handleDryingMethodChange(dryingMethod);
 
       if (dryingMethod === "Air Dried") {
-        document.getElementById('drawerCutDate').value = item.cutDate || new Date().toISOString().split('T')[0];
+        document.getElementById('drawerCutDate').value = item.cutDate || localToday();
       } else if (dryingMethod === "Kiln Dried") {
         document.getElementById('drawerCutDate').value = "";
         var mParts = String(item.moisture || "10-15").replace('%','').split('-');
@@ -2709,7 +2710,7 @@
       editingPoId = null;
       poEditStock = null;
       setPoDrawerMode(false);
-      var today = new Date().toISOString().split('T')[0];
+      var today = localToday();
       var nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
       document.getElementById('poCustomerName').value = "";
@@ -3142,7 +3143,7 @@
       var fulfillment = document.getElementById('poFulfillment').value || "PICKUP";
       var address = fulfillment === "DELIVERY" ? document.getElementById('poDeliveryAddress').value.trim() : "";
       var poNum = document.getElementById('poOrderNumber').value.trim() || ("PO-" + Date.now());
-      var orderDate = document.getElementById('poOrderDate').value || new Date().toISOString().split('T')[0];
+      var orderDate = document.getElementById('poOrderDate').value || localToday();
       var dueDate = document.getElementById('poDueDate').value;
       var notes = document.getElementById('poNotes').value.trim();
 
@@ -3713,8 +3714,23 @@
     var shipMode = 'new';      // 'new' = record a new shipment, 'reprint' = print a saved one
     var shipReprintIdx = -1;
     var shipLifts = [];        // shipLifts[lift][lineIndex] = pieces (or BF / LF)
+    // 'lift' mode = lift by lift: the order is planned as shipPlan lifts and each lift's
+    // label is printed as it's finished. Saved as one shipment with plan: N, lifts added one at a time.
+    var shipPlan = 0;
+    var shipLiftShip = -1;     // index of the lift-by-lift shipment being filled (-1 = not started yet)
+    function liftsDone(po) { return shipLiftShip >= 0 ? shipmentLifts(po.shipments[shipLiftShip]).length : 0; }
+    function inProgressShip(po) {
+      var ships = po.shipments || [];
+      for (var k = ships.length - 1; k >= 0; k--) if (ships[k].plan && (ships[k].lifts || []).length < ships[k].plan) return k;
+      return -1;
+    }
 
     function shipLines(po) { return po.items || []; }
+    // Today's date on this device (not UTC — after 7 pm UTC is already tomorrow)
+    function localToday() {
+      var d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
     function shipLineDesc(it) {
       var dim = poLineDims(it);
       return dim + ' ' + (it.targetProfile || it.sourceStage || 'Rough') + ' • ' + (it.grade || '');
@@ -3751,29 +3767,38 @@
       var ships = po.shipments || [];
       var isOpen = po.status === 'OPEN';
       if (!ships.length) {
-        return isOpen ? '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 active:scale-95">🚚 Ship part of this order</button>' : '';
+        return isOpen ? '<div class="grid grid-cols-2 gap-1.5">' +
+          '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 active:scale-95">🚚 Ship part</button>' +
+          '<button type="button" onclick="openShipLabels(\'' + po.id + '\', false, \'lift\')" class="flex items-center justify-center gap-1.5 text-xs font-bold text-sky-800 bg-sky-50 border border-sky-300 rounded-lg px-2 py-1.5 active:scale-95">🏗️ Lift by lift</button></div>' : '';
       }
+      var prog = inProgressShip(po);
       var left = hasRemaining(po);
       return '<div class="rounded-lg border ' + (left ? 'border-violet-300 bg-violet-50' : 'border-emerald-300 bg-emerald-50') + ' px-2 py-1.5 space-y-1">' +
         '<div class="flex items-center justify-between gap-2 text-xs font-black ' + (left ? 'text-violet-800' : 'text-emerald-800') + '"><span>' + (left ? '🚚 Partly shipped' : '✓ All shipped') + '</span>' +
           (left ? '<span class="font-mono font-bold">Still needed: ' + qtySummary(po, function(i){ return remainingQty(po, i); }) + '</span>' : '') + '</div>' +
+        (prog >= 0 && isOpen ? '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="w-full text-xs font-black text-white bg-sky-600 rounded-lg px-2 py-2 active:scale-95">🏗️ Finish lift ' + (ships[prog].lifts.length + 1) + '/' + ships[prog].plan + ' — print label</button>' : '') +
         ships.map(function(sh, k) {
           var lifts = shipmentLifts(sh);
           return '<div class="flex items-center justify-between gap-2 text-[0.6875rem] text-slate-700">' +
-            '<span class="min-w-0">#' + (k + 1) + ' • ' + (sh.date || '') + ' • ' + qtySummary(po, function(i){ return lifts.reduce(function(a, l){ return a + (parseInt(l[i]) || 0); }, 0); }) + ' • ' + lifts.length + ' lift' + (lifts.length === 1 ? '' : 's') + '</span>' +
+            '<span class="min-w-0">#' + (k + 1) + ' • ' + (sh.date || '') + ' • ' + qtySummary(po, function(i){ return lifts.reduce(function(a, l){ return a + (parseInt(l[i]) || 0); }, 0); }) + ' • ' +
+              (sh.plan ? lifts.length + ' of ' + sh.plan + ' lifts done' : lifts.length + ' lift' + (lifts.length === 1 ? '' : 's')) + '</span>' +
             '<span class="flex items-center gap-1 shrink-0">' +
+              (sh.plan && lifts.length ? '<button type="button" onclick="undoLastLift(\'' + po.id + '\',' + k + ')" title="Take back the last lift" class="px-1.5 py-0.5 rounded bg-white border border-slate-300 font-bold">↩</button>' : '') +
               '<button type="button" onclick="reprintShipment(\'' + po.id + '\',' + k + ')" class="px-1.5 py-0.5 rounded bg-white border border-slate-300 font-bold">🖨️</button>' +
               '<button type="button" onclick="undoShipment(\'' + po.id + '\',' + k + ')" class="px-1.5 py-0.5 rounded bg-white border border-slate-300 font-bold text-rose-600">✕</button>' +
             '</span></div>';
         }).join('') +
-        (left && isOpen ? '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="w-full mt-0.5 text-xs font-bold text-violet-800 bg-white border border-violet-300 rounded-lg px-2 py-1 active:scale-95">🚚 Ship more</button>' : '') +
+        (left && isOpen && prog < 0 ? '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="w-full mt-0.5 text-xs font-bold text-violet-800 bg-white border border-violet-300 rounded-lg px-2 py-1 active:scale-95">🚚 Ship more</button>' : '') +
       '</div>';
     }
 
     // Open the ship screen for a new shipment (pre-filled with what's still needed)
-    window.openShipLabels = function(poId, justDone) {
+    window.openShipLabels = function(poId, justDone, startMode) {
       var po = purchaseOrders.find(function(p){ return p.id === poId; });
       if (!po) return;
+      var prog = inProgressShip(po);
+      if (prog >= 0) { shipPoId = poId; enterLiftMode(po, prog); document.getElementById('shipLabelModal').style.display = 'block'; return; }
+      if (startMode === 'lift' && hasRemaining(po)) { shipPoId = poId; enterLiftMode(po, -1); document.getElementById('shipLabelModal').style.display = 'block'; return; }
       if (!hasRemaining(po)) {
         if ((po.shipments || []).length) { reprintShipment(poId, po.shipments.length - 1); }
         return;
@@ -3786,8 +3811,31 @@
       document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id + ' • set what\'s going on this truck';
       document.getElementById('shipCancelBtn').innerText = justDone ? 'Skip labels' : 'Cancel';
       document.getElementById('shipPrintBtn').innerText = '🖨️ Ship & print labels';
+      document.getElementById('shipCountLabel').innerText = 'How many lifts?';
       renderShipLifts();
       document.getElementById('shipLabelModal').style.display = 'block';
+    };
+
+    // Lift by lift: one box for the next lift; the rest of the order is spread over the lifts left
+    function enterLiftMode(po, idx) {
+      shipMode = 'lift'; shipReprintIdx = -1; shipLiftShip = idx;
+      shipGroups = buildShipGroups(po);
+      var done = liftsDone(po);
+      if (idx >= 0) shipPlan = Math.max(po.shipments[idx].plan || 1, done + 1);
+      else if (!shipPlan || shipPoId !== po.id) shipPlan = 2;
+      shipLifts = [shipGroups.map(function(){ return null; })];
+      var n = idx >= 0 ? idx + 1 : (po.shipments || []).length + 1;
+      document.getElementById('shipTitle').innerText = '🏗️ Lift by lift' + ((po.shipments || []).length ? ' • Shipment #' + n : '');
+      document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id + ' • print each label as you finish the lift';
+      document.getElementById('shipCancelBtn').innerText = 'Close';
+      document.getElementById('shipPrintBtn').innerText = '🖨️ Lift ' + (done + 1) + '/' + shipPlan + ' done — print label';
+      document.getElementById('shipCountLabel').innerText = 'Lifts in this order';
+      renderShipLifts();
+    }
+    window.switchShipMode = function(mode) {
+      var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
+      if (!po) return;
+      if (mode === 'lift') enterLiftMode(po, -1); else openShipLabels(po.id);
     };
 
     window.reprintShipment = function(poId, k) {
@@ -3800,8 +3848,24 @@
       document.getElementById('shipSub').innerText = po.customer + ' • ' + po.id + ' • shipped ' + (po.shipments[k].date || '');
       document.getElementById('shipCancelBtn').innerText = 'Close';
       document.getElementById('shipPrintBtn').innerText = '🖨️ Print again';
+      document.getElementById('shipCountLabel').innerText = po.shipments[k].plan ? 'Lifts in this order' : 'How many lifts?';
       renderShipLifts();
       document.getElementById('shipLabelModal').style.display = 'block';
+    };
+
+    // Lift by lift: take back the last finished lift
+    window.undoLastLift = function(poId, k) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      var sh = po && po.shipments && po.shipments[k];
+      if (!sh || !(sh.lifts || []).length) return;
+      var n = sh.lifts.length;
+      if (!confirm('Take back lift ' + n + '/' + sh.plan + '? Its pieces go back to "still needed".')) return;
+      sh.lifts.pop();
+      if (!sh.lifts.length) po.shipments.splice(k, 1);
+      localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+      syncCloudPo(po);
+      openPoListModal();
+      updatePoBadge();
     };
 
     window.undoShipment = function(poId, k) {
@@ -3903,17 +3967,49 @@
 
     window.setLiftCount = function(n) {
       readShipInputs();
+      var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
+      if (shipMode === 'lift' && po) {
+        shipPlan = Math.max(liftsDone(po) + 1, Math.min(60, parseInt(n) || 1));
+        if (shipLiftShip >= 0) { po.shipments[shipLiftShip].plan = shipPlan; localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders)); try { syncCloudPo(po); } catch (e) {} }
+        document.getElementById('shipPrintBtn').innerText = '🖨️ Lift ' + (liftsDone(po) + 1) + '/' + shipPlan + ' done — print label';
+        renderShipLifts();
+        return;
+      }
+      // a finished lift-by-lift shipment: + adds another lift to it
+      if (shipMode === 'reprint' && po && po.shipments[shipReprintIdx] && po.shipments[shipReprintIdx].plan) {
+        var sh = po.shipments[shipReprintIdx], want = parseInt(n) || 0;
+        if (want > sh.lifts.length) {
+          sh.plan = want;
+          localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders)); try { syncCloudPo(po); } catch (e) {}
+          enterLiftMode(po, shipReprintIdx);
+          if (document.getElementById('poListModal').style.display === 'block') openPoListModal();
+        } else renderShipLifts();
+        return;
+      }
       n = Math.max(1, Math.min(40, parseInt(n) || 1));
       while (shipLifts.length < n) shipLifts.push(shipGroups.map(function(){ return null; }));
       shipLifts.length = n;
       renderShipLifts();
     };
-    window.changeLiftCount = function(d) { setLiftCount(shipLifts.length + d); };
+    window.changeLiftCount = function(d) {
+      var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
+      if (shipMode === 'lift') return setLiftCount(shipPlan + d);
+      if (shipMode === 'reprint' && po && po.shipments[shipReprintIdx] && po.shipments[shipReprintIdx].plan) return setLiftCount(po.shipments[shipReprintIdx].plan + d);
+      setLiftCount(shipLifts.length + d);
+    };
 
     // Suggested amount for each blank box: what's still needed (minus what's typed) split evenly over the blank lifts
     function shipSuggest(po) {
       var sug = shipLifts.map(function(){ return shipGroups.map(function(){ return 0; }); });
       if (shipMode === 'reprint') return sug;
+      if (shipMode === 'lift') {
+        var slots = Math.max(1, shipPlan - liftsDone(po));
+        shipGroups.forEach(function(g, i) {
+          var rest = groupRemaining(po, g);
+          sug[0][i] = Math.floor(rest / slots) + (rest % slots ? 1 : 0);
+        });
+        return sug;
+      }
       shipGroups.forEach(function(g, i) {
         var typed = 0, blank = [];
         shipLifts.forEach(function(lift, l){ if (lift[i] == null) blank.push(l); else typed += lift[i]; });
@@ -3933,12 +4029,21 @@
     function renderShipLifts() {
       var po = purchaseOrders.find(function(p){ return p.id === shipPoId; });
       if (!po) return;
-      var n = shipLifts.length, ro = shipMode === 'reprint';
-      document.getElementById('shipLiftCount').value = n;
-      document.getElementById('shipLiftCount').disabled = ro;
+      var n = shipLifts.length, ro = shipMode === 'reprint', lm = shipMode === 'lift';
+      var rsh = ro ? (po.shipments || [])[shipReprintIdx] : null, planned = !!(rsh && rsh.plan);
+      var done = lm ? liftsDone(po) : 0;
+      document.getElementById('shipLiftCount').value = lm ? shipPlan : (planned ? rsh.plan : n);
+      document.getElementById('shipLiftCount').disabled = ro && !planned;
+      document.getElementById('shipModeRow').innerHTML = shipMode === 'new'
+        ? '<button type="button" onclick="switchShipMode(\'lift\')" class="w-full text-xs font-bold text-sky-800 bg-sky-50 border border-sky-300 rounded-lg px-2 py-2 active:scale-95">🏗️ Print each label as I finish the lift instead</button>'
+        : (lm ? '<div class="flex items-center justify-between gap-2 text-xs"><span class="font-bold text-sky-900">' + (done ? done + ' of ' + shipPlan + ' lifts done' : 'No lifts done yet') + '</span>' +
+            (done ? '' : '<button type="button" onclick="switchShipMode(\'all\')" class="font-bold text-slate-600 underline">Do all lifts at once</button>') + '</div>'
+          : (planned ? '<div class="text-xs font-bold text-sky-900">Lift by lift • ' + rsh.lifts.length + ' of ' + rsh.plan + ' lifts done' + (hasRemaining(po) ? ' • tap ＋ to add a lift' : '') + '</div>' : ''));
+      document.getElementById('shipModeRow').style.display = document.getElementById('shipModeRow').innerHTML ? '' : 'none';
       document.getElementById('shipLifts').innerHTML = shipLifts.map(function(lift, l) {
+        var label = lm ? (done + 1) + '/' + shipPlan : (l + 1) + '/' + (planned ? rsh.plan : n);
         return '<div class="bg-white rounded-2xl border border-amber-300 border-l-4 border-l-amber-500 p-3 space-y-2">' +
-          '<div class="flex items-center justify-between"><span class="text-base font-black text-slate-900">Lift ' + (l + 1) + '/' + n + '</span>' +
+          '<div class="flex items-center justify-between"><span class="text-base font-black text-slate-900">Lift ' + label + (lm ? ' <span class="text-xs font-bold text-slate-500">— what\'s on it?</span>' : '') + '</span>' +
           '<span class="text-xs font-mono text-slate-500" data-lift-total="' + l + '"></span></div>' +
           shipGroups.map(function(g, i) {
             var it = g.it;
@@ -3988,7 +4093,20 @@
       }).filter(Boolean);
       if (!any) ok = false;
       var box = document.getElementById('shipCheck');
-      if (shipMode === 'reprint') box.innerHTML = '<div class="text-slate-600">Reprinting labels for a shipment already made.</div>';
+      if (shipMode === 'lift') {
+        var slotsAfter = shipPlan - liftsDone(po) - 1;
+        var lines = shipGroups.map(function(g, i) {
+          var after = groupRemaining(po, g) - (eff[0][i] || 0), unit = poLineUnit(g.it);
+          if (after < 0) return '<div class="text-amber-700 font-bold">' + shipLineDesc(g.it) + ': ' + (-after) + ' ' + unit + ' more than ordered (extras)</div>';
+          if (!after) return '<div class="text-emerald-700">' + shipLineDesc(g.it) + ': ✓ done after this lift</div>';
+          var per = slotsAfter > 0 ? Math.ceil(after / slotsAfter) : 0;
+          var sk = skidText(g.it, per).replace('Skid: ', '').replace(/ \(\d+ wide\)/, '');
+          return '<div class="text-violet-800">' + shipLineDesc(g.it) + ': <b>' + after + ' ' + unit + ' still needed</b> after this lift' +
+            (slotsAfter > 0 ? ' — ' + (slotsAfter === 1 ? per + ' on the last lift' : 'about ' + per + ' on each of the last ' + slotsAfter + ' lifts') + (sk ? ' • ' + sk : '') : ' — <b>add a lift (＋)</b>') + '</div>';
+        });
+        box.innerHTML = any ? lines.join('') : '<div class="text-rose-700">Put something on the lift to print its label.</div>';
+      }
+      else if (shipMode === 'reprint') box.innerHTML = '<div class="text-slate-600">Reprinting labels for a shipment already made.</div>';
       else if (!any) box.innerHTML = '<div class="text-rose-700">Put something on a lift to ship it.</div>';
       else box.innerHTML = msgs.length ? msgs.join('') : '<div class="text-emerald-700">✓ This ships everything that\'s left on the order.</div>';
       eff.forEach(function(lift, l) {
@@ -4008,11 +4126,37 @@
       if (!po) return;
       readShipInputs();
       if (!updateShipCheck()) { alert(shipMode === 'reprint' ? 'Nothing to print.' : 'Put something on a lift to ship it.'); return; }
-      var shipIdx, shipDate;
+      var today = localToday();
+      if (shipMode === 'lift') {
+        var lineLift = toLineLifts(po, [shipEffective(po)[0]])[0];
+        if (shipLiftShip < 0) {
+          po.shipments = (po.shipments || []).concat([{ id: 'SH-' + Date.now(), date: today, plan: shipPlan, lifts: [] }]);
+          shipLiftShip = po.shipments.length - 1;
+        }
+        var sh = po.shipments[shipLiftShip];
+        sh.plan = shipPlan;
+        sh.lifts.push({ qty: lineLift, date: today });
+        localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+        try { syncCloudPo(po); } catch (e) {}
+        var k = shipLiftShip, liftNo = sh.lifts.length - 1;
+        if (sh.lifts.length < sh.plan && hasRemaining(po)) enterLiftMode(po, k);   // ready for the next lift
+        else {
+          if (sh.lifts.length < sh.plan) { sh.plan = sh.lifts.length; localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders)); try { syncCloudPo(po); } catch (e) {} }
+          reprintShipment(po.id, k);
+          document.getElementById('shipTitle').innerText = '✓ All ' + sh.lifts.length + ' lifts done';
+          document.getElementById('shipCheck').innerHTML = hasRemaining(po)
+            ? '<div class="text-violet-800 font-bold">Still needed: ' + qtySummary(po, function(i){ return remainingQty(po, i); }) + ' — tap ＋ to add a lift.</div>'
+            : '<div class="text-emerald-700 font-bold">✓ Everything on the order is on a lift.</div>';
+        }
+        if (document.getElementById('poListModal').style.display === 'block') openPoListModal();
+        updatePoBadge();
+        printLiftLabels(po, k, [liftNo]);
+        return;
+      }
+      var shipIdx;
       if (shipMode === 'new') {
         var gl = shipEffective(po).filter(function(l){ return l.some(function(q){ return q > 0; }); });   // blanks take the suggestion; drop empty lifts
-        shipDate = new Date().toISOString().split('T')[0];
-        po.shipments = (po.shipments || []).concat([{ id: 'SH-' + Date.now(), date: shipDate, lifts: toLineLifts(po, gl).map(function(l){ return { qty: l.slice() }; }) }]);
+        po.shipments = (po.shipments || []).concat([{ id: 'SH-' + Date.now(), date: today, lifts: toLineLifts(po, gl).map(function(l){ return { qty: l.slice() }; }) }]);
         shipIdx = po.shipments.length - 1;
         localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
         try { syncCloudPo(po); } catch (e) {}
@@ -4026,11 +4170,17 @@
         updatePoBadge();
       } else {
         shipIdx = shipReprintIdx;
-        shipDate = po.shipments[shipIdx].date;
       }
-      var lineLifts = shipmentLifts(po.shipments[shipIdx]);
+      printLiftLabels(po, shipIdx, shipmentLifts(po.shipments[shipIdx]).map(function(l, i){ return i; }));
+    };
 
-      var lines = shipLines(po), n = lineLifts.length;
+    // Print labels for some lifts of a shipment. Lift-by-lift shipments number lifts k/plan
+    // and show what was still to come after that lift.
+    function printLiftLabels(po, shipIdx, which) {
+      var sh = po.shipments[shipIdx];
+      var lineLifts = shipmentLifts(sh);
+      var shipDate = sh.date;
+      var lines = shipLines(po), n = sh.plan || lineLifts.length;
       var ships = po.shipments || [];
       var orderPcs = 0, orderBF = 0;
       lines.forEach(function(it){ if (!it.bfOnly && !(it.isCustomMoulding && it.unit === 'LF')) orderPcs += parseInt(it.pieces) || 0; orderBF += parseFloat(it.bf) || 0; });
@@ -4040,9 +4190,21 @@
         return Math.max(0, (parseInt(lines[i].pieces) || 0) - upTo);
       };
       var leftAfter = lines.some(function(it, i){ return after(i) > 0; }) ? qtySummary(po, after) : '';
+      // lift by lift: what was still to come after lift l (earlier shipments + lifts up to l)
+      var leftAfterLift = function(l) {
+        if (!sh.plan) return leftAfter;
+        var f = function(i) {
+          var upTo = ships.slice(0, shipIdx).reduce(function(a, x){ return a + shipmentLifts(x).reduce(function(b, q){ return b + (parseInt(q[i]) || 0); }, 0); }, 0) +
+            lineLifts.slice(0, l + 1).reduce(function(b, q){ return b + (parseInt(q[i]) || 0); }, 0);
+          return Math.max(0, (parseInt(lines[i].pieces) || 0) - upTo);
+        };
+        return lines.some(function(it, i){ return f(i) > 0; }) ? qtySummary(po, f) : '';
+      };
       var isDel = po.fulfillment === 'DELIVERY';
       var cell = function(label, value) { return value ? '<div><div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#333;">' + label + '</div><div style="font-size:13px;font-weight:800;">' + value + '</div></div>' : ''; };
-      document.getElementById('printableShipContainer').innerHTML = lineLifts.map(function(lift, l) {
+      document.getElementById('printableShipContainer').innerHTML = which.map(function(l) {
+        var lift = lineLifts[l], left = leftAfterLift(l);
+        var liftDate = (sh.lifts[l] && sh.lifts[l].date) || shipDate;
         var pcs = 0, bf = 0;
         // Same product from different packs/lines prints as one line
         var groups = [], byKey = {};
@@ -4072,7 +4234,7 @@
         return '<div class="ship-label">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000;padding-bottom:5px;">' +
             '<div><div style="font-size:14px;font-weight:900;letter-spacing:0.08em;">C.I.M. MFG INC</div>' +
-              '<div style="font-size:20px;font-weight:900;font-family:monospace;">PO ' + po.id + (ships.length > 1 || leftAfter ? ' <span style="font-size:14px;">• Shipment #' + (shipIdx + 1) + '</span>' : '') + '</div>' +
+              '<div style="font-size:20px;font-weight:900;font-family:monospace;">PO ' + po.id + (ships.length > 1 || (leftAfter && !sh.plan) ? ' <span style="font-size:14px;">• Shipment #' + (shipIdx + 1) + '</span>' : '') + '</div>' +
               '<div style="display:inline-block;margin-top:3px;padding:2px 8px;border:3px solid #000;font-size:18px;font-weight:900;color:#000;letter-spacing:0.05em;' + (isDel ? 'border-style:double;border-width:5px;' : '') + '">' + (isDel ? 'DELIVERY' : 'PICKUP') + '</div></div>' +
             '<div style="text-align:right;"><div style="font-size:12px;font-weight:700;">LIFT</div><div style="font-size:56px;font-weight:900;line-height:1;font-family:monospace;">' + (l + 1) + '/' + n + '</div></div>' +
           '</div>' +
@@ -4083,9 +4245,9 @@
               (isDel && po.address ? '<div style="font-size:14px;font-weight:700;white-space:pre-line;margin-top:2px;">' + po.address + '</div>' : '') +
             '</div>' +
             '<div style="display:grid;grid-template-columns:auto auto;gap:4px 14px;align-content:start;">' +
-              cell('Ordered', po.orderDate || po.date) + cell('Due', po.dueDate) + cell('Shipped', shipDate) +
+              cell('Ordered', po.orderDate || po.date) + cell('Due', po.dueDate) + cell(sh.plan ? 'Finished' : 'Shipped', liftDate) +
               cell('Order total', (orderPcs ? orderPcs + ' pcs • ' : '') + orderBF.toFixed(0) + ' BF') +
-              (leftAfter ? cell('Still to come', leftAfter) : '') +
+              (left ? cell('Still to come', left) : '') +
             '</div>' +
           '</div>' +
           '<table style="width:100%;border-collapse:collapse;margin-top:6px;border-top:2px solid #000;">' + rows + '</table>' +
@@ -4094,7 +4256,7 @@
         '</div>';
       }).join('');
       printOnly('ship');
-    };
+    }
 
     window.promptDeletePo = function(poId) {
       poPendingDeletionId = poId;
