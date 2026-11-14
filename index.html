@@ -65,7 +65,7 @@
       z-index: 9998;
       background-color: #f1f5f9;
     }
-    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #tagPreviewModal, #poPrintModal {
+    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #poDoneConfirmModal, #tagPreviewModal, #poPrintModal {
       display: none;
       position: fixed;
       inset: 0;
@@ -726,6 +726,17 @@
       <div class="flex items-center space-x-2 pt-2">
         <button type="button" onclick="closePoDeleteModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
         <button type="button" onclick="confirmExecutePoDelete()" class="flex-1 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md">Delete & Restore</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="poDoneConfirmModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+      <h4 class="text-sm font-bold text-slate-900 uppercase">Mark Order Done</h4>
+      <p class="text-xs text-slate-600" id="poDoneModalMessage"></p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button type="button" onclick="closePoDoneModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+        <button type="button" onclick="confirmPoDone()" class="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 shadow-md">✓ Yes, it's done</button>
       </div>
     </div>
   </div>
@@ -3498,7 +3509,7 @@
               '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🖨️ Print</button>' +
               '<button type="button" onclick="openEditPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-amber-500 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">✏️ Edit</button>' +
               (isOpen ?
-                '<button type="button" onclick="completePurchaseOrder(\'' + po.id + '\')" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95">✓ Done</button>'
+                '<button type="button" onclick="askPoDone(\'' + po.id + '\')" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition active:scale-95">✓ Done</button>'
               : '<button type="button" onclick="openShipLabels(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-amber-500 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🏷️ Labels</button>') +
               '<button type="button" onclick="promptDeletePo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg border border-slate-300 text-xs font-bold transition active:scale-95" title="Delete PO & Restore Stock">🗑️ Delete</button>' +
             '</div>' +
@@ -3536,6 +3547,26 @@
       if (searchEl) searchEl.value = "";
       document.getElementById('poListModal').style.display = 'none';
       document.body.style.overflow = '';
+    };
+
+    // Done asks first, like Delete
+    var poPendingDoneId = null;
+    window.askPoDone = function(poId) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (!po) return;
+      poPendingDoneId = poId;
+      document.getElementById('poDoneModalMessage').innerText = 'Mark ' + po.id + ' for ' + (po.customer || '') + ' as done? It moves to completed orders.' +
+        (hasRemaining(po) ? ' Some of it hasn\'t shipped yet — you\'ll be asked about shipping labels next.' : '');
+      document.getElementById('poDoneConfirmModal').style.display = 'flex';
+    };
+    window.closePoDoneModal = function() {
+      poPendingDoneId = null;
+      document.getElementById('poDoneConfirmModal').style.display = 'none';
+    };
+    window.confirmPoDone = function() {
+      var id = poPendingDoneId;
+      closePoDoneModal();
+      if (id) completePurchaseOrder(id);
     };
 
     window.completePurchaseOrder = function(poId) {
