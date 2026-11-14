@@ -269,6 +269,7 @@
   // A finished order (its PO is completed in TimberTrack) stays on the calendar
   // but no longer holds its time: new or pushed work may overlap it.
   function entryDone(e) {
+    if (e.done) return true;   // marked done on this run (the rest of the PO can still be open)
     var po = poLookup ? poLookup(e.poId) : null;
     return !!(po && po.status && po.status !== 'OPEN');
   }
