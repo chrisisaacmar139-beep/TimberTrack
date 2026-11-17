@@ -288,8 +288,8 @@
           </div>
           <div class="grid grid-cols-7 md:grid-cols-4 xl:grid-cols-7 gap-0.5 sm:gap-1 [&>button]:px-0 [&>button]:text-[0.6875rem] sm:[&>button]:text-xs" id="gradeFilterContainer">
             <button type="button" onclick="setGradeFilter('ALL')" id="gb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
-            <button type="button" onclick="setGradeFilter('COMMON')" id="gb-COMMON" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">1&amp;2</button>
-            <button type="button" onclick="setGradeFilter('CLEAR')" id="gb-CLEAR" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Clear</button>
+            <button type="button" onclick="setGradeFilter('COMMON')" id="gb-COMMON" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Knotty</button>
+            <button type="button" onclick="setGradeFilter('CLEAR')" id="gb-CLEAR" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Premium</button>
             <button type="button" onclick="setGradeFilter('MILLRUN')" id="gb-MILLRUN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Millrun</button>
             <button type="button" onclick="setGradeFilter('BARN')" id="gb-BARN" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Barn</button>
             <button type="button" onclick="setGradeFilter('LOW')" id="gb-LOW" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Low</button>
@@ -297,7 +297,7 @@
           </div>
         </div>
 
-        <button type="button" onclick="openStockLevels()" class="w-full mt-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-black uppercase tracking-wider active:scale-[0.99]">📊 1&amp;2 Common Rough Stock Levels</button>
+        <button type="button" onclick="openStockLevels()" class="w-full mt-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-black uppercase tracking-wider active:scale-[0.99]">📊 Knotty Rough Stock Levels</button>
         <button type="button" onclick="openStockLevels('LOW')" class="w-full mt-1 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-800 text-xs font-black uppercase tracking-wider active:scale-[0.99]">📊 Low Grade Rough Stock Levels</button>
 
       </div>
@@ -393,8 +393,8 @@
             <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Grade *</label>
             <select id="drawerGrade" onchange="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-amber-700 focus:outline-none focus:border-amber-500">
               <option value="" disabled selected>-- Select Grade --</option>
-              <option value="1&2 Common">1&2 Common (Green)</option>
-              <option value="Clear">Clear / Select (Yellow)</option>
+              <option value="Knotty">Knotty (Green)</option>
+              <option value="Premium">Premium (Yellow)</option>
               <option value="Millrun">Millrun (Purple)</option>
               <option value="Barn Board">Barn Board (Stone)</option>
               <option value="Low Grade">Low Grade (Red)</option>
@@ -778,12 +778,12 @@
   </div>
   <div id="printablePoContainer" class="hidden"></div>
 
-  <!-- 1&2 COMMON STOCK LEVELS -->
+  <!-- KNOTTY STOCK LEVELS -->
   <div id="stockLevelsModal" style="display:none; position:fixed; inset:0; z-index:9998; background:#f1f5f9;">
     <div class="w-full h-full flex flex-col">
       <div class="bg-white border-b border-slate-200 px-3 py-2.5 flex items-center justify-between gap-2 shadow-sm shrink-0">
         <div class="min-w-0">
-          <h4 id="slTitle" class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">📊 1&amp;2 Common Rough Stock</h4>
+          <h4 id="slTitle" class="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider truncate">📊 Knotty Rough Stock</h4>
           <span id="slSub" class="text-[0.6875rem] text-slate-500 font-semibold uppercase"></span>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
@@ -883,8 +883,8 @@
             <span id="activePricingPartIndicator" class="font-mono font-bold text-orange-700">Kiln Dried Rates</span>
           </div>
           <div class="grid grid-cols-6 gap-1 text-[0.6875rem] font-bold" id="pricingGradePillBar">
-            <button type="button" onclick="switchPricingGradeTab('1&2 Common')" id="pgTab_12" class="py-1.5 rounded-lg bg-emerald-600 text-white shadow">1&2 Common</button>
-            <button type="button" onclick="switchPricingGradeTab('Clear')" id="pgTab_Clear" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Clear</button>
+            <button type="button" onclick="switchPricingGradeTab('1&2 Common')" id="pgTab_12" class="py-1.5 rounded-lg bg-emerald-600 text-white shadow">Knotty</button>
+            <button type="button" onclick="switchPricingGradeTab('Clear')" id="pgTab_Clear" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Premium</button>
             <button type="button" onclick="switchPricingGradeTab('Millrun')" id="pgTab_Millrun" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Millrun</button>
             <button type="button" onclick="switchPricingGradeTab('Barn Board')" id="pgTab_BarnBoard" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn Board</button>
             <button type="button" onclick="switchPricingGradeTab('Low Grade')" id="pgTab_Low" class="py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low Grade</button>
@@ -895,7 +895,7 @@
         <!-- Width Matrix Container for the selected Grade & Drying Part -->
         <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2.5">
           <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-            <div class="text-xs font-black uppercase text-slate-800" id="matrixSectionHeading">1&2 Common Rates by Width</div>
+            <div class="text-xs font-black uppercase text-slate-800" id="matrixSectionHeading">Knotty Rates by Width</div>
             <span class="text-[0.6875rem] text-slate-500">Board Foot Rates ($/BF)</span>
           </div>
 
@@ -1246,6 +1246,7 @@
         inventory = parsedList.map(function(item){
           if (!item.company) item.company = "C.I.M. MFG INC";
           if (!item.dryingMethod) item.dryingMethod = "Kiln Dried";
+          migratePackGrade(item);
           return item;
         });
       }
@@ -1255,6 +1256,7 @@
     try {
       var savedPos = localStorage.getItem('timbertrack_pos');
       if (savedPos) purchaseOrders = JSON.parse(savedPos);
+      purchaseOrders.forEach(function(po){ migratePoGrades(po); });
     } catch(e) {}
 
     var activeCompany = (appConfig.defaults && appConfig.defaults.defaultHomeView) ? appConfig.defaults.defaultHomeView : "C.I.M. MFG INC";
@@ -1264,10 +1266,34 @@
     var currentLengthFilter = "ALL";
     var currentGradeFilter = "ALL";
 
+    // Grade renames: 1&2 Common -> Knotty, Clear -> Premium
+    function newGradeName(g) {
+      var k = String(g || '').trim().toLowerCase();
+      if (k === '1&2 common' || k === '1&2' || k === 'common') return 'Knotty';
+      if (k === 'clear' || k === 'clear / select' || k === 'select') return 'Premium';
+      return g;
+    }
+    function migratePackGrade(item) {
+      if (!item) return false;
+      var n = newGradeName(item.grade);
+      if (n !== item.grade) { item.grade = n; return true; }
+      return false;
+    }
+    function migratePoGrades(po) {
+      var changed = false;
+      (po.items || []).forEach(function(it) {
+        if (migratePackGrade(it)) changed = true;
+        var pg = newGradeName(it.priceGrade);
+        if (it.priceGrade && pg !== it.priceGrade) { it.priceGrade = pg; changed = true; }
+        if (migratePackGrade(it.originalPackData)) changed = true;
+      });
+      return changed;
+    }
+
     function getGradeKey(grade) {
       var g = (grade || "").toLowerCase();
-      if (g.includes("1&2") || g.includes("common")) return "COMMON";
-      if (g.includes("clear") || g.includes("select")) return "CLEAR";
+      if (g.includes("knotty") || g.includes("1&2") || g.includes("common")) return "COMMON";
+      if (g.includes("premium") || g.includes("clear") || g.includes("select")) return "CLEAR";
       if (g.includes("millrun")) return "MILLRUN";
       if (g.includes("barn")) return "BARN";
       if (g.includes("low")) return "LOW";
@@ -1308,6 +1334,7 @@
               if ((parseInt(d.pieces) || 0) > 0) {
                 if (!d.company) d.company = "C.I.M. MFG INC";
                 if (!d.dryingMethod) d.dryingMethod = "Kiln Dried";
+                if (migratePackGrade(d)) { try { db.collection('yard_inventory').doc(String(d.id)).set(d); } catch (e) {} }
                 cloudItems.push(d);
               }
             });
@@ -1322,7 +1349,11 @@
 
           db.collection('yard_pos').onSnapshot(function(snap) {
             var cloudPos = [];
-            snap.forEach(function(doc){ cloudPos.push(doc.data()); });
+            snap.forEach(function(doc){
+              var d = doc.data();
+              if (migratePoGrades(d)) { try { syncCloudPo(d); } catch (e) {} }
+              cloudPos.push(d);
+            });
             purchaseOrders = cloudPos;
             localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
             updatePoBadge();
@@ -1414,7 +1445,9 @@
 
     function getMatrixRates(dryingMethod, grade, width) {
       var partKey = (dryingMethod === "Air Dried") ? "AD" : "KD";
-      var g = (grade === "Select") ? "Clear" : (grade || "1&2 Common");
+      // Price lists are stored under the old names; Knotty = "1&2 Common", Premium = "Clear"
+      var gk = getGradeKey(grade || "Knotty");
+      var g = gk === "COMMON" ? "1&2 Common" : (gk === "CLEAR" ? "Clear" : grade);
       var wStr = (width === 0 || width === "0" || width === "RW") ? "RW" : String(Math.round(parseFloat(width) || 6));
 
       var partObj = (appConfig.matrixRates && appConfig.matrixRates[partKey]) || DEFAULT_CONFIG.matrixRates[partKey];
@@ -1426,9 +1459,9 @@
 
     function getGradeBadgeHtml(grade) {
       var g = (grade || "").toLowerCase();
-      if (g.includes("1&2") || g.includes("common")) {
+      if (g.includes("knotty") || g.includes("1&2") || g.includes("common")) {
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[0.6875rem] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">' + grade + '</span>';
-      } else if (g.includes("clear") || g.includes("select")) {
+      } else if (g.includes("premium") || g.includes("clear") || g.includes("select")) {
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[0.6875rem] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-sm">' + grade + '</span>';
       } else if (g.includes("millrun")) {
         return '<span class="inline-block px-2.5 py-0.5 rounded text-[0.6875rem] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300 shadow-sm">' + grade + '</span>';
@@ -1483,8 +1516,8 @@
 
     function getGradeRank(grade) {
       var g = (grade || "").toLowerCase();
-      if (g.includes("1&2") || g.includes("common")) return 1;
-      if (g.includes("clear") || g.includes("select")) return 2;
+      if (g.includes("knotty") || g.includes("1&2") || g.includes("common")) return 1;
+      if (g.includes("premium") || g.includes("clear") || g.includes("select")) return 2;
       if (g.includes("millrun")) return 3;
       if (g.includes("barn")) return 4;
       if (g.includes("low")) return 5;
@@ -1905,7 +1938,7 @@
 
     window.setGradeFilter = function(g) {
       currentGradeFilter = g;
-      var names = { ALL: 'All Grades', COMMON: '1&2 Common', CLEAR: 'Clear / Select', MILLRUN: 'Millrun', BARN: 'Barn Board', LOW: 'Low Grade', STAIN: 'Stain' };
+      var names = { ALL: 'All Grades', COMMON: 'Knotty', CLEAR: 'Premium', MILLRUN: 'Millrun', BARN: 'Barn Board', LOW: 'Low Grade', STAIN: 'Stain' };
       document.getElementById('activeGradeLabel').innerText = names[g] || g;
       ["ALL", "COMMON", "CLEAR", "MILLRUN", "BARN", "LOW", "STAIN"].forEach(function(val) {
         var el = document.getElementById('gb-' + val);
@@ -2721,7 +2754,7 @@
           select.value = "CUSTOM_UNLINKED";
           row.querySelector('.po-custom-stock-fields').classList.remove('hidden');
           row.querySelector('.po-cust-drying').value = it.dryingMethod || "Kiln Dried";
-          row.querySelector('.po-cust-grade').value = it.grade || "1&2 Common";
+          row.querySelector('.po-cust-grade').value = newGradeName(it.grade || "Knotty");
           row.querySelector('.po-cust-species').value = it.species || "Eastern White Pine";
           row.querySelector('.po-cust-thick').value = it.thickness;
           row.querySelector('.po-cust-width').value = it.width;
@@ -2830,7 +2863,7 @@
       return html;
     }
 
-    var PO_GRADE_NAMES = { COMMON: "1&2 Common", CLEAR: "Clear", MILLRUN: "Millrun", BARN: "Barn Board", LOW: "Low Grade", STAIN: "Stain" };
+    var PO_GRADE_NAMES = { COMMON: "Knotty", CLEAR: "Premium", MILLRUN: "Millrun", BARN: "Barn Board", LOW: "Low Grade", STAIN: "Stain" };
 
     // Sets a PO line's $/BF from its grade, drying, width and target profile.
     // Rough target = rough price; any other profile = milled price.
@@ -2935,7 +2968,7 @@
             '<div class="mb-1.5">' +
               '<div class="text-[0.625rem] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Grade</div>' +
               '<div class="po-filter-grade grid grid-cols-7 [&>button]:text-[0.6875rem] gap-0.5">' +
-                '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="COMMON" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'COMMON\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">1&2</button><button type="button" data-val="CLEAR" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'CLEAR\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Clear</button><button type="button" data-val="MILLRUN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'MILLRUN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Mill</button><button type="button" data-val="BARN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'BARN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn</button><button type="button" data-val="LOW" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'LOW\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low</button><button type="button" data-val="STAIN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'STAIN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>' +
+                '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="COMMON" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'COMMON\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Knotty</button><button type="button" data-val="CLEAR" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'CLEAR\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Premium</button><button type="button" data-val="MILLRUN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'MILLRUN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Mill</button><button type="button" data-val="BARN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'BARN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn</button><button type="button" data-val="LOW" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'LOW\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low</button><button type="button" data-val="STAIN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'STAIN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>' +
               '</div>' +
             '<div class="po-grade-warning hidden mb-1.5 px-2 py-1.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold">⚠️ Pick a Grade above so the price can be set.</div>' +
             '</div>' +
@@ -2966,8 +2999,8 @@
             '<div>' +
               '<label class="block text-[0.625rem] uppercase font-bold text-slate-500">Grade</label>' +
               '<select class="po-cust-grade w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold" onchange="updatePoRowRate(\'' + rowId + '\')">' +
-                '<option value="1&2 Common">1&2 Common</option>' +
-                '<option value="Clear">Clear / Select</option>' +
+                '<option value="Knotty">Knotty</option>' +
+                '<option value="Premium">Premium</option>' +
                 '<option value="Millrun">Millrun</option>' +
                 '<option value="Barn Board">Barn Board</option>' +
                 '<option value="Low Grade">Low Grade</option>' +
@@ -3114,7 +3147,7 @@
         pcsInput.value = pack ? Math.max(0, poPackLeftFor(pack, rowId)) : "";
         row.querySelector('.po-qty-label').innerText = isBfOnly(pack) ? 'BF Needed:' : 'Pcs Needed:';
         if (pack && (row.dataset.fGrade || 'ALL') === 'ALL') {
-          alert("Pick a Grade for this line (1&2, Clear, Millrun, Barn, Low or Stain) so the price can be set.");
+          alert("Pick a Grade for this line (Knotty, Premium, Millrun, Barn, Low or Stain) so the price can be set.");
         }
       }
       refreshOtherPackLists(rowId);
@@ -3227,7 +3260,7 @@
           }
         } else if (vId !== "CUSTOM_UNLINKED") {
           if ((rows[v].dataset.fGrade || 'ALL') === 'ALL') {
-            alert("Line " + (v + 1) + ": pick a Grade (1&2, Clear, Millrun, Barn, Low or Stain) so the price is right.");
+            alert("Line " + (v + 1) + ": pick a Grade (Knotty, Premium, Millrun, Barn, Low or Stain) so the price is right.");
             return;
           }
           wantedByPack[vId] = (wantedByPack[vId] || 0) + vPcs;
@@ -3624,8 +3657,8 @@
     var SL_LENGTHS = [6, 8, 10, 12, 14, 16];
     var stockLevelCfg = { green: 500, red: 200, lowGreen: 500, lowRed: 200 };
     var slCompany = null;
-    var slGrade = 'COMMON';   // 'COMMON' (1&2 Common) or 'LOW' (Low Grade) — each has its own green/red levels
-    var SL_GRADE_NAME = { COMMON: '1&2 Common', LOW: 'Low Grade' };
+    var slGrade = 'COMMON';   // 'COMMON' (Knotty) or 'LOW' (Low Grade) — each has its own green/red levels
+    var SL_GRADE_NAME = { COMMON: 'Knotty', LOW: 'Low Grade' };
     function slT() { return slGrade === 'LOW' ? { green: stockLevelCfg.lowGreen, red: stockLevelCfg.lowRed } : { green: stockLevelCfg.green, red: stockLevelCfg.red }; }
     try { var _slc = JSON.parse(localStorage.getItem('timbertrack_stocklevels') || 'null'); if (_slc) stockLevelCfg = Object.assign(stockLevelCfg, _slc); } catch (e) {}
 
@@ -4572,7 +4605,7 @@
     function loadMatrixInputsFromState() {
       var heading = document.getElementById('matrixSectionHeading');
       var partLabel = editPricingDryingPart === "KD" ? "Kiln Dried" : "Air Dried";
-      if (heading) heading.innerText = partLabel + " — " + editPricingGrade + " Width Rates";
+      if (heading) heading.innerText = partLabel + " — " + newGradeName(editPricingGrade) + " Width Rates";
 
       var targetMap = (appConfig.matrixRates && appConfig.matrixRates[editPricingDryingPart] && appConfig.matrixRates[editPricingDryingPart][editPricingGrade]) || {};
 
