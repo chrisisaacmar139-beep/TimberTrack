@@ -286,7 +286,7 @@
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Grade Filter</span>
             <span id="activeGradeLabel" class="text-xs font-mono font-bold text-amber-700">All Grades</span>
           </div>
-          <div class="grid grid-cols-7 md:grid-cols-4 xl:grid-cols-7 gap-0.5 sm:gap-1 [&>button]:px-0 [&>button]:text-[0.6875rem] sm:[&>button]:text-xs" id="gradeFilterContainer">
+          <div class="flex flex-wrap gap-0.5 sm:gap-1 [&>button]:flex-auto [&>button]:px-1 [&>button]:text-[0.6875rem] sm:[&>button]:text-xs" id="gradeFilterContainer">
             <button type="button" onclick="setGradeFilter('ALL')" id="gb-ALL" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button>
             <button type="button" onclick="setGradeFilter('COMMON')" id="gb-COMMON" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Knotty</button>
             <button type="button" onclick="setGradeFilter('CLEAR')" id="gb-CLEAR" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200">Premium</button>
@@ -582,6 +582,14 @@
               <button type="button" data-ful="DELIVERY" onclick="setPoFulfillment('DELIVERY')" class="py-2 text-xs font-bold rounded-lg">📦 Delivery</button>
             </div>
             <input type="hidden" id="poFulfillment" value="PICKUP" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Customer Pays</label>
+            <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200" id="poPayToButtons">
+              <button type="button" data-pay="C.I.M. MFG INC" onclick="setPoPayTo('C.I.M. MFG INC')" class="py-2 text-xs font-bold rounded-lg">C.I.M. MFG INC</button>
+              <button type="button" data-pay="Crosshill Sawmill" onclick="setPoPayTo('Crosshill Sawmill')" class="py-2 text-xs font-bold rounded-lg">Crosshill Sawmill</button>
+            </div>
+            <input type="hidden" id="poPayTo" value="" />
           </div>
           <div class="col-span-2 hidden" id="poAddressWrap">
             <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Delivery Address</label>
@@ -2727,6 +2735,7 @@
       document.getElementById('poCustomerName').value = po.customer || "";
       document.getElementById('poCustomerPhone').value = po.phone || "";
       setPoFulfillment(po.fulfillment || "PICKUP");
+      setPoPayTo(po.payTo || "");
       document.getElementById('poDeliveryAddress').value = po.address || "";
       document.getElementById('poOrderNumber').value = po.id;
       document.getElementById('poOrderDate').value = po.orderDate || po.date || "";
@@ -2796,6 +2805,7 @@
       document.getElementById('poCustomerName').value = "";
       document.getElementById('poCustomerPhone').value = "";
       setPoFulfillment("PICKUP");
+      setPoPayTo("");
       document.getElementById('poDeliveryAddress').value = "";
       document.getElementById('poOrderNumber').value = "PO-" + Math.floor(10000 + Math.random() * 90000);
       document.getElementById('poOrderDate').value = today;
@@ -2967,7 +2977,7 @@
             '</div>' +
             '<div class="mb-1.5">' +
               '<div class="text-[0.625rem] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Grade</div>' +
-              '<div class="po-filter-grade grid grid-cols-7 [&>button]:text-[0.6875rem] gap-0.5">' +
+              '<div class="po-filter-grade flex gap-0.5 [&>button]:flex-auto [&>button]:text-[0.6875rem] [&>button]:px-1">' +
                 '<button type="button" data-val="ALL" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'ALL\')" class="py-1 text-xs font-bold rounded-lg bg-amber-500 text-white shadow">All</button><button type="button" data-val="COMMON" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'COMMON\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Knotty</button><button type="button" data-val="CLEAR" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'CLEAR\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Premium</button><button type="button" data-val="MILLRUN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'MILLRUN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Mill</button><button type="button" data-val="BARN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'BARN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Barn</button><button type="button" data-val="LOW" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'LOW\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Low</button><button type="button" data-val="STAIN" onclick="setPoPackFilter(\'' + rowId + '\', \'grade\', \'STAIN\')" class="py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Stain</button>' +
               '</div>' +
             '<div class="po-grade-warning hidden mb-1.5 px-2 py-1.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold">⚠️ Pick a Grade above so the price can be set.</div>' +
@@ -3403,6 +3413,7 @@
         customer: cust,
         phone: phone,
         fulfillment: fulfillment,
+        payTo: document.getElementById('poPayTo').value || "",
         address: address,
         orderDate: orderDate,
         dueDate: dueDate,
@@ -3446,6 +3457,7 @@
           "Customer: " + cust + "%0D%0A" +
           (phone ? "Phone: " + encodeURIComponent(phone) + "%0D%0A" : "") +
           (fulfillment === "DELIVERY" ? "Delivery to: " + encodeURIComponent(address || "(no address)") + "%0D%0A" : "Pickup%0D%0A") +
+          (document.getElementById('poPayTo').value ? "Customer pays: " + encodeURIComponent(document.getElementById('poPayTo').value) + "%0D%0A" : "") +
           "Order Date: " + orderDate + "%0D%0A" +
           "Due Date: " + dueDate + "%0D%0A" +
           "Total Pieces: " + poOrder.totalPieces + " pcs%0D%0A" +
@@ -3544,6 +3556,7 @@
               '<div class="min-w-0">' +
                 '<div class="text-base font-black text-slate-900 break-words leading-tight">' + po.customer + '</div>' +
                 (po.phone ? '<a href="tel:' + po.phone.replace(/[^0-9+]/g, '') + '" class="inline-block text-sm font-bold text-sky-700 underline underline-offset-2 font-mono">📞 ' + po.phone + '</a>' : '') +
+                (po.payTo ? '<div class="text-xs font-bold text-emerald-700">💵 Pays ' + po.payTo + '</div>' : '') +
                 (po.fulfillment ? '<div class="text-xs font-bold ' + (po.fulfillment === 'DELIVERY' ? 'text-violet-700' : 'text-slate-600') + '">' + (po.fulfillment === 'DELIVERY' ? '📦 Delivery' + (po.address ? ': <span class="font-normal">' + po.address + '</span>' : '') : '🚚 Pickup') + '</div>' : '') +
                 '<div class="font-mono text-xs font-bold text-sky-800">' + po.id + '</div>' +
               '</div>' +
@@ -3782,6 +3795,14 @@
         b.className = 'py-2 text-xs font-bold rounded-lg ' + (b.getAttribute('data-ful') === val ? 'bg-sky-600 text-white shadow' : 'text-slate-600');
       });
       document.getElementById('poAddressWrap').classList.toggle('hidden', val !== 'DELIVERY');
+    };
+
+    // Who the customer pays: C.I.M. MFG INC or Crosshill Sawmill
+    window.setPoPayTo = function(val) {
+      document.getElementById('poPayTo').value = val || '';
+      document.querySelectorAll('#poPayToButtons [data-pay]').forEach(function(b) {
+        b.className = 'py-2 text-xs font-bold rounded-lg ' + (b.getAttribute('data-pay') === val ? 'bg-emerald-600 text-white shadow' : 'text-slate-600');
+      });
     };
 
     function fulfillLabel(po) { return po.fulfillment === 'DELIVERY' ? 'DELIVERY' : 'PICKUP'; }
@@ -4467,6 +4488,7 @@
             '<span style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block;">Customer / Job:</span>' +
             '<strong style="font-size: 16px; color: #0f172a;">' + po.customer + '</strong>' +
             (po.phone ? '<div style="font-size: 13px; color: #334155; font-family: monospace; margin-top: 2px;">Phone: ' + po.phone + '</div>' : '') +
+            (po.payTo ? '<div style="font-size: 13px; font-weight: bold; margin-top: 2px;">Customer pays: ' + po.payTo + '</div>' : '') +
             (po.fulfillment ? '<div style="font-size: 13px; font-weight: bold; margin-top: 2px;">' + fulfillLabel(po) + (po.address ? ': <span style="font-weight: normal;">' + po.address + '</span>' : '') + '</div>' : '') +
           '</div>' +
           '<div>' +
