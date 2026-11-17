@@ -3520,6 +3520,17 @@
         return da < db ? -1 : 1;
       }
 
+      // Finished POs: newest first, by the day marked done (older ones: last ship date, else due date, else order date)
+      function finishedDate(po) {
+        if (po.completedDate) return po.completedDate;
+        var sh = (po.shipments || []).map(function(x){ return x.date || ''; }).sort().pop();
+        return sh || po.dueDate || po.orderDate || '';
+      }
+      function byFinishedNewest(a, b) {
+        var da = finishedDate(a), db = finishedDate(b);
+        return da === db ? 0 : (da < db ? 1 : -1);
+      }
+
       if (shownPos.length === 0) {
         list.innerHTML = "";
         empty.innerText = query ? 'No purchase orders with a "' + searchEl.value.trim() + '" profile.' : "No purchase orders found.";
@@ -3527,7 +3538,7 @@
       } else {
         empty.classList.add('hidden');
         var sortedPos = shownPos.filter(function(po){ return po.status === "OPEN"; }).sort(byDueDate)
-          .concat(shownPos.filter(function(po){ return po.status !== "OPEN"; }).sort(byDueDate));
+          .concat(shownPos.filter(function(po){ return po.status !== "OPEN"; }).sort(byFinishedNewest));
         list.innerHTML = sortedPos.map(function(po) {
           var isOpen = po.status === "OPEN";
           var items = po.items || [];
@@ -3561,7 +3572,7 @@
                 '<div class="font-mono text-xs font-bold text-sky-800">' + po.id + '</div>' +
               '</div>' +
               '<span class="shrink-0 px-2 py-0.5 rounded text-[0.6875rem] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
-                (isOpen ? 'Open' : 'Completed') +
+                (isOpen ? 'Open' : 'Completed' + (po.completedDate ? ' ' + po.completedDate : '')) +
               '</span>' +
             '</div>' +
 
@@ -3656,6 +3667,7 @@
       var po = purchaseOrders.find(function(p){ return p.id === poId; });
       if (po) {
         po.status = "COMPLETED";
+        po.completedDate = localToday();
         localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
         syncCloudPo(po);
         openPoListModal();
