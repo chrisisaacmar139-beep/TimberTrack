@@ -2780,6 +2780,7 @@
           row.querySelector('.po-target-other-input').value = it.targetProfile;
           row.querySelector('.po-target-other-wrapper').classList.remove('hidden');
         }
+        if (!it.isUnlinked) applyMilledPack(row.id);
         if (!it.isUnlinked) {
           var gKey = getGradeKey(it.priceGrade || it.grade);
           if (gKey !== 'OTHER') setPoPackFilter(row.id, 'grade', gKey);
@@ -3130,6 +3131,35 @@
       updatePoRowRate(rowId);
     };
 
+    // A milled pack is already its profile: hide "Target Profile to Mill Into" and use the pack's profile
+    function applyMilledPack(rowId) {
+      var row = document.getElementById(rowId);
+      if (!row) return;
+      var packId = row.querySelector('.po-pack-select').value;
+      var block = row.querySelector('.po-target-block');
+      var sel = row.querySelector('.po-target-profile-select');
+      var pack = (packId && packId.indexOf('CUSTOM') !== 0) ? poStock().find(function(i){ return i.id === packId; }) : null;
+      var milled = pack && (pack.stage || 'Rough') !== 'Rough';
+      if (milled) {
+        var prof = getDisplayStage(pack);
+        sel.value = prof;
+        if (sel.value !== prof) {
+          sel.value = 'Other';
+          row.querySelector('.po-target-other-input').value = prof;
+        }
+        block.classList.add('hidden');
+        row.dataset.milledPack = '1';
+      } else {
+        if (packId !== 'CUSTOM_MOULDING') block.classList.remove('hidden');
+        if (row.dataset.milledPack) {   // was a milled pack: back to the normal choice
+          sel.value = 'Rough';
+          row.querySelector('.po-target-other-input').value = '';
+          row.querySelector('.po-target-other-wrapper').classList.add('hidden');
+          delete row.dataset.milledPack;
+        }
+      }
+    }
+
     window.handlePoPackSelectChange = function(rowId) {
       var row = document.getElementById(rowId);
       if (!row) return;
@@ -3160,6 +3190,7 @@
           alert("Pick a Grade for this line (Knotty, Premium, Millrun, Barn, Low or Stain) so the price can be set.");
         }
       }
+      applyMilledPack(rowId);
       refreshOtherPackLists(rowId);
       updatePoRowRate(rowId);
     };
