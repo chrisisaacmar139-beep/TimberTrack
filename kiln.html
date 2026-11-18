@@ -170,10 +170,15 @@
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
     function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     function uid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-    function bf(it) { return (parseFloat(it.thickness) || 0) * (parseFloat(it.width) || 0) * (parseFloat(it.length) || 0) * (parseInt(it.pieces) || 0) / 12; }
+    // RW (random width) or RL (random length) = width / length 0: tracked by board feet typed in, no pieces
+    function bfOnly(it) { return parseFloat(it.width) === 0 || parseFloat(it.length) === 0; }
+    function bf(it) {
+      if (bfOnly(it)) return parseFloat(it.bfIn) || 0;
+      return (parseFloat(it.thickness) || 0) * (parseFloat(it.width) || 0) * (parseFloat(it.length) || 0) * (parseInt(it.pieces) || 0) / 12;
+    }
     function isCustom(b) { return b && b.type === 'CUSTOM'; }
     function batchBF(b) { if (isCustom(b)) return parseFloat((b.custom || {}).bf) || 0; return (b.items || []).reduce(function (a, it) { return a + bf(it); }, 0); }
-    function batchPcs(b) { if (isCustom(b)) return 0; return (b.items || []).reduce(function (a, it) { return a + (parseInt(it.pieces) || 0); }, 0); }
+    function batchPcs(b) { if (isCustom(b)) return 0; return (b.items || []).reduce(function (a, it) { return a + (bfOnly(it) ? 0 : (parseInt(it.pieces) || 0)); }, 0); }
     function fmtDate(s) {
       if (!s) return '';
       var d = new Date(s + 'T12:00:00');
@@ -184,7 +189,11 @@
       var d1 = new Date(a + 'T12:00:00'), d2 = new Date((b || today()) + 'T12:00:00');
       return Math.max(0, Math.round((d2 - d1) / 86400000));
     }
-    function sizeText(it) { return (it.thickness || 1) + '"×' + (it.width || '?') + '"×' + (it.length || '?') + "'"; }
+    function sizeText(it) {
+      var w = parseFloat(it.width) === 0 ? 'RW' : (it.width || '?') + '"';
+      var l = parseFloat(it.length) === 0 ? 'RL' : (it.length || '?') + "'";
+      return (it.thickness || 1) + '"×' + w + '×' + l;
+    }
     function inKiln(k) { return batches.find(function (b) { return b.kiln === k && b.status === 'IN'; }); }
 
     function saveLocal() { try { localStorage.setItem('kiln_batches', JSON.stringify(batches)); } catch (e) {} }
@@ -206,7 +215,7 @@
     function lineHtml(it, dry) {
       return '<div class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
         '<div class="min-w-0">' +
-          '<div class="text-sm font-bold text-slate-900"><span class="font-mono">' + (parseInt(it.pieces) || 0) + ' pcs</span> ' + sizeText(it) + '</div>' +
+          '<div class="text-sm font-bold text-slate-900"><span class="font-mono">' + (bfOnly(it) ? bf(it).toFixed(0) + ' BF' : (parseInt(it.pieces) || 0) + ' pcs') + '</span> ' + sizeText(it) + '</div>' +
           '<div class="text-[0.6875rem] text-slate-500">' + esc(it.species || '') + ' • ' + bf(it).toFixed(0) + ' BF' + (dry ? ' • <b class="text-emerald-700">DRY</b>' : '') + '</div>' +
         '</div>' +
         (it.spokenFor ? '<span class="shrink-0 text-[0.6875rem] font-black px-2 py-1 rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔖 ' + esc(it.spokenFor) + '</span>'
@@ -296,26 +305,71 @@
     function opts(list, val, suffix) {
       return list.map(function (v) { return '<option value="' + v + '"' + (String(v) === String(val) ? ' selected' : '') + '>' + v + suffix + '</option>'; }).join('');
     }
+    // Quick buttons, same as TimberTrack's pack entry
+    var THICKS = [[1, '1"'], [1.25, '1¼"'], [1.5, '1½"'], [2, '2"'], [2.5, '2½"'], [3, '3"']];
+    var WIDTH_BTNS = [[4, '4"'], [6, '6"'], [8, '8"'], [10, '10"'], [12, '12"'], [0, 'RW']];
+    var LEN_BTNS = [[6, "6'"], [8, "8'"], [10, "10'"], [12, "12'"], [14, "14'"], [16, "16'"], [0, 'RL']];
+    function quickBtns(i, f, list, val, cols) {
+      return '<div class="grid ' + cols + ' gap-1">' + list.map(function (b) {
+        var on = val !== '' && val != null && parseFloat(val) === b[0];
+        return '<button type="button" onclick="setDim(' + i + ',\'' + f + '\',' + b[0] + ')" class="py-1.5 text-xs font-bold rounded-lg border ' +
+          (on ? 'border-amber-500 bg-amber-500 text-white shadow' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100') + '">' + b[1] + '</button>';
+      }).join('') + '</div>';
+    }
     function lineEditor(it, i) {
-      var widthOpts = WIDTHS.indexOf(parseFloat(it.width)) === -1 && it.width ? WIDTHS.concat([parseFloat(it.width)]) : WIDTHS;
-      var lenOpts = LENGTHS.indexOf(parseFloat(it.length)) === -1 && it.length ? LENGTHS.concat([parseFloat(it.length)]) : LENGTHS;
       var cls = 'mt-0.5 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold';
+      var dimBox = function (n, label, f, step, list, cols, note) {
+        return '<div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5">' +
+          '<div class="flex items-center justify-between text-xs font-bold text-amber-800 uppercase"><span>' + n + '. ' + label + '</span>' + (note || '') + '</div>' +
+          '<input type="number" step="' + step + '" min="0" inputmode="decimal" data-f="' + f + '" value="' + esc(it[f]) + '" oninput="readLines(); markDims(' + i + ')" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-mono font-bold text-amber-700" />' +
+          '<div data-btns="' + f + '">' + quickBtns(i, f, list, it[f], cols) + '</div>' +
+        '</div>';
+      };
+      var only = bfOnly(it);
       return '<div class="bg-white rounded-xl border border-slate-200 p-3 space-y-2" data-line="' + i + '">' +
         '<div class="flex items-center justify-between"><span class="text-xs font-black text-slate-500 uppercase">Lumber ' + (i + 1) + '</span>' +
         '<button type="button" onclick="removeLine(' + i + ')" class="text-xs font-bold text-rose-600 px-2 py-1 rounded-lg border border-slate-200">Remove</button></div>' +
-        '<div class="grid grid-cols-4 gap-2">' +
-          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Thick"<input type="number" step="0.25" min="0" inputmode="decimal" data-f="thickness" value="' + esc(it.thickness) + '" oninput="readLines()" class="' + cls + '" /></label>' +
-          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Width"<select data-f="width" onchange="readLines()" class="' + cls + '">' + opts(widthOpts, it.width, '"') + '</select></label>' +
-          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Length<select data-f="length" onchange="readLines()" class="' + cls + '">' + opts(lenOpts, it.length, "'") + '</select></label>' +
-          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Pieces<input type="number" min="0" inputmode="numeric" data-f="pieces" value="' + esc(it.pieces) + '" oninput="readLines()" class="' + cls + '" /></label>' +
-        '</div>' +
+        dimBox(1, 'Thickness', 'thickness', '0.125', THICKS, 'grid-cols-6') +
+        dimBox(2, 'Width', 'width', '0.125', WIDTH_BTNS, 'grid-cols-6', parseFloat(it.width) === 0 ? '<span class="text-[0.6875rem] font-mono text-amber-700">(RW: enter board feet below)</span>' : '') +
+        dimBox(3, 'Length', 'length', '0.5', LEN_BTNS, 'grid-cols-7', parseFloat(it.length) === 0 ? '<span class="text-[0.6875rem] font-mono text-amber-700">(RL: enter board feet below)</span>' : '') +
         '<div class="grid grid-cols-2 gap-2">' +
+          (only
+            ? '<label class="text-[0.6875rem] font-bold text-amber-800 uppercase">4. Board feet<input type="number" min="0" inputmode="numeric" data-f="bfIn" value="' + esc(it.bfIn) + '" oninput="readLines()" class="' + cls + '" /></label>'
+            : '<label class="text-[0.6875rem] font-bold text-amber-800 uppercase">4. Pieces<input type="number" min="0" inputmode="numeric" data-f="pieces" value="' + esc(it.pieces) + '" oninput="readLines()" class="' + cls + '" /></label>') +
           '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Species<input type="text" list="speciesList" data-f="species" value="' + esc(it.species) + '" oninput="readLines()" class="' + cls + '" /></label>' +
-          '<label class="text-[0.6875rem] font-bold text-sky-700 uppercase">🔖 Spoken for (customer)<input type="text" list="customerList" data-f="spokenFor" value="' + esc(it.spokenFor) + '" oninput="readLines()" placeholder="Leave blank if not" class="' + cls + ' border-sky-300" /></label>' +
         '</div>' +
+        '<label class="block text-[0.6875rem] font-bold text-sky-700 uppercase">🔖 Spoken for (customer)<input type="text" list="customerList" data-f="spokenFor" value="' + esc(it.spokenFor) + '" oninput="readLines()" placeholder="Leave blank if not" class="' + cls + ' border-sky-300" /></label>' +
         '<div class="text-[0.6875rem] font-mono font-bold text-slate-500 text-right" data-bf></div>' +
       '</div>';
     }
+    // Tap a quick button
+    window.setDim = function (i, f, v) {
+      readLines();
+      var it = edBatch.items[i];
+      if (!it) return;
+      var wasOnly = bfOnly(it);
+      it[f] = v;
+      if (bfOnly(it) !== wasOnly) { renderLines(); return; }   // switch between pieces and board feet
+      var row = document.querySelector('#edLines [data-line="' + i + '"]');
+      row.querySelector('[data-f="' + f + '"]').value = v;
+      markDims(i);
+      updateTotals();
+    };
+    // Re-colour the buttons after typing a size (and switch RW/RL on or off)
+    window.markDims = function (i) {
+      var it = edBatch.items[i], row = document.querySelector('#edLines [data-line="' + i + '"]');
+      if (!it || !row) return;
+      if (!!row.querySelector('[data-f="bfIn"]') !== bfOnly(it)) {
+        var f = document.activeElement && document.activeElement.getAttribute('data-f');
+        renderLines();
+        var el = f && document.querySelector('#edLines [data-line="' + i + '"] [data-f="' + f + '"]');
+        if (el) el.focus();
+        return;
+      }
+      row.querySelector('[data-btns="thickness"]').innerHTML = quickBtns(i, 'thickness', THICKS, it.thickness, 'grid-cols-6');
+      row.querySelector('[data-btns="width"]').innerHTML = quickBtns(i, 'width', WIDTH_BTNS, it.width, 'grid-cols-6');
+      row.querySelector('[data-btns="length"]').innerHTML = quickBtns(i, 'length', LEN_BTNS, it.length, 'grid-cols-7');
+    };
     function renderLines() {
       document.getElementById('edLines').innerHTML = edBatch.items.map(lineEditor).join('');
       updateTotals();
@@ -342,10 +396,10 @@
     window.addLine = function () {
       readLines();
       var last = edBatch.items[edBatch.items.length - 1];
-      edBatch.items.push({ id: uid('L'), species: last ? last.species : 'Eastern White Pine', thickness: last ? last.thickness : 1, width: last ? last.width : 6, length: last ? last.length : 12, pieces: '', spokenFor: '' });
+      edBatch.items.push({ id: uid('L'), species: last ? last.species : 'Eastern White Pine', thickness: last ? last.thickness : 1, width: last ? last.width : 6, length: last ? last.length : 12, pieces: '', bfIn: '', spokenFor: '' });
       renderLines();
       var rows = document.querySelectorAll('#edLines [data-line]');
-      var pcs = rows[rows.length - 1].querySelector('[data-f=pieces]');
+      var pcs = rows[rows.length - 1].querySelector('[data-f=pieces]') || rows[rows.length - 1].querySelector('[data-f=bfIn]');
       pcs.scrollIntoView({ block: 'center' }); pcs.focus();
     };
     window.removeLine = function (i) { readLines(); edBatch.items.splice(i, 1); renderLines(); };
@@ -392,8 +446,9 @@
       } else {
         edBatch.type = 'OURS';
         delete edBatch.custom;
-        edBatch.items = edBatch.items.filter(function (it) { return (parseInt(it.pieces) || 0) > 0; });
-        if (!edBatch.items.length) { alert('Enter the pieces for at least one lumber line.'); if (!document.querySelector('#edLines [data-line]')) addLine(); return; }
+        edBatch.items = edBatch.items.filter(function (it) { return bfOnly(it) ? (parseFloat(it.bfIn) || 0) > 0 : (parseInt(it.pieces) || 0) > 0; });
+        edBatch.items.forEach(function (it) { if (bfOnly(it)) it.pieces = ''; else delete it.bfIn; });
+        if (!edBatch.items.length) { alert('Enter the pieces (or board feet for RW / RL) for at least one lumber line.'); if (!document.querySelector('#edLines [data-line]')) addLine(); return; }
       }
       edBatch.dateIn = document.getElementById('edDateIn').value || today();
       if (edBatch.status === 'DRY') edBatch.dateOut = document.getElementById('edDateOut').value || edBatch.dateOut || today();
