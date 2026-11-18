@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="kiln.webmanifest" />
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="icon" href="icons/kiln-192.png" />
+  <link rel="apple-touch-icon" href="icons/kiln-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Kilns" />
+  <title>Kilns - C.I.M. MFG INC</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root { --device-font-boost: 1; }
+    /* Tablets get bigger text, same as TimberTrack */
+    @media (pointer: coarse) and (min-width: 600px) and (min-height: 600px) {
+      :root { --device-font-boost: 1.25; }
+    }
+    html, body {
+      font-size: calc(16px * var(--device-font-boost));
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #editor, #finishBox, #confirmBox { display: none; position: fixed; inset: 0; z-index: 9990; background: rgba(15,23,42,0.5); }
+    input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-2 sm:px-4 py-2 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-lg shrink-0">🔥</div>
+        <div class="truncate">
+          <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 leading-none truncate">Kilns</h1>
+          <span class="text-[0.5625rem] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">C.I.M. MFG INC</span>
+        </div>
+      </div>
+      <div id="syncDot" class="flex items-center bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-[0.6875rem] text-slate-600 font-bold shrink-0">
+        <span class="w-2 h-2 rounded-full bg-amber-400 mr-1 animate-pulse"></span><span>Sync</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-3 sm:px-4 py-3 space-y-4">
+    <!-- the two kilns -->
+    <section id="kilns" class="grid grid-cols-1 md:grid-cols-2 gap-3"></section>
+
+    <!-- dry batches -->
+    <section class="space-y-2">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <h2 class="text-sm font-black uppercase tracking-wider text-slate-800">✓ Dry batches</h2>
+        <input type="search" id="search" oninput="render()" placeholder="🔍 Search customer, species, size" class="w-full sm:w-72 bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm" />
+      </div>
+      <div id="dryList" class="space-y-2"></div>
+    </section>
+  </main>
+
+  <!-- load / edit a batch -->
+  <div id="editor">
+    <div class="absolute inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[44rem] sm:max-h-[92vh] bg-slate-50 sm:rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+      <div class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-2 shrink-0">
+        <div class="min-w-0">
+          <div id="edTitle" class="text-sm font-black uppercase tracking-wider text-slate-900"></div>
+          <div id="edSub" class="text-[0.6875rem] text-slate-500 font-semibold"></div>
+        </div>
+        <button type="button" onclick="closeEditor()" class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 font-bold">✕</button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-3 space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <label class="text-xs font-bold text-slate-600 uppercase">Date in
+            <input type="date" id="edDateIn" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold" />
+          </label>
+          <label id="edDateOutWrap" class="text-xs font-bold text-slate-600 uppercase">Date out
+            <input type="date" id="edDateOut" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold" />
+          </label>
+        </div>
+        <div class="text-xs font-black uppercase tracking-wider text-slate-700 pt-1">Lumber in this batch</div>
+        <div id="edLines" class="space-y-2"></div>
+        <button type="button" onclick="addLine()" class="w-full py-2.5 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 text-sm font-bold bg-white">＋ Add lumber</button>
+        <label class="block text-xs font-bold text-slate-600 uppercase">Notes
+          <textarea id="edNotes" rows="2" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm"></textarea>
+        </label>
+      </div>
+      <div class="bg-white border-t border-slate-200 p-3 shrink-0 space-y-2">
+        <div id="edTotal" class="text-xs font-bold text-slate-600 font-mono"></div>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeEditor()" class="flex-1 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-sm">Cancel</button>
+          <button type="button" id="edSave" onclick="saveEditor()" class="flex-1 py-3 rounded-xl bg-amber-500 text-white font-black text-sm shadow">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- batch finished -->
+  <div id="finishBox">
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-sm bg-white rounded-2xl p-5 space-y-4 shadow-2xl">
+      <h4 class="text-sm font-black uppercase text-slate-900">✓ Batch finished</h4>
+      <p id="finishMsg" class="text-xs text-slate-600"></p>
+      <label class="block text-xs font-bold text-slate-600 uppercase">Date out
+        <input type="date" id="finishDate" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold" />
+      </label>
+      <div class="flex gap-2">
+        <button type="button" onclick="closeFinish()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-sm">Cancel</button>
+        <button type="button" onclick="confirmFinish()" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-black text-sm shadow">✓ Mark dry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- yes / no -->
+  <div id="confirmBox">
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-sm bg-white rounded-2xl p-5 space-y-4 shadow-2xl">
+      <h4 id="cfTitle" class="text-sm font-black uppercase text-slate-900"></h4>
+      <p id="cfMsg" class="text-xs text-slate-600"></p>
+      <div class="flex gap-2">
+        <button type="button" onclick="closeConfirm()" class="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-sm">Cancel</button>
+        <button type="button" id="cfYes" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-black text-sm shadow">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="speciesList">
+    <option value="Eastern White Pine"></option><option value="Red Pine"></option><option value="White Spruce"></option>
+    <option value="Hemlock"></option><option value="Cedar"></option><option value="Oak"></option><option value="Maple"></option>
+  </datalist>
+  <datalist id="customerList"></datalist>
+
+  <script>
+    // ---------- setup ----------
+    var FIREBASE = {
+      apiKey: "AIzaSyDzLA2Ihnw80A6OIMw7Bs9NbKYl3gEF6GU",
+      authDomain: "timbertrack-6c42d.firebaseapp.com",
+      projectId: "timbertrack-6c42d",
+      storageBucket: "timbertrack-6c42d.firebasestorage.app",
+      messagingSenderId: "876066859760",
+      appId: "1:876066859760:web:839654a3f5e26b9fce3035"
+    };
+    var KILNS = [{ id: 1, name: 'Kiln 1' }, { id: 2, name: 'Kiln 2' }];
+    var WIDTHS = [4, 6, 8, 10, 12];
+    var LENGTHS = [6, 8, 10, 12, 14, 16];
+    var db = null;
+    var batches = [];   // kiln_batches: { id, kiln, status: 'IN'|'DRY', dateIn, dateOut, items: [{ id, species, thickness, width, length, pieces, spokenFor }], notes }
+
+    try { batches = JSON.parse(localStorage.getItem('kiln_batches') || '[]'); } catch (e) { batches = []; }
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function uid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function bf(it) { return (parseFloat(it.thickness) || 0) * (parseFloat(it.width) || 0) * (parseFloat(it.length) || 0) * (parseInt(it.pieces) || 0) / 12; }
+    function batchBF(b) { return (b.items || []).reduce(function (a, it) { return a + bf(it); }, 0); }
+    function batchPcs(b) { return (b.items || []).reduce(function (a, it) { return a + (parseInt(it.pieces) || 0); }, 0); }
+    function fmtDate(s) {
+      if (!s) return '';
+      var d = new Date(s + 'T12:00:00');
+      return d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    function daysBetween(a, b) {
+      if (!a) return 0;
+      var d1 = new Date(a + 'T12:00:00'), d2 = new Date((b || today()) + 'T12:00:00');
+      return Math.max(0, Math.round((d2 - d1) / 86400000));
+    }
+    function sizeText(it) { return (it.thickness || 1) + '"×' + (it.width || '?') + '"×' + (it.length || '?') + "'"; }
+    function inKiln(k) { return batches.find(function (b) { return b.kiln === k && b.status === 'IN'; }); }
+
+    function saveLocal() { try { localStorage.setItem('kiln_batches', JSON.stringify(batches)); } catch (e) {} }
+    function saveBatch(b) {
+      var i = batches.findIndex(function (x) { return x.id === b.id; });
+      if (i >= 0) batches[i] = b; else batches.push(b);
+      saveLocal();
+      render();
+      if (db) db.collection('kiln_batches').doc(b.id).set(JSON.parse(JSON.stringify(b))).catch(function (e) { alert('Could not save to the cloud: ' + e.message); });
+    }
+    function deleteBatch(id) {
+      batches = batches.filter(function (x) { return x.id !== id; });
+      saveLocal();
+      render();
+      if (db) db.collection('kiln_batches').doc(id).delete().catch(function () {});
+    }
+
+    // ---------- main screen ----------
+    function lineHtml(it, dry) {
+      return '<div class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">' +
+        '<div class="min-w-0">' +
+          '<div class="text-sm font-bold text-slate-900"><span class="font-mono">' + (parseInt(it.pieces) || 0) + ' pcs</span> ' + sizeText(it) + '</div>' +
+          '<div class="text-[0.6875rem] text-slate-500">' + esc(it.species || '') + ' • ' + bf(it).toFixed(0) + ' BF' + (dry ? ' • <b class="text-emerald-700">DRY</b>' : '') + '</div>' +
+        '</div>' +
+        (it.spokenFor ? '<span class="shrink-0 text-[0.6875rem] font-black px-2 py-1 rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔖 ' + esc(it.spokenFor) + '</span>'
+                      : '<span class="shrink-0 text-[0.6875rem] font-bold text-slate-400 py-1">Not spoken for</span>') +
+      '</div>';
+    }
+
+    function kilnCard(k) {
+      var b = inKiln(k.id);
+      if (!b) {
+        return '<div class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">' +
+          '<div class="flex items-center justify-between"><span class="text-lg font-black text-slate-900">' + esc(k.name) + '</span>' +
+          '<span class="text-xs font-black uppercase px-2 py-1 rounded-lg bg-slate-100 text-slate-500">Empty</span></div>' +
+          '<button type="button" onclick="openEditor(null,' + k.id + ')" class="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-base shadow active:scale-[0.99]">＋ Load ' + esc(k.name) + '</button>' +
+        '</div>';
+      }
+      var days = daysBetween(b.dateIn);
+      return '<div class="bg-white rounded-2xl border-2 border-amber-400 p-4 space-y-3">' +
+        '<div class="flex items-center justify-between gap-2"><span class="text-lg font-black text-slate-900">' + esc(k.name) + '</span>' +
+        '<span class="text-xs font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300">🔥 Drying</span></div>' +
+        '<div class="flex items-center justify-between text-xs font-bold text-slate-600">' +
+          '<span>In ' + fmtDate(b.dateIn) + ' • ' + days + ' day' + (days === 1 ? '' : 's') + '</span>' +
+          '<span class="font-mono">' + batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF</span></div>' +
+        '<div class="bg-slate-50 rounded-xl border border-slate-200 px-3">' + (b.items || []).map(function (it) { return lineHtml(it, false); }).join('') + '</div>' +
+        (b.notes ? '<div class="text-xs text-slate-600">📝 ' + esc(b.notes) + '</div>' : '') +
+        '<div class="grid grid-cols-2 gap-2">' +
+          '<button type="button" onclick="openEditor(\'' + b.id + '\')" class="py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-sm">✏️ Edit / spoken for</button>' +
+          '<button type="button" onclick="openFinish(\'' + b.id + '\')" class="py-3 rounded-xl bg-emerald-600 text-white font-black text-sm shadow">✓ Batch finished</button>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function render() {
+      document.getElementById('kilns').innerHTML = KILNS.map(kilnCard).join('');
+      var q = (document.getElementById('search').value || '').trim().toLowerCase();
+      var dry = batches.filter(function (b) { return b.status === 'DRY'; }).filter(function (b) {
+        if (!q) return true;
+        var k = KILNS.find(function (x) { return x.id === b.kiln; });
+        var text = [(k ? k.name : ''), b.notes || ''].concat((b.items || []).map(function (it) { return [it.species, it.spokenFor, sizeText(it), '1x' + it.width, it.width + 'x' + it.length].join(' '); })).join(' ').toLowerCase();
+        return text.indexOf(q) !== -1;
+      }).sort(function (a, b) { return (b.dateOut || '') < (a.dateOut || '') ? -1 : ((b.dateOut || '') > (a.dateOut || '') ? 1 : 0); });
+      document.getElementById('dryList').innerHTML = dry.length ? dry.map(function (b) {
+        var k = KILNS.find(function (x) { return x.id === b.kiln; });
+        return '<div class="bg-white rounded-2xl border border-emerald-300 border-l-4 border-l-emerald-500 p-3 space-y-2">' +
+          '<div class="flex items-center justify-between gap-2 flex-wrap">' +
+            '<span class="text-sm font-black text-slate-900">' + esc(k ? k.name : 'Kiln') + ' <span class="text-xs font-bold text-emerald-700">✓ DRY</span></span>' +
+            '<span class="text-xs font-bold text-slate-600">' + fmtDate(b.dateIn) + ' → ' + fmtDate(b.dateOut) + ' • ' + daysBetween(b.dateIn, b.dateOut) + ' days</span></div>' +
+          '<div class="text-xs font-mono font-bold text-slate-500">' + batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF</div>' +
+          '<div class="bg-slate-50 rounded-xl border border-slate-200 px-3">' + (b.items || []).map(function (it) { return lineHtml(it, true); }).join('') + '</div>' +
+          (b.notes ? '<div class="text-xs text-slate-600">📝 ' + esc(b.notes) + '</div>' : '') +
+          '<div class="flex gap-2 justify-end">' +
+            '<button type="button" onclick="openEditor(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-300 font-bold text-xs">✏️ Edit / spoken for</button>' +
+            '<button type="button" onclick="askUndoDry(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 font-bold text-xs text-slate-600">↩ Back in kiln</button>' +
+            '<button type="button" onclick="askDelete(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-white border border-rose-200 font-bold text-xs text-rose-600">🗑️ Delete</button>' +
+          '</div>' +
+        '</div>';
+      }).join('') : '<div class="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-4 text-center">' + (q ? 'No dry batches match "' + esc(q) + '".' : 'No dry batches yet. When a kiln is done, press ✓ Batch finished.') + '</div>';
+
+      // customers typed before, for the "spoken for" box
+      var names = {};
+      batches.forEach(function (b) { (b.items || []).forEach(function (it) { if (it.spokenFor) names[it.spokenFor] = 1; }); });
+      document.getElementById('customerList').innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '"></option>'; }).join('');
+    }
+
+    // ---------- load / edit ----------
+    var edBatch = null;
+    function opts(list, val, suffix) {
+      return list.map(function (v) { return '<option value="' + v + '"' + (String(v) === String(val) ? ' selected' : '') + '>' + v + suffix + '</option>'; }).join('');
+    }
+    function lineEditor(it, i) {
+      var widthOpts = WIDTHS.indexOf(parseFloat(it.width)) === -1 && it.width ? WIDTHS.concat([parseFloat(it.width)]) : WIDTHS;
+      var lenOpts = LENGTHS.indexOf(parseFloat(it.length)) === -1 && it.length ? LENGTHS.concat([parseFloat(it.length)]) : LENGTHS;
+      var cls = 'mt-0.5 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold';
+      return '<div class="bg-white rounded-xl border border-slate-200 p-3 space-y-2" data-line="' + i + '">' +
+        '<div class="flex items-center justify-between"><span class="text-xs font-black text-slate-500 uppercase">Lumber ' + (i + 1) + '</span>' +
+        '<button type="button" onclick="removeLine(' + i + ')" class="text-xs font-bold text-rose-600 px-2 py-1 rounded-lg border border-slate-200">Remove</button></div>' +
+        '<div class="grid grid-cols-4 gap-2">' +
+          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Thick"<input type="number" step="0.25" min="0" inputmode="decimal" data-f="thickness" value="' + esc(it.thickness) + '" oninput="readLines()" class="' + cls + '" /></label>' +
+          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Width"<select data-f="width" onchange="readLines()" class="' + cls + '">' + opts(widthOpts, it.width, '"') + '</select></label>' +
+          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Length<select data-f="length" onchange="readLines()" class="' + cls + '">' + opts(lenOpts, it.length, "'") + '</select></label>' +
+          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Pieces<input type="number" min="0" inputmode="numeric" data-f="pieces" value="' + esc(it.pieces) + '" oninput="readLines()" class="' + cls + '" /></label>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-2">' +
+          '<label class="text-[0.6875rem] font-bold text-slate-500 uppercase">Species<input type="text" list="speciesList" data-f="species" value="' + esc(it.species) + '" oninput="readLines()" class="' + cls + '" /></label>' +
+          '<label class="text-[0.6875rem] font-bold text-sky-700 uppercase">🔖 Spoken for (customer)<input type="text" list="customerList" data-f="spokenFor" value="' + esc(it.spokenFor) + '" oninput="readLines()" placeholder="Leave blank if not" class="' + cls + ' border-sky-300" /></label>' +
+        '</div>' +
+        '<div class="text-[0.6875rem] font-mono font-bold text-slate-500 text-right" data-bf></div>' +
+      '</div>';
+    }
+    function renderLines() {
+      document.getElementById('edLines').innerHTML = edBatch.items.map(lineEditor).join('');
+      updateTotals();
+    }
+    window.readLines = function () {
+      document.querySelectorAll('#edLines [data-line]').forEach(function (row) {
+        var it = edBatch.items[+row.getAttribute('data-line')];
+        row.querySelectorAll('[data-f]').forEach(function (el) {
+          var f = el.getAttribute('data-f');
+          it[f] = (f === 'species' || f === 'spokenFor') ? el.value.trim() : (el.value === '' ? '' : parseFloat(el.value));
+        });
+      });
+      updateTotals();
+    };
+    function updateTotals() {
+      document.querySelectorAll('#edLines [data-line]').forEach(function (row) {
+        var it = edBatch.items[+row.getAttribute('data-line')];
+        row.querySelector('[data-bf]').innerText = bf(it).toFixed(0) + ' BF';
+      });
+      document.getElementById('edTotal').innerText = 'Batch: ' + batchPcs(edBatch) + ' pcs • ' + batchBF(edBatch).toFixed(0) + ' BF';
+    }
+    window.addLine = function () {
+      readLines();
+      var last = edBatch.items[edBatch.items.length - 1];
+      edBatch.items.push({ id: uid('L'), species: last ? last.species : 'Eastern White Pine', thickness: last ? last.thickness : 1, width: last ? last.width : 6, length: last ? last.length : 12, pieces: '', spokenFor: '' });
+      renderLines();
+      var rows = document.querySelectorAll('#edLines [data-line]');
+      var pcs = rows[rows.length - 1].querySelector('[data-f=pieces]');
+      pcs.scrollIntoView({ block: 'center' }); pcs.focus();
+    };
+    window.removeLine = function (i) { readLines(); edBatch.items.splice(i, 1); renderLines(); };
+
+    window.openEditor = function (batchId, kilnId) {
+      var b = batchId ? batches.find(function (x) { return x.id === batchId; }) : null;
+      edBatch = b ? JSON.parse(JSON.stringify(b)) : { id: uid('KB-'), kiln: kilnId, status: 'IN', dateIn: today(), dateOut: '', items: [], notes: '' };
+      var k = KILNS.find(function (x) { return x.id === edBatch.kiln; });
+      document.getElementById('edTitle').innerText = (b ? '✏️ ' : '＋ Load ') + (k ? k.name : 'Kiln') + (b && b.status === 'DRY' ? ' • dry batch' : '');
+      document.getElementById('edSub').innerText = b ? 'Change what\'s in it or who it\'s spoken for' : 'Enter what\'s going in and the date it went in';
+      document.getElementById('edDateIn').value = edBatch.dateIn || today();
+      document.getElementById('edDateOut').value = edBatch.dateOut || '';
+      document.getElementById('edDateOutWrap').style.display = edBatch.status === 'DRY' ? '' : 'none';
+      document.getElementById('edNotes').value = edBatch.notes || '';
+      document.getElementById('edSave').innerText = b ? 'Save changes' : '🔥 Load kiln';
+      if (!edBatch.items.length) addLine(); else renderLines();
+      document.getElementById('editor').style.display = 'block';
+    };
+    window.closeEditor = function () { document.getElementById('editor').style.display = 'none'; edBatch = null; };
+    window.saveEditor = function () {
+      readLines();
+      edBatch.items = edBatch.items.filter(function (it) { return (parseInt(it.pieces) || 0) > 0; });
+      if (!edBatch.items.length) { alert('Enter the pieces for at least one lumber line.'); if (!document.querySelector('#edLines [data-line]')) addLine(); return; }
+      edBatch.dateIn = document.getElementById('edDateIn').value || today();
+      if (edBatch.status === 'DRY') edBatch.dateOut = document.getElementById('edDateOut').value || edBatch.dateOut || today();
+      edBatch.notes = document.getElementById('edNotes').value.trim();
+      edBatch.updated = new Date().toISOString();
+      saveBatch(edBatch);
+      closeEditor();
+    };
+
+    // ---------- batch finished ----------
+    var finishId = null;
+    window.openFinish = function (id) {
+      var b = batches.find(function (x) { return x.id === id; });
+      if (!b) return;
+      finishId = id;
+      var k = KILNS.find(function (x) { return x.id === b.kiln; });
+      document.getElementById('finishMsg').innerText = 'All the lumber in ' + (k ? k.name : 'the kiln') + ' (' + batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF, in since ' + fmtDate(b.dateIn) + ') will be marked dry and the kiln shows empty.';
+      document.getElementById('finishDate').value = today();
+      document.getElementById('finishBox').style.display = 'block';
+    };
+    window.closeFinish = function () { finishId = null; document.getElementById('finishBox').style.display = 'none'; };
+    window.confirmFinish = function () {
+      var b = batches.find(function (x) { return x.id === finishId; });
+      if (b) {
+        b = JSON.parse(JSON.stringify(b));
+        b.status = 'DRY';
+        b.dateOut = document.getElementById('finishDate').value || today();
+        b.updated = new Date().toISOString();
+        saveBatch(b);
+      }
+      closeFinish();
+    };
+
+    // ---------- yes / no ----------
+    function ask(title, msg, yesText, fn) {
+      document.getElementById('cfTitle').innerText = title;
+      document.getElementById('cfMsg').innerText = msg;
+      var y = document.getElementById('cfYes');
+      y.innerText = yesText;
+      y.onclick = function () { closeConfirm(); fn(); };
+      document.getElementById('confirmBox').style.display = 'block';
+    }
+    window.closeConfirm = function () { document.getElementById('confirmBox').style.display = 'none'; };
+    window.askDelete = function (id) {
+      ask('Delete batch', 'Delete this dry batch for good? This can\'t be undone.', '🗑️ Delete', function () { deleteBatch(id); });
+    };
+    window.askUndoDry = function (id) {
+      var b = batches.find(function (x) { return x.id === id; });
+      if (!b) return;
+      var k = KILNS.find(function (x) { return x.id === b.kiln; });
+      if (inKiln(b.kiln)) { alert((k ? k.name : 'That kiln') + ' already has a batch in it.'); return; }
+      ask('Back in kiln', 'Put this batch back in ' + (k ? k.name : 'the kiln') + ' as still drying?', '↩ Back in kiln', function () {
+        var c = JSON.parse(JSON.stringify(b));
+        c.status = 'IN'; c.dateOut = ''; c.updated = new Date().toISOString();
+        saveBatch(c);
+      });
+    };
+
+    function setSync(ok) {
+      document.getElementById('syncDot').innerHTML = '<span class="w-2 h-2 rounded-full ' + (ok ? 'bg-emerald-500' : 'bg-rose-500') + ' mr-1"></span><span>' + (ok ? 'Synced' : 'Offline') + '</span>';
+    }
+
+    // ---------- start ----------
+    render();
+    try {
+      firebase.initializeApp(FIREBASE);
+      db = firebase.firestore();
+      db.collection('kiln_batches').onSnapshot(function (snap) {
+        var list = [];
+        snap.forEach(function (doc) { list.push(doc.data()); });
+        batches = list;
+        saveLocal();
+        render();
+        setSync(true);
+      }, function (err) {
+        setSync(false);
+      });
+    } catch (e) {
+      setSync(false);
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    }
+  </script>
+</body>
+</html>
