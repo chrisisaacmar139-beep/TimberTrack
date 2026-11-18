@@ -81,9 +81,27 @@
             <input type="date" id="edDateOut" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold" />
           </label>
         </div>
-        <div class="text-xs font-black uppercase tracking-wider text-slate-700 pt-1">Lumber in this batch</div>
-        <div id="edLines" class="space-y-2"></div>
-        <button type="button" onclick="addLine()" class="w-full py-2.5 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 text-sm font-bold bg-white">＋ Add lumber</button>
+        <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200" id="edType">
+          <button type="button" data-type="OURS" onclick="setBatchType('OURS')" class="py-2 text-xs font-bold rounded-lg">🌲 Our lumber</button>
+          <button type="button" data-type="CUSTOM" onclick="setBatchType('CUSTOM')" class="py-2 text-xs font-bold rounded-lg">🧾 Custom batch</button>
+        </div>
+        <div id="edOurs" class="space-y-2">
+          <div class="text-xs font-black uppercase tracking-wider text-slate-700 pt-1">Lumber in this batch</div>
+          <div id="edLines" class="space-y-2"></div>
+          <button type="button" onclick="addLine()" class="w-full py-2.5 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 text-sm font-bold bg-white">＋ Add lumber</button>
+        </div>
+        <div id="edCustom" class="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
+          <div class="text-[0.6875rem] text-slate-500">Drying for a customer — no need to list what's in it.</div>
+          <label class="block text-xs font-bold text-sky-700 uppercase">🔖 Customer
+            <input type="text" id="edCustCustomer" list="customerList" class="mt-1 w-full bg-white border border-sky-300 rounded-lg px-2 py-2 text-sm font-semibold" />
+          </label>
+          <label class="block text-xs font-bold text-slate-600 uppercase">What's in it <span class="normal-case font-semibold text-slate-400">(optional)</span>
+            <input type="text" id="edCustDesc" placeholder="e.g. his own pine, 2 packs" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold" />
+          </label>
+          <label class="block text-xs font-bold text-slate-600 uppercase">About how many BF <span class="normal-case font-semibold text-slate-400">(optional)</span>
+            <input type="number" min="0" inputmode="numeric" id="edCustBF" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm font-semibold" />
+          </label>
+        </div>
         <label class="block text-xs font-bold text-slate-600 uppercase">Notes
           <textarea id="edNotes" rows="2" class="mt-1 w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm"></textarea>
         </label>
@@ -153,8 +171,9 @@
     function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     function uid(p) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
     function bf(it) { return (parseFloat(it.thickness) || 0) * (parseFloat(it.width) || 0) * (parseFloat(it.length) || 0) * (parseInt(it.pieces) || 0) / 12; }
-    function batchBF(b) { return (b.items || []).reduce(function (a, it) { return a + bf(it); }, 0); }
-    function batchPcs(b) { return (b.items || []).reduce(function (a, it) { return a + (parseInt(it.pieces) || 0); }, 0); }
+    function isCustom(b) { return b && b.type === 'CUSTOM'; }
+    function batchBF(b) { if (isCustom(b)) return parseFloat((b.custom || {}).bf) || 0; return (b.items || []).reduce(function (a, it) { return a + bf(it); }, 0); }
+    function batchPcs(b) { if (isCustom(b)) return 0; return (b.items || []).reduce(function (a, it) { return a + (parseInt(it.pieces) || 0); }, 0); }
     function fmtDate(s) {
       if (!s) return '';
       var d = new Date(s + 'T12:00:00');
@@ -195,6 +214,23 @@
       '</div>';
     }
 
+    // What's in a batch, for the kiln card and the dry list
+    function contentsHtml(b, dry) {
+      if (isCustom(b)) {
+        var c = b.custom || {};
+        return '<div class="bg-sky-50 rounded-xl border border-sky-200 px-3 py-2.5 space-y-1">' +
+          '<div class="flex items-center justify-between gap-2"><span class="text-sm font-black text-sky-900">🧾 Custom batch' + (dry ? ' • <span class="text-emerald-700">DRY</span>' : '') + '</span>' +
+          '<span class="shrink-0 text-[0.6875rem] font-black px-2 py-1 rounded-lg bg-sky-100 text-sky-900 border border-sky-300">🔖 ' + esc(c.customer || '') + '</span></div>' +
+          (c.desc ? '<div class="text-xs text-slate-700">' + esc(c.desc) + '</div>' : '') +
+        '</div>';
+      }
+      return '<div class="bg-slate-50 rounded-xl border border-slate-200 px-3">' + (b.items || []).map(function (it) { return lineHtml(it, dry); }).join('') + '</div>';
+    }
+    function totalsText(b) {
+      if (isCustom(b)) return batchBF(b) ? 'about ' + batchBF(b).toFixed(0) + ' BF' : '';
+      return batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF';
+    }
+
     function kilnCard(k) {
       var b = inKiln(k.id);
       if (!b) {
@@ -210,11 +246,11 @@
         '<span class="text-xs font-black uppercase px-2 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300">🔥 Drying</span></div>' +
         '<div class="flex items-center justify-between text-xs font-bold text-slate-600">' +
           '<span>In ' + fmtDate(b.dateIn) + ' • ' + days + ' day' + (days === 1 ? '' : 's') + '</span>' +
-          '<span class="font-mono">' + batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF</span></div>' +
-        '<div class="bg-slate-50 rounded-xl border border-slate-200 px-3">' + (b.items || []).map(function (it) { return lineHtml(it, false); }).join('') + '</div>' +
+          '<span class="font-mono">' + totalsText(b) + '</span></div>' +
+        contentsHtml(b, false) +
         (b.notes ? '<div class="text-xs text-slate-600">📝 ' + esc(b.notes) + '</div>' : '') +
         '<div class="grid grid-cols-2 gap-2">' +
-          '<button type="button" onclick="openEditor(\'' + b.id + '\')" class="py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-sm">✏️ Edit / spoken for</button>' +
+          '<button type="button" onclick="openEditor(\'' + b.id + '\')" class="py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-sm">✏️ Edit' + (isCustom(b) ? '' : ' / spoken for') + '</button>' +
           '<button type="button" onclick="openFinish(\'' + b.id + '\')" class="py-3 rounded-xl bg-emerald-600 text-white font-black text-sm shadow">✓ Batch finished</button>' +
         '</div>' +
       '</div>';
@@ -226,7 +262,7 @@
       var dry = batches.filter(function (b) { return b.status === 'DRY'; }).filter(function (b) {
         if (!q) return true;
         var k = KILNS.find(function (x) { return x.id === b.kiln; });
-        var text = [(k ? k.name : ''), b.notes || ''].concat((b.items || []).map(function (it) { return [it.species, it.spokenFor, sizeText(it), '1x' + it.width, it.width + 'x' + it.length].join(' '); })).join(' ').toLowerCase();
+        var text = [(k ? k.name : ''), b.notes || '', isCustom(b) ? 'custom ' + ((b.custom || {}).customer || '') + ' ' + ((b.custom || {}).desc || '') : ''].concat((b.items || []).map(function (it) { return [it.species, it.spokenFor, sizeText(it), '1x' + it.width, it.width + 'x' + it.length].join(' '); })).join(' ').toLowerCase();
         return text.indexOf(q) !== -1;
       }).sort(function (a, b) { return (b.dateOut || '') < (a.dateOut || '') ? -1 : ((b.dateOut || '') > (a.dateOut || '') ? 1 : 0); });
       document.getElementById('dryList').innerHTML = dry.length ? dry.map(function (b) {
@@ -235,11 +271,11 @@
           '<div class="flex items-center justify-between gap-2 flex-wrap">' +
             '<span class="text-sm font-black text-slate-900">' + esc(k ? k.name : 'Kiln') + ' <span class="text-xs font-bold text-emerald-700">✓ DRY</span></span>' +
             '<span class="text-xs font-bold text-slate-600">' + fmtDate(b.dateIn) + ' → ' + fmtDate(b.dateOut) + ' • ' + daysBetween(b.dateIn, b.dateOut) + ' days</span></div>' +
-          '<div class="text-xs font-mono font-bold text-slate-500">' + batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF</div>' +
-          '<div class="bg-slate-50 rounded-xl border border-slate-200 px-3">' + (b.items || []).map(function (it) { return lineHtml(it, true); }).join('') + '</div>' +
+          (totalsText(b) ? '<div class="text-xs font-mono font-bold text-slate-500">' + totalsText(b) + '</div>' : '') +
+          contentsHtml(b, true) +
           (b.notes ? '<div class="text-xs text-slate-600">📝 ' + esc(b.notes) + '</div>' : '') +
           '<div class="flex gap-2 justify-end">' +
-            '<button type="button" onclick="openEditor(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-300 font-bold text-xs">✏️ Edit / spoken for</button>' +
+            '<button type="button" onclick="openEditor(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-300 font-bold text-xs">✏️ Edit' + (isCustom(b) ? '' : ' / spoken for') + '</button>' +
             '<button type="button" onclick="askUndoDry(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 font-bold text-xs text-slate-600">↩ Back in kiln</button>' +
             '<button type="button" onclick="askDelete(\'' + b.id + '\')" class="px-3 py-1.5 rounded-lg bg-white border border-rose-200 font-bold text-xs text-rose-600">🗑️ Delete</button>' +
           '</div>' +
@@ -248,7 +284,10 @@
 
       // customers typed before, for the "spoken for" box
       var names = {};
-      batches.forEach(function (b) { (b.items || []).forEach(function (it) { if (it.spokenFor) names[it.spokenFor] = 1; }); });
+      batches.forEach(function (b) {
+        (b.items || []).forEach(function (it) { if (it.spokenFor) names[it.spokenFor] = 1; });
+        if (isCustom(b) && b.custom && b.custom.customer) names[b.custom.customer] = 1;
+      });
       document.getElementById('customerList').innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '"></option>'; }).join('');
     }
 
@@ -284,6 +323,7 @@
     window.readLines = function () {
       document.querySelectorAll('#edLines [data-line]').forEach(function (row) {
         var it = edBatch.items[+row.getAttribute('data-line')];
+        if (!it) return;
         row.querySelectorAll('[data-f]').forEach(function (el) {
           var f = el.getAttribute('data-f');
           it[f] = (f === 'species' || f === 'spokenFor') ? el.value.trim() : (el.value === '' ? '' : parseFloat(el.value));
@@ -294,9 +334,10 @@
     function updateTotals() {
       document.querySelectorAll('#edLines [data-line]').forEach(function (row) {
         var it = edBatch.items[+row.getAttribute('data-line')];
+        if (!it) return;
         row.querySelector('[data-bf]').innerText = bf(it).toFixed(0) + ' BF';
       });
-      document.getElementById('edTotal').innerText = 'Batch: ' + batchPcs(edBatch) + ' pcs • ' + batchBF(edBatch).toFixed(0) + ' BF';
+      document.getElementById('edTotal').innerText = edBatch.type === 'CUSTOM' ? 'Custom batch' : 'Batch: ' + batchPcs(edBatch) + ' pcs • ' + batchBF(edBatch).toFixed(0) + ' BF';
     }
     window.addLine = function () {
       readLines();
@@ -309,6 +350,17 @@
     };
     window.removeLine = function (i) { readLines(); edBatch.items.splice(i, 1); renderLines(); };
 
+    window.setBatchType = function (t) {
+      if (!edBatch) return;
+      edBatch.type = t;
+      document.querySelectorAll('#edType [data-type]').forEach(function (btn) {
+        btn.className = 'py-2 text-xs font-bold rounded-lg ' + (btn.getAttribute('data-type') === t ? 'bg-amber-500 text-white shadow' : 'text-slate-600');
+      });
+      document.getElementById('edOurs').style.display = t === 'CUSTOM' ? 'none' : '';
+      document.getElementById('edCustom').style.display = t === 'CUSTOM' ? '' : 'none';
+      updateTotals();
+    };
+
     window.openEditor = function (batchId, kilnId) {
       var b = batchId ? batches.find(function (x) { return x.id === batchId; }) : null;
       edBatch = b ? JSON.parse(JSON.stringify(b)) : { id: uid('KB-'), kiln: kilnId, status: 'IN', dateIn: today(), dateOut: '', items: [], notes: '' };
@@ -320,14 +372,29 @@
       document.getElementById('edDateOutWrap').style.display = edBatch.status === 'DRY' ? '' : 'none';
       document.getElementById('edNotes').value = edBatch.notes || '';
       document.getElementById('edSave').innerText = b ? 'Save changes' : '🔥 Load kiln';
+      var c = edBatch.custom || {};
+      document.getElementById('edCustCustomer').value = c.customer || '';
+      document.getElementById('edCustDesc').value = c.desc || '';
+      document.getElementById('edCustBF').value = c.bf || '';
+      document.getElementById('edLines').innerHTML = '';   // clear rows left from the last batch opened
       if (!edBatch.items.length) addLine(); else renderLines();
+      setBatchType(edBatch.type === 'CUSTOM' ? 'CUSTOM' : 'OURS');
       document.getElementById('editor').style.display = 'block';
     };
     window.closeEditor = function () { document.getElementById('editor').style.display = 'none'; edBatch = null; };
     window.saveEditor = function () {
       readLines();
-      edBatch.items = edBatch.items.filter(function (it) { return (parseInt(it.pieces) || 0) > 0; });
-      if (!edBatch.items.length) { alert('Enter the pieces for at least one lumber line.'); if (!document.querySelector('#edLines [data-line]')) addLine(); return; }
+      if (edBatch.type === 'CUSTOM') {
+        var cust = document.getElementById('edCustCustomer').value.trim();
+        if (!cust) { alert('Enter who the custom batch is for.'); return; }
+        edBatch.custom = { customer: cust, desc: document.getElementById('edCustDesc').value.trim(), bf: parseFloat(document.getElementById('edCustBF').value) || 0 };
+        edBatch.items = [];
+      } else {
+        edBatch.type = 'OURS';
+        delete edBatch.custom;
+        edBatch.items = edBatch.items.filter(function (it) { return (parseInt(it.pieces) || 0) > 0; });
+        if (!edBatch.items.length) { alert('Enter the pieces for at least one lumber line.'); if (!document.querySelector('#edLines [data-line]')) addLine(); return; }
+      }
       edBatch.dateIn = document.getElementById('edDateIn').value || today();
       if (edBatch.status === 'DRY') edBatch.dateOut = document.getElementById('edDateOut').value || edBatch.dateOut || today();
       edBatch.notes = document.getElementById('edNotes').value.trim();
@@ -343,7 +410,7 @@
       if (!b) return;
       finishId = id;
       var k = KILNS.find(function (x) { return x.id === b.kiln; });
-      document.getElementById('finishMsg').innerText = 'All the lumber in ' + (k ? k.name : 'the kiln') + ' (' + batchPcs(b) + ' pcs • ' + batchBF(b).toFixed(0) + ' BF, in since ' + fmtDate(b.dateIn) + ') will be marked dry and the kiln shows empty.';
+      document.getElementById('finishMsg').innerText = (isCustom(b) ? 'The custom batch for ' + ((b.custom || {}).customer || '') + ' in ' : 'All the lumber in ') + (k ? k.name : 'the kiln') + ' (' + (totalsText(b) ? totalsText(b) + ', ' : '') + 'in since ' + fmtDate(b.dateIn) + ') will be marked dry and the kiln shows empty.';
       document.getElementById('finishDate').value = today();
       document.getElementById('finishBox').style.display = 'block';
     };
