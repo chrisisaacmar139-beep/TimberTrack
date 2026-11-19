@@ -512,6 +512,14 @@
             <input type="number" id="drawerPieces" oninput="recalcDrawerBF()" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-amber-700" placeholder="Number of pieces..." />
             <p id="drawerBfOnlyNote" class="hidden text-[0.6875rem] text-slate-500 mt-1">Random width or length: this pack is tracked by board feet, not pieces.</p>
           </div>
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex items-center justify-between gap-2 text-xs font-bold text-amber-800 uppercase">
+              <span>More sizes in this pack</span>
+              <span id="drawerMixNote" class="text-[0.6875rem] font-semibold text-slate-500 normal-case text-right"></span>
+            </div>
+            <div id="drawerExtraSizes" class="space-y-1.5"></div>
+            <button type="button" onclick="addDrawerSize()" class="w-full py-2 rounded-xl border-2 border-dashed border-slate-300 text-slate-600 text-xs font-bold bg-white">＋ Add another size to this pack</button>
+          </div>
           <div>
             <label class="block text-xs font-bold text-amber-800 uppercase mb-1">5. Internal Yard Notes</label>
             <input type="text" id="drawerNotes" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800" placeholder="e.g. Weathered surface, dark patina" />
@@ -1638,6 +1646,14 @@
       }).join('') + '</div>';
     }
 
+    // Under the pack number: which mixed pack it's part of and its other sizes
+    function mixPackHtml(item) {
+      if (!item.mixOf) return '';
+      var others = mixMembers(item.mixOf).filter(function(m){ return m.id !== item.id && (parseInt(m.pieces) || 0) > 0; });
+      return '<div class="mt-0.5 inline-block px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-[0.625rem] font-bold text-sky-800 leading-tight">📦 Mixed pack ' + item.mixOf +
+        (others.length ? '<div class="font-semibold text-slate-600">also: ' + others.map(function(m){ return packDims(m).replace(/ /g, '') + ' ' + m.pieces + ' ' + qtyUnit(m); }).join(', ') + '</div>' : '') + '</div>';
+    }
+
     function renderInventory() {
       var tbody = document.getElementById('inventoryTableBody');
       var empty = document.getElementById('emptyInventoryState');
@@ -1678,7 +1694,7 @@
 
         if (searchQuery.trim() !== '') {
           var dryingTag = (item.dryingMethod === 'Air Dried' ? 'air dried ad' : 'kiln dried kd');
-          var match = (item.id + " " + (item.grade||'') + " " + item.species + " " + dryingTag + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
+          var match = (item.id + " " + (item.mixOf||'') + " " + (item.grade||'') + " " + item.species + " " + dryingTag + " " + (item.stage||'') + " " + (item.stageDetail||'') + " " + item.location + " " + item.notes + " " + (item.customer||"")).toLowerCase();
           if (match.indexOf(searchQuery.toLowerCase()) === -1) return false;
         }
         return true;
@@ -1729,6 +1745,7 @@
           return '<tr class="' + rowClass + '">' +
             '<td class="py-2.5 px-2 sm:px-3 align-top">' +
               '<div class="font-mono font-black text-amber-800 text-sm">' + item.id + '</div>' +
+              mixPackHtml(item) +
               '<div class="text-[0.6875rem] text-slate-500">' + item.species + '</div>' +
               '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
                 getGradeBadgeHtml(item.grade) +
@@ -2015,7 +2032,67 @@
       recalcDrawerBF(); 
     };
 
+    // ---- Mixed packs: one pack with several sizes. Each size is saved as its own entry
+    // (PK-12, PK-12-B, PK-12-C...) sharing mixOf = "PK-12", so POs, filters and stock levels work per size.
+    var drawerExtras = [];   // [{ w, l, p }] sizes added in the entry form
+    var MIX_WIDTHS = [4, 6, 8, 10, 12], MIX_LENGTHS = [6, 8, 10, 12, 14, 16];
+    function mixMembers(groupId) {
+      return inventory.filter(function(i){ return (i.mixOf || '') === groupId; })
+        .sort(function(a, b){ return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0); });
+    }
+    function packDims(i) { return i.thickness + '" × ' + (i.width === 0 ? 'RW' : i.width + '"') + ' × ' + (i.length === 0 ? 'RL' : i.length + "'"); }
+    function renderDrawerSizes() {
+      var sel = function(list, val, unit, k, f) {
+        return '<select onchange="setDrawerSize(' + k + ',\'' + f + '\',this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-1.5 py-1.5 text-xs font-mono font-bold text-amber-700">' +
+          list.map(function(v){ return '<option value="' + v + '"' + (v === val ? ' selected' : '') + '>' + v + unit + '</option>'; }).join('') + '</select>';
+      };
+      var t = parseFloat(document.getElementById('drawerThickness').value) || 1;
+      document.getElementById('drawerExtraSizes').innerHTML = drawerExtras.map(function(x, k) {
+        var bf = calculateBF(t, x.w, x.l, parseInt(x.p) || 0);
+        return '<div class="grid grid-cols-[1fr_1fr_1fr_auto] gap-1.5 items-center">' +
+          sel(MIX_WIDTHS, x.w, '"', k, 'w') + sel(MIX_LENGTHS, x.l, "'", k, 'l') +
+          '<input type="number" min="1" inputmode="numeric" placeholder="pcs" value="' + (x.p || '') + '" oninput="setDrawerSize(' + k + ',\'p\',this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-amber-700" />' +
+          '<button type="button" onclick="removeDrawerSize(' + k + ')" class="w-8 h-8 rounded-lg border border-slate-300 bg-white text-rose-600 font-bold">✕</button>' +
+          '<div class="col-span-4 text-[0.625rem] font-mono text-slate-500 text-right -mt-1" data-size-bf="' + k + '">' + (x.p ? bf.toFixed(1) + ' BF' : '') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+    window.addDrawerSize = function() {
+      var last = drawerExtras[drawerExtras.length - 1];
+      var w = last ? last.w : (parseFloat(document.getElementById('drawerWidth').value) || 6);
+      if (MIX_WIDTHS.indexOf(w) === -1) w = 6;
+      var l = last ? last.l : (parseFloat(document.getElementById('drawerLength').value) || 12);
+      if (MIX_LENGTHS.indexOf(l) === -1) l = 12;
+      drawerExtras.push({ w: w, l: l, p: '' });
+      renderDrawerSizes();
+      var inputs = document.querySelectorAll('#drawerExtraSizes input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+      recalcDrawerBF();
+    };
+    window.setDrawerSize = function(k, f, v) {
+      if (!drawerExtras[k]) return;
+      drawerExtras[k][f] = f === 'p' ? v : parseFloat(v);
+      var t = parseFloat(document.getElementById('drawerThickness').value) || 1, x = drawerExtras[k];
+      var el = document.querySelector('[data-size-bf="' + k + '"]');
+      if (el) el.innerText = (parseInt(x.p) || 0) ? calculateBF(t, x.w, x.l, parseInt(x.p)).toFixed(1) + ' BF' : '';
+      recalcDrawerBF();
+    };
+    window.removeDrawerSize = function(k) { drawerExtras.splice(k, 1); renderDrawerSizes(); recalcDrawerBF(); };
+    function drawerExtrasBF() {
+      var t = parseFloat(document.getElementById('drawerThickness').value) || 1;
+      return drawerExtras.reduce(function(a, x){ return a + calculateBF(t, x.w, x.l, parseInt(x.p) || 0); }, 0);
+    }
+    function setDrawerMixNote(item) {
+      var note = '';
+      if (item && item.mixOf) {
+        var others = mixMembers(item.mixOf).filter(function(m){ return m.id !== item.id && (parseInt(m.pieces) || 0) > 0; });
+        note = '📦 Pack ' + item.mixOf + (others.length ? ' also has ' + others.map(function(m){ return packDims(m) + ' (' + m.pieces + ' ' + qtyUnit(m) + ')'; }).join(', ') : '');
+      }
+      document.getElementById('drawerMixNote').innerText = note;
+    }
+
     window.openEntryDrawer = function() {
+      drawerExtras = []; renderDrawerSizes(); setDrawerMixNote(null);
       var d = document.getElementById('drawerOverlay');
       if (d) d.style.display = 'flex';
       document.getElementById('drawerEditId').value = "";
@@ -2102,6 +2179,7 @@
       document.getElementById('drawerBfOnlyNote').classList.toggle('hidden', !bfOnlyEntry);
 
       var bf = bfOnlyEntry ? ((pInput === "" || isNaN(parseInt(pInput))) ? 0 : parseInt(pInput)) : calculateBF(t, w, l, p);
+      if (typeof drawerExtrasBF === 'function') bf += drawerExtrasBF();   // more sizes in this pack
       var rateInfo = getMatrixRates(dm, g, w);
       var rate = s === 'Rough' ? rateInfo.rough : rateInfo.milled;
 
@@ -2191,6 +2269,13 @@
         '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
       '</div>';
 
+      (function() {
+        var existingItem = editId ? inventory.find(function(i){ return i.id === editId; }) : null;
+        var gid = existingItem && existingItem.mixOf ? existingItem.mixOf : tempItem.id;
+        var sizes = (existingItem && existingItem.mixOf ? mixMembers(gid).filter(function(m){ return m.id !== editId && (parseInt(m.pieces) || 0) > 0; }) : []).concat([tempItem]);
+        drawerExtras.forEach(function(x){ if ((parseInt(x.p) || 0) > 0) sizes.push({ thickness: tempItem.thickness, width: x.w, length: x.l, pieces: parseInt(x.p), bfOnly: false }); });
+        tagHtml = withMixTag(tagHtml, gid, sizes);
+      })();
       document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
       document.getElementById('printableTagContainer').innerHTML = '<div class="bunk-tag-card p-6">' + tagHtml + '</div>';
       document.getElementById('tagPreviewModal').style.display = 'flex';
@@ -2266,8 +2351,35 @@
         status: existing ? existing.status : "IN_STOCK",
         customer: existing ? existing.customer : "",
         pendingPieces: existing ? existing.pendingPieces : 0,
-        partialTaken: existing ? existing.partialTaken : false
+        partialTaken: existing ? existing.partialTaken : false,
+        partialPos: (existing && existing.partialPos) ? existing.partialPos : []
       };
+
+      // More sizes in this pack -> one entry per size (PK-12-B, PK-12-C...)
+      var extras = drawerExtras.filter(function(x){ return (parseInt(x.p) || 0) > 0; });
+      if (drawerExtras.length !== extras.length && !confirm('Some added sizes have no pieces and will be left out. Save anyway?')) return;
+      var groupId = existing && existing.mixOf ? existing.mixOf : (extras.length ? finalId : '');
+      if (groupId) pack.mixOf = groupId;
+      var newEntries = [];
+      if (extras.length) {
+        var used = {};
+        inventory.forEach(function(i){ used[i.id.toUpperCase()] = 1; });
+        var code = 66;   // 'B'
+        extras.forEach(function(x) {
+          var id;
+          do { id = groupId + '-' + String.fromCharCode(code++); } while (used[id.toUpperCase()] && code < 91);
+          used[id.toUpperCase()] = 1;
+          var e2 = JSON.parse(JSON.stringify(pack));
+          e2.id = id; e2.width = x.w; e2.length = x.l; e2.pieces = parseInt(x.p); e2.originalPieces = parseInt(x.p);
+          e2.bfOnly = false; e2.status = 'IN_STOCK'; e2.customer = ''; e2.pendingPieces = 0; e2.partialTaken = false; e2.partialPos = [];
+          e2.mixOf = groupId;
+          newEntries.push(e2);
+        });
+      }
+      // What the whole pack shares stays the same on every size
+      var shared = ['company', 'species', 'grade', 'dryingMethod', 'cutDate', 'stage', 'stageDetail', 'thickness', 'location', 'notes', 'moisture'];
+      var siblings = groupId ? inventory.filter(function(i){ return i.mixOf === groupId && i.id !== pack.id && i.id !== editId; }) : [];
+      siblings.forEach(function(sib) { shared.forEach(function(f){ sib[f] = pack[f]; }); });
 
       if (editId) {
         var idx = inventory.findIndex(function(i){ return i.id === editId; });
@@ -2276,8 +2388,11 @@
         inventory.unshift(pack);
       }
 
+      newEntries.forEach(function(e2){ inventory.unshift(e2); });
       localStorage.setItem('timbertrack_inventory', JSON.stringify(inventory));
       syncCloudItem(pack);
+      newEntries.forEach(syncCloudItem);
+      siblings.forEach(syncCloudItem);
       closeEntryDrawer();
 
       if (activeCompany !== selectedCompany) {
@@ -2347,6 +2462,7 @@
     window.openEditDrawer = function(id) {
       var item = inventory.find(function(i){ return i.id === id; });
       if (!item) return;
+      drawerExtras = []; renderDrawerSizes(); setDrawerMixNote(item);
       var d = document.getElementById('drawerOverlay');
       if (d) d.style.display = 'flex';
       document.getElementById('drawerEditId').value = item.id;
@@ -2418,6 +2534,33 @@
       renderInventory();
     };
 
+    // Size table for the tag of a mixed pack
+    function mixTagSizesHtml(sizes) {
+      var totPcs = 0, totBF = 0;
+      var rows = sizes.map(function(sz) {
+        var bf = getPackBF(sz, sz.pieces); totBF += bf; if (!isBfOnly(sz)) totPcs += parseInt(sz.pieces) || 0;
+        return '<tr><td style="padding:4px 6px;font-family:monospace;font-weight:900;font-size:19px;white-space:nowrap;">' + packDims(sz).replace(/ × /g, '×') + '</td>' +
+          '<td style="padding:4px 6px;text-align:right;font-family:monospace;font-weight:900;font-size:19px;white-space:nowrap;">' + (isBfOnly(sz) ? '—' : sz.pieces + ' PCS') + '</td>' +
+          '<td style="padding:4px 6px;text-align:right;font-family:monospace;font-weight:700;font-size:15px;white-space:nowrap;">' + bf.toFixed(1) + ' BF</td></tr>';
+      }).join('');
+      return '<div class="text-xs uppercase font-bold text-gray-600 mt-2">Mixed pack — ' + sizes.length + ' sizes</div>' +
+        '<table style="width:100%;border-collapse:collapse;margin:4px 0;">' + rows + '</table>' +
+        '<div class="grid grid-cols-2 gap-4 border-t-2 border-b-2 border-black py-2">' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + totPcs + ' PCS</div></div>' +
+          '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF</div><div class="text-3xl font-black font-mono">' + totBF.toFixed(1) + ' BF</div></div>' +
+        '</div>';
+    }
+    function withMixTag(tagHtml, packId, sizes) {
+      if (sizes.length < 2) return tagHtml;
+      var box = document.createElement('div'); box.innerHTML = tagHtml;
+      var head = box.querySelector('.tag-pack-heading'); if (head) head.innerText = packId;
+      var dim = box.querySelector('.tag-dim-heading');
+      var grid = dim && dim.nextElementSibling;
+      if (dim) { dim.insertAdjacentHTML('beforebegin', mixTagSizesHtml(sizes)); dim.remove(); }
+      if (grid) grid.remove();
+      return box.innerHTML;
+    }
+
     window.previewTag = function(id) {
       var item = inventory.find(function(i){ return i.id === id; });
       if (!item) return;
@@ -2443,9 +2586,10 @@
           (isBfOnly(item) ? '<div><div class="text-xs uppercase font-bold text-gray-600">Pieces</div><div class="text-3xl font-black font-mono">—</div></div>' : '<div><div class="text-xs uppercase font-bold text-gray-600">Total Pieces</div><div class="text-3xl font-black font-mono">' + item.pieces + ' PCS</div></div>') +
           '<div><div class="text-xs uppercase font-bold text-gray-600">Total BF' + ((!isBfOnly(item) && (item.width===0||item.length===0))?' (EST)':'') + '</div><div class="text-3xl font-black font-mono">' + bf.toFixed(1) + ' BF</div></div>' +
         '</div>' +
-        '<div class="text-sm font-bold pt-1">Location: ' + tempItem.location + '</div>' +
+        '<div class="text-sm font-bold pt-1">Location: ' + (item.location || 'Shop') + '</div>' +
       '</div>';
 
+      if (item.mixOf) tagHtml = withMixTag(tagHtml, item.mixOf, mixMembers(item.mixOf).filter(function(m){ return (parseInt(m.pieces) || 0) > 0; }));
       document.getElementById('modalTagPreviewArea').innerHTML = tagHtml;
       document.getElementById('printableTagContainer').innerHTML = '<div class="bunk-tag-card p-6">' + tagHtml + '</div>';
       document.getElementById('tagPreviewModal').style.display = 'flex';
