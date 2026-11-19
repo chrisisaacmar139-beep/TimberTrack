@@ -97,7 +97,7 @@
       #printableShipContainer { position: static; width: 7.7in; background: #ffffff !important; color: #000000 !important; }
       .ship-label {
         width: 7.7in;
-        height: 4.85in;
+        min-height: 4.85in;   /* half a page, but grows when there are more lines */
         box-sizing: border-box;
         page-break-inside: avoid;
         break-inside: avoid;
@@ -107,7 +107,7 @@
         background: #ffffff !important;
         color: #000000 !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        overflow: hidden;
+        overflow: visible;
       }
       /* One label per sheet */
       .ship-label { margin-bottom: 0; page-break-after: always; break-after: page; }
