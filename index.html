@@ -65,7 +65,7 @@
       z-index: 9998;
       background-color: #f1f5f9;
     }
-    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #poDoneConfirmModal, #tagPreviewModal, #poPrintModal {
+    #settingsModal, #deleteConfirmModal, #poDeleteConfirmModal, #poDoneConfirmModal, #poInvoiceConfirmModal, #tagPreviewModal, #poPrintModal {
       display: none;
       position: fixed;
       inset: 0;
@@ -749,6 +749,17 @@
       <div class="flex items-center space-x-2 pt-2">
         <button type="button" onclick="closePoDoneModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
         <button type="button" onclick="confirmPoDone()" class="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 shadow-md">✓ Yes, it's done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="poInvoiceConfirmModal">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
+      <h4 class="text-sm font-bold text-slate-900 uppercase" id="poInvoiceModalTitle">Mark Invoiced</h4>
+      <p class="text-xs text-slate-600" id="poInvoiceModalMessage"></p>
+      <div class="flex items-center space-x-2 pt-2">
+        <button type="button" onclick="closePoInvoiceModal()" class="flex-1 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200">Cancel</button>
+        <button type="button" id="poInvoiceYesBtn" onclick="confirmPoInvoice()" class="flex-1 py-2 bg-violet-600 text-white font-bold rounded-xl text-xs hover:bg-violet-700 shadow-md">🧾 Yes, it's invoiced</button>
       </div>
     </div>
   </div>
@@ -3746,6 +3757,7 @@
               '<span class="shrink-0 px-2 py-0.5 rounded text-[0.6875rem] font-bold uppercase ' + (isOpen ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') + '">' +
                 (isOpen ? 'Open' : 'Completed' + (po.completedDate ? ' ' + po.completedDate : '')) +
               '</span>' +
+              (po.invoiced ? '<span class="shrink-0 px-2 py-0.5 rounded text-[0.6875rem] font-bold uppercase bg-violet-100 text-violet-800 border border-violet-300">🧾 Invoiced</span>' : '') +
             '</div>' +
 
             '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">' +
@@ -3770,7 +3782,12 @@
             poCalendarLine(po) +
             poShippingBlock(po) +
 
-            '<button type="button" onclick="viewPo(\'' + po.id + '\')" class="w-full py-2 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-300 text-sky-800 text-xs font-black active:scale-95">🔍 View full PO</button>' +
+            '<div class="grid grid-cols-2 gap-1.5">' +
+              '<button type="button" onclick="viewPo(\'' + po.id + '\')" class="w-full py-2 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-300 text-sky-800 text-xs font-black active:scale-95">🔍 View full PO</button>' +
+              (po.invoiced
+                ? '<button type="button" onclick="askPoInvoice(\'' + po.id + '\')" class="w-full py-2 bg-violet-100 rounded-lg border border-violet-300 text-violet-800 text-xs font-black active:scale-95">🧾 Invoiced ' + (po.invoicedDate || '') + '</button>'
+                : '<button type="button" onclick="askPoInvoice(\'' + po.id + '\')" class="w-full py-2 bg-white hover:bg-violet-50 rounded-lg border border-violet-300 text-violet-700 text-xs font-black active:scale-95">🧾 Mark invoiced</button>') +
+            '</div>' +
             '<div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100">' +
               '<button type="button" onclick="previewPrintPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-sky-600 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">🖨️ Print</button>' +
               '<button type="button" onclick="openEditPo(\'' + po.id + '\')" class="py-2 bg-slate-100 hover:bg-amber-500 hover:text-white rounded-lg border border-slate-300 text-slate-700 text-xs font-bold transition active:scale-95">✏️ Edit</button>' +
@@ -3813,6 +3830,35 @@
       if (searchEl) searchEl.value = "";
       document.getElementById('poListModal').style.display = 'none';
       document.body.style.overflow = '';
+    };
+
+    // Invoiced: asks first so it isn't pressed by accident; pressing again offers to undo
+    var poPendingInvoiceId = null;
+    window.askPoInvoice = function(poId) {
+      var po = purchaseOrders.find(function(p){ return p.id === poId; });
+      if (!po) return;
+      poPendingInvoiceId = poId;
+      var undo = !!po.invoiced;
+      document.getElementById('poInvoiceModalTitle').innerText = undo ? 'Undo Invoiced' : 'Mark Invoiced';
+      document.getElementById('poInvoiceModalMessage').innerText = undo
+        ? po.id + ' for ' + (po.customer || '') + ' was marked invoiced' + (po.invoicedDate ? ' on ' + po.invoicedDate : '') + '. Mark it as NOT invoiced?'
+        : 'Mark ' + po.id + ' for ' + (po.customer || '') + ' as invoiced?';
+      document.getElementById('poInvoiceYesBtn').innerText = undo ? '↩ Yes, not invoiced' : '🧾 Yes, it\'s invoiced';
+      document.getElementById('poInvoiceConfirmModal').style.display = 'flex';
+    };
+    window.closePoInvoiceModal = function() {
+      poPendingInvoiceId = null;
+      document.getElementById('poInvoiceConfirmModal').style.display = 'none';
+    };
+    window.confirmPoInvoice = function() {
+      var po = purchaseOrders.find(function(p){ return p.id === poPendingInvoiceId; });
+      closePoInvoiceModal();
+      if (!po) return;
+      if (po.invoiced) { po.invoiced = false; po.invoicedDate = ''; }
+      else { po.invoiced = true; po.invoicedDate = localToday(); }
+      localStorage.setItem('timbertrack_pos', JSON.stringify(purchaseOrders));
+      syncCloudPo(po);
+      openPoListModal();
     };
 
     // Done asks first, like Delete
@@ -4673,6 +4719,7 @@
             '<strong style="font-size: 16px; color: #0f172a;">' + po.customer + '</strong>' +
             (po.phone ? '<div style="font-size: 13px; color: #334155; font-family: monospace; margin-top: 2px;">Phone: ' + po.phone + '</div>' : '') +
             (po.payTo ? '<div style="font-size: 13px; font-weight: bold; margin-top: 2px;">Customer pays: ' + po.payTo + '</div>' : '') +
+            (po.invoiced ? '<div style="font-size: 13px; font-weight: bold; margin-top: 2px;">Invoiced' + (po.invoicedDate ? ': ' + po.invoicedDate : '') + '</div>' : '') +
             (po.fulfillment ? '<div style="font-size: 13px; font-weight: bold; margin-top: 2px;">' + fulfillLabel(po) + (po.address ? ': <span style="font-weight: normal;">' + po.address + '</span>' : '') + '</div>' : '') +
           '</div>' +
           '<div>' +
